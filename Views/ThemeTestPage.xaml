@@ -1,16 +1,22 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:viewmodels="clr-namespace:NexusChat.ViewModels"
              x:Class="NexusChat.Views.ThemeTestPage"
              Title="Theme Test">
+    
+    <ContentPage.BindingContext>
+        <viewmodels:ThemeTestPageViewModel />
+    </ContentPage.BindingContext>
+    
     <ScrollView>
         <VerticalStackLayout Spacing="20" Padding="20">
             <!-- Theme Switcher -->
             <Frame Padding="10" Margin="0,0,0,10">
                 <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="15">
                     <Label x:Name="ThemeIconLabel" 
-                           Text="&#xf186;" 
-                           Style="{StaticResource FontAwesome}" 
+                           Text="{Binding ThemeIconText}" 
+                           Style="{StaticResource AppThemeBindingFontAwesome}" 
                            FontSize="32"
                            VerticalOptions="Center" />
                     
@@ -21,8 +27,8 @@
                     
                     <Button Grid.Column="2" 
                             x:Name="ThemeToggleButton" 
-                            Text="Switch to Dark Theme"
-                            Clicked="OnThemeToggleClicked"
+                            Text="{Binding ThemeToggleText}"
+                            Command="{Binding ToggleThemeCommand}"
                             VerticalOptions="Center" />
                 </Grid>
             </Frame>
@@ -101,7 +107,7 @@
                     <Label Text="Header Label" Style="{StaticResource HeaderLabelStyle}" />
                     <Label Text="Sub-header Label" Style="{StaticResource SubHeaderLabelStyle}" />
                     <Border Padding="10" BackgroundColor="{StaticResource SurfaceBackground}">
-                        <Label Text="Text in a different background" />
+                        <Label Text="Text in a different background" Style="{StaticResource MessageTextStyle}" />
                     </Border>
                 </VerticalStackLayout>
             </Frame>
@@ -114,33 +120,33 @@
                     <Label Text="Basic Icons" FontSize="16" FontFamily="OpenSansSemiBold" />
                     <Grid ColumnDefinitions="*,*,*,*,*" RowDefinitions="Auto,Auto,Auto" HorizontalOptions="Center" ColumnSpacing="20" RowSpacing="15">
                         <!-- Row 1 -->
-                        <Label Text="&#xf007;" Style="{StaticResource FontAwesome}" FontSize="24" /> <!-- User -->
-                        <Label Grid.Column="1" Text="&#xf0e0;" Style="{StaticResource FontAwesome}" FontSize="24" /> <!-- Envelope -->
-                        <Label Grid.Column="2" Text="&#xf075;" Style="{StaticResource FontAwesome}" FontSize="24" /> <!-- Comment -->
-                        <Label Grid.Column="3" Text="&#xf013;" Style="{StaticResource FontAwesome}" FontSize="24" /> <!-- Gear -->
-                        <Label Grid.Column="4" Text="&#xf019;" Style="{StaticResource FontAwesome}" FontSize="24" /> <!-- Download -->
+                        <Label Text="&#xf007;" Style="{StaticResource AppThemeBindingFontAwesome}" FontSize="24" /> <!-- User -->
+                        <Label Grid.Column="1" Text="&#xf0e0;" Style="{StaticResource AppThemeBindingFontAwesome}" FontSize="24" /> <!-- Envelope -->
+                        <Label Grid.Column="2" Text="&#xf075;" Style="{StaticResource AppThemeBindingFontAwesome}" FontSize="24" /> <!-- Comment -->
+                        <Label Grid.Column="3" Text="&#xf013;" Style="{StaticResource AppThemeBindingFontAwesome}" FontSize="24" /> <!-- Gear -->
+                        <Label Grid.Column="4" Text="&#xf019;" Style="{StaticResource AppThemeBindingFontAwesome}" FontSize="24" /> <!-- Download -->
                         
                         <!-- Row 2 -->
-                        <Label Grid.Row="1" Text="&#xf067;" Style="{StaticResource FontAwesome}" FontSize="24" /> <!-- Plus -->
-                        <Label Grid.Row="1" Grid.Column="1" Text="&#xf068;" Style="{StaticResource FontAwesome}" FontSize="24" /> <!-- Minus -->
-                        <Label Grid.Row="1" Grid.Column="2" Text="&#xf00c;" Style="{StaticResource FontAwesome}" FontSize="24" /> <!-- Check -->
-                        <Label Grid.Row="1" Grid.Column="3" Text="&#xf00d;" Style="{StaticResource FontAwesome}" FontSize="24" /> <!-- Times/X -->
-                        <Label Grid.Row="1" Grid.Column="4" Text="&#xf021;" Style="{StaticResource FontAwesome}" FontSize="24" /> <!-- Refresh -->
+                        <Label Grid.Row="1" Text="&#xf067;" Style="{StaticResource AppThemeBindingFontAwesome}" FontSize="24" /> <!-- Plus -->
+                        <Label Grid.Row="1" Grid.Column="1" Text="&#xf068;" Style="{StaticResource AppThemeBindingFontAwesome}" FontSize="24" /> <!-- Minus -->
+                        <Label Grid.Row="1" Grid.Column="2" Text="&#xf00c;" Style="{StaticResource AppThemeBindingFontAwesome}" FontSize="24" /> <!-- Check -->
+                        <Label Grid.Row="1" Grid.Column="3" Text="&#xf00d;" Style="{StaticResource AppThemeBindingFontAwesome}" FontSize="24" /> <!-- Times/X -->
+                        <Label Grid.Row="1" Grid.Column="4" Text="&#xf021;" Style="{StaticResource AppThemeBindingFontAwesome}" FontSize="24" /> <!-- Refresh -->
                         
                         <!-- Row 3 -->
-                        <Label Grid.Row="2" Text="&#xf002;" Style="{StaticResource FontAwesome}" FontSize="24" /> <!-- Search -->
-                        <Label Grid.Row="2" Grid.Column="1" Text="&#xf1d8;" Style="{StaticResource FontAwesome}" FontSize="24" /> <!-- Send -->
-                        <Label Grid.Row="2" Grid.Column="2" Text="&#xf128;" Style="{StaticResource FontAwesome}" FontSize="24" /> <!-- Question -->
-                        <Label Grid.Row="2" Grid.Column="3" Text="&#xf129;" Style="{StaticResource FontAwesome}" FontSize="24" /> <!-- Info -->
-                        <Label Grid.Row="2" Grid.Column="4" Text="&#xf071;" Style="{StaticResource FontAwesome}" FontSize="24" /> <!-- Warning -->
+                        <Label Grid.Row="2" Text="&#xf002;" Style="{StaticResource AppThemeBindingFontAwesome}" FontSize="24" /> <!-- Search -->
+                        <Label Grid.Row="2" Grid.Column="1" Text="&#xf1d8;" Style="{StaticResource AppThemeBindingFontAwesome}" FontSize="24" /> <!-- Send -->
+                        <Label Grid.Row="2" Grid.Column="2" Text="&#xf128;" Style="{StaticResource AppThemeBindingFontAwesome}" FontSize="24" /> <!-- Question -->
+                        <Label Grid.Row="2" Grid.Column="3" Text="&#xf129;" Style="{StaticResource AppThemeBindingFontAwesome}" FontSize="24" /> <!-- Info -->
+                        <Label Grid.Row="2" Grid.Column="4" Text="&#xf071;" Style="{StaticResource AppThemeBindingFontAwesome}" FontSize="24" /> <!-- Warning -->
                     </Grid>
                     
                     <Label Text="Sized Icons" FontSize="16" FontFamily="OpenSansSemiBold" Margin="0,15,0,0" />
                     <HorizontalStackLayout Spacing="20" HorizontalOptions="Center">
-                        <Label Text="&#xf005;" Style="{StaticResource FontAwesome}" FontSize="16" /> <!-- Star -->
-                        <Label Text="&#xf005;" Style="{StaticResource FontAwesome}" FontSize="24" /> <!-- Star -->
-                        <Label Text="&#xf005;" Style="{StaticResource FontAwesome}" FontSize="32" /> <!-- Star -->
-                        <Label Text="&#xf005;" Style="{StaticResource FontAwesome}" FontSize="40" /> <!-- Star -->
+                        <Label Text="&#xf005;" Style="{StaticResource AppThemeBindingFontAwesome}" FontSize="16" /> <!-- Star -->
+                        <Label Text="&#xf005;" Style="{StaticResource AppThemeBindingFontAwesome}" FontSize="24" /> <!-- Star -->
+                        <Label Text="&#xf005;" Style="{StaticResource AppThemeBindingFontAwesome}" FontSize="32" /> <!-- Star -->
+                        <Label Text="&#xf005;" Style="{StaticResource AppThemeBindingFontAwesome}" FontSize="40" /> <!-- Star -->
                     </HorizontalStackLayout>
                 </VerticalStackLayout>
             </Frame>
@@ -183,14 +189,14 @@
             
             <Frame Style="{StaticResource UserMessageFrame}">
                 <VerticalStackLayout>
-                    <Label Text="This is a user message in a chat bubble" />
+                    <Label Text="This is a user message in a chat bubble" Style="{StaticResource MessageTextStyle}" />
                     <Label Text="10:30 AM" FontSize="10" TextColor="{StaticResource SecondaryTextColor}" HorizontalOptions="End" />
                 </VerticalStackLayout>
             </Frame>
             
             <Frame Style="{StaticResource AIMessageFrame}">
                 <VerticalStackLayout>
-                    <Label Text="This is an AI response in a chat bubble. It contains more text to demonstrate how longer messages are displayed in the chat interface." />
+                    <Label Text="This is an AI response in a chat bubble. It contains more text to demonstrate how longer messages are displayed in the chat interface." Style="{StaticResource MessageTextStyle}" />
                     <Label Text="10:31 AM" FontSize="10" TextColor="{StaticResource SecondaryTextColor}" HorizontalOptions="End" />
                 </VerticalStackLayout>
             </Frame>
