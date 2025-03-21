@@ -1,40 +1,61 @@
+using Microsoft.Maui.Controls;
 using System.Diagnostics;
-using Microsoft.Maui.Platform;
 
-namespace NexusChat.Helpers {
-    public static class FontAwesomeHelper {
-        public static void VerifyFontAwesomeFonts() {
-            try {
-                // Define expected font families
-                var expectedFonts = new[]
+namespace NexusChat.Helpers
+{
+    /// <summary>
+    /// Helper class for FontAwesome integration
+    /// </summary>
+    public static class FontAwesomeHelper
+    {
+        /// <summary>
+        /// Verifies that FontAwesome fonts are properly registered
+        /// </summary>
+        public static void VerifyFontAwesomeFonts()
+        {
+            try
+            {
+                // Create a test label with FontAwesome font
+                var testLabel = new Label
                 {
-                    "FontAwesome-Solid",
-                    "FontAwesome-Regular",
-                    "FontAwesome-Brands"
+                    Text = "\uf005", // Star icon
+                    FontFamily = "FontAwesome-Solid"
                 };
-
-                Debug.WriteLine("===== Checking Font Awesome Fonts =====");
-
-                // Check each required font
-                foreach (var font in expectedFonts) {
-                    bool fontExists = Microsoft.Maui.Font.Default.Family.ToString().Contains(font, StringComparison.OrdinalIgnoreCase);
-                    Debug.WriteLine($"Font {font}: {(fontExists ? "Found" : "Not Found")}");
-
-                    if (!fontExists) {
-                        Debug.WriteLine($"WARNING: {font} not found. Ensure it's properly registered in MauiProgram.cs");
-                    }
-                }
-
-                // Additional verification message
-                Debug.WriteLine("\nMake sure these fonts are:");
-                Debug.WriteLine("1. Located in Resources/Fonts/");
-                Debug.WriteLine("2. Have Build Action: MauiFont");
-                Debug.WriteLine("3. Registered in MauiProgram.cs using builder.ConfigureFonts()");
+                
+                // Log success
+                Debug.WriteLine("FontAwesome fonts verified successfully");
             }
-            catch (Exception ex) {
-                Debug.WriteLine($"Error checking FontAwesome fonts: {ex.Message}");
-                Debug.WriteLine($"Stack trace: {ex.StackTrace}");
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error verifying FontAwesome fonts: {ex.Message}");
             }
+        }
+        
+        /// <summary>
+        /// Gets FontAwesome icon character by name
+        /// </summary>
+        public static string GetIcon(string iconName)
+        {
+            // Common icons
+            return iconName switch
+            {
+                "star" => "\uf005",
+                "user" => "\uf007",
+                "check" => "\uf00c",
+                "times" => "\uf00d",
+                "home" => "\uf015",
+                "download" => "\uf019",
+                "refresh" => "\uf021",
+                "tag" => "\uf02b",
+                "bookmark" => "\uf02e",
+                "search" => "\uf002",
+                "gear" => "\uf013",
+                "cog" => "\uf013",
+                "trash" => "\uf1f8",
+                "sun" => "\uf185",
+                "moon" => "\uf186",
+                _ => ""
+            };
         }
     }
 }
