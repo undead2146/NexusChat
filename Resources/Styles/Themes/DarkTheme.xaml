@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ResourceDictionary 
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:local="clr-namespace:NexusChat">
+
+    <!-- Dark Theme Colors -->
+    <Color x:Key="Primary">#4a6cf7</Color>
+    <Color x:Key="PrimaryDark">#3551cf</Color>
+    <Color x:Key="PrimaryLight">#6f8df9</Color>
+    <Color x:Key="Secondary">#6c757d</Color>
+    <Color x:Key="Accent">#4ecdc4</Color>
+    
+    <Color x:Key="Background">#212529</Color>
+    <Color x:Key="SurfaceBackground">#2a2e33</Color>
+    <Color x:Key="Foreground">#f8f9fa</Color>
+    <Color x:Key="PrimaryTextColor">#f8f9fa</Color>
+    <Color x:Key="SecondaryTextColor">#adb5bd</Color>
+    
+    <Color x:Key="CardBackground">#2a2e33</Color>
+    <Color x:Key="CardBorder">#495057</Color>
+    
+    <Color x:Key="Success">#28a745</Color>
+    <Color x:Key="Info">#17a2b8</Color>
+    <Color x:Key="Warning">#ffc107</Color>
+    <Color x:Key="Error">#dc3545</Color>
+    
+    <Color x:Key="UserMessageBackground">#3b4a6b</Color>
+    <Color x:Key="AIMessageBackground">#2a2e33</Color>
+    
+    <Color x:Key="SeparatorColor">#495057</Color>
+    <Color x:Key="InputBackground">#343a40</Color>
+    <Color x:Key="InputBorder">#495057</Color>
+    <Color x:Key="InputPlaceholder">#6c757d</Color>
+
+    <!-- Control Styles -->
+    <Style TargetType="Page" ApplyToDerivedTypes="True">
+        <Setter Property="BackgroundColor" Value="{StaticResource Background}" />
+    </Style>
+    
+    <Style TargetType="Shell" ApplyToDerivedTypes="True">
+        <Setter Property="BackgroundColor" Value="{StaticResource Background}" />
+        <Setter Property="ForegroundColor" Value="White" />
+        <Setter Property="TitleColor" Value="White" />
+        <Setter Property="UnselectedColor" Value="#95FFFFFF" />
+    </Style>
+    
+    <Style TargetType="NavigationPage" ApplyToDerivedTypes="True">
+        <Setter Property="BarBackgroundColor" Value="{StaticResource Background}" />
+        <Setter Property="BarTextColor" Value="White" />
+    </Style>
+
+    <Style TargetType="Label" ApplyToDerivedTypes="False">
+        <Setter Property="TextColor" Value="{StaticResource PrimaryTextColor}" />
+        <Setter Property="FontFamily" Value="OpenSansRegular" />
+        <Setter Property="FontSize" Value="14" />
+    </Style>
+    
+    <Style x:Key="FontAwesome" TargetType="Label">
+        <Setter Property="FontFamily" Value="FontAwesome" />
+        <Setter Property="TextColor" Value="{StaticResource PrimaryTextColor}" />
+        <Setter Property="HorizontalOptions" Value="Center" />
+        <Setter Property="VerticalOptions" Value="Center" />
+    </Style>
+    
+    <Style x:Key="HeaderLabelStyle" TargetType="Label">
+        <Setter Property="TextColor" Value="{StaticResource PrimaryTextColor}" />
+        <Setter Property="FontFamily" Value="OpenSansBold" />
+        <Setter Property="FontSize" Value="22" />
+    </Style>
+    
+    <Style x:Key="SubHeaderLabelStyle" TargetType="Label">
+        <Setter Property="TextColor" Value="{StaticResource SecondaryTextColor}" />
+        <Setter Property="FontFamily" Value="OpenSansSemiBold" />
+        <Setter Property="FontSize" Value="18" />
+    </Style>
+    
+    <Style TargetType="Button" ApplyToDerivedTypes="False">
+        <Setter Property="TextColor" Value="White" />
+        <Setter Property="BackgroundColor" Value="{StaticResource Primary}" />
+        <Setter Property="FontFamily" Value="OpenSansSemiBold" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="Padding" Value="14,10" />
+    </Style>
+    
+    <Style x:Key="IconButton" TargetType="Button">
+        <Setter Property="TextColor" Value="White" />
+        <Setter Property="BackgroundColor" Value="{StaticResource Primary}" />
+        <Setter Property="FontFamily" Value="FontAwesome" />
+        <Setter Property="FontSize" Value="18" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="Padding" Value="10" />
+        <Setter Property="WidthRequest" Value="40" />
+        <Setter Property="HeightRequest" Value="40" />
+    </Style>
+    
+    <Style x:Key="OutlineButton" TargetType="Button">
+        <Setter Property="TextColor" Value="{StaticResource Primary}" />
+        <Setter Property="BackgroundColor" Value="Transparent" />
+        <Setter Property="BorderColor" Value="{StaticResource Primary}" />
+        <Setter Property="BorderWidth" Value="1" />
+        <Setter Property="FontFamily" Value="OpenSansSemiBold" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="Padding" Value="14,10" />
+    </Style>
+    
+    <Style TargetType="Entry" ApplyToDerivedTypes="False">
+        <Setter Property="TextColor" Value="{StaticResource PrimaryTextColor}" />
+        <Setter Property="BackgroundColor" Value="{StaticResource InputBackground}" />
+        <Setter Property="PlaceholderColor" Value="{StaticResource InputPlaceholder}" />
+        <Setter Property="FontFamily" Value="OpenSansRegular" />
+        <Setter Property="FontSize" Value="16" />
+    </Style>
+    
+    <Style TargetType="Editor" ApplyToDerivedTypes="False">
+        <Setter Property="TextColor" Value="{StaticResource PrimaryTextColor}" />
+        <Setter Property="BackgroundColor" Value="{StaticResource InputBackground}" />
+        <Setter Property="PlaceholderColor" Value="{StaticResource InputPlaceholder}" />
+        <Setter Property="FontFamily" Value="OpenSansRegular" />
+        <Setter Property="FontSize" Value="16" />
+    </Style>
+    
+    <Style TargetType="Frame" ApplyToDerivedTypes="False">
+        <Setter Property="HasShadow" Value="True" />
+        <Setter Property="BorderColor" Value="{StaticResource CardBorder}" />
+        <Setter Property="BackgroundColor" Value="{StaticResource CardBackground}" />
+        <Setter Property="CornerRadius" Value="8" />
+    </Style>
+    
+    <Style x:Key="UserMessageFrame" TargetType="Frame">
+        <Setter Property="BackgroundColor" Value="{StaticResource UserMessageBackground}" />
+        <Setter Property="BorderColor" Value="{StaticResource UserMessageBackground}" />
+        <Setter Property="CornerRadius" Value="12" />
+        <Setter Property="HasShadow" Value="False" />
+        <Setter Property="Padding" Value="10" />
+    </Style>
+    
+    <Style x:Key="AIMessageFrame" TargetType="Frame">
+        <Setter Property="BackgroundColor" Value="{StaticResource AIMessageBackground}" />
+        <Setter Property="BorderColor" Value="{StaticResource CardBorder}" />
+        <Setter Property="CornerRadius" Value="12" />
+        <Setter Property="HasShadow" Value="True" />
+        <Setter Property="Padding" Value="10" />
+    </Style>
+    
+    <Style TargetType="CollectionView" ApplyToDerivedTypes="False">
+        <Setter Property="BackgroundColor" Value="Transparent" />
+    </Style>
+    
+    <Style TargetType="Switch" ApplyToDerivedTypes="False">
+        <Setter Property="OnColor" Value="{StaticResource Primary}" />
+        <Setter Property="ThumbColor" Value="White" />
+    </Style>
+</ResourceDictionary>

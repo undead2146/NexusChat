@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="NexusChat.Views.IconTestPage"
+             Title="Icon Test">
+    <ScrollView>
+        <VerticalStackLayout Spacing="25" Padding="30">
+            <Label 
+                Text="FontAwesome Test"
+                FontSize="24"
+                HorizontalOptions="Center" />
+
+            <!-- Simple FontAwesome test -->
+            <Label 
+                Text="&#xf005;"
+                FontFamily="FontAwesome-Solid" 
+                FontSize="48"
+                HorizontalOptions="Center" />
+
+            <Label 
+                Text="If you see a star above, FontAwesome is working"
+                HorizontalOptions="Center" />
+
+            <!-- Direct comparison -->
+            <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,*,*" HorizontalOptions="Center">
+                <Label Grid.Row="0" Grid.Column="0" Text="Regular Font" />
+                <Label Grid.Row="0" Grid.Column="1" Text="FontAwesome-Solid" />
+                <Label Grid.Row="0" Grid.Column="2" Text="Raw Unicode" />
+                
+                <Label Grid.Row="1" Grid.Column="0" Text="A" FontSize="48" HorizontalOptions="Center" />
+                <Label Grid.Row="1" Grid.Column="1" Text="&#xf005;" FontFamily="FontAwesome-Solid" FontSize="48" HorizontalOptions="Center" />
+                <Label Grid.Row="1" Grid.Column="2" Text="★" FontSize="48" HorizontalOptions="Center" />
+            </Grid>
+
+            <Button Text="Go back" Clicked="OnBackClicked" />
+
+            <Frame BorderColor="Gray" Margin="0,20,0,0" Padding="20">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Font Debugging Info:" FontAttributes="Bold" />
+                    <Label x:Name="FontInfoLabel" Text="Loading font information..." />
+                    
+                    <!-- Test font display -->
+                    <Label Text="Font Tests:" FontAttributes="Bold" Margin="0,10,0,0" />
+                    <StackLayout Orientation="Horizontal" Spacing="10">
+                        <Label x:Name="Label1" Text="&#xf005;" FontSize="24" />
+                        <Label x:Name="Label2" Text="Regular" FontSize="18" />
+                        <Label x:Name="Label3" Text="Bold" FontSize="18" />
+                    </StackLayout>
+                </VerticalStackLayout>
+            </Frame>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

@@ -9,6 +9,16 @@
             InitializeComponent();
         }
 
+        private async void TestBtn_Clicked(object sender, EventArgs e)
+        {
+            await Shell.Current.GoToAsync(nameof(Views.ThemeTestPage));
+        }
+
+        private async void IconTestBtn_Clicked(object sender, EventArgs e)
+        {
+            await Shell.Current.GoToAsync(nameof(Views.IconTestPage));
+        }
+
         private void OnCounterClicked(object sender, EventArgs e)
         {
             count++;
@@ -21,5 +31,4 @@
             SemanticScreenReader.Announce(CounterBtn.Text);
         }
     }
-
 }

@@ -30,6 +30,18 @@
                 SemanticProperties.Hint="Counts the number of times you click"
                 Clicked="OnCounterClicked"
                 HorizontalOptions="Fill" />
+            <Button
+                x:Name="TestBtn"
+                Text="Test Themes" 
+                SemanticProperties.Hint="Opens the theme test page"
+                Clicked="TestBtn_Clicked"
+                HorizontalOptions="Center" />
+            <Button
+                x:Name="IconTestBtn"
+                Text="Test Icons" 
+                SemanticProperties.Hint="Tests icon loading"
+                Clicked="IconTestBtn_Clicked"
+                HorizontalOptions="Center" />
         </VerticalStackLayout>
     </ScrollView>
 

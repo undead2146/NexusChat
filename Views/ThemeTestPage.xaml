@@ -1,0 +1,236 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="NexusChat.Views.ThemeTestPage"
+             Title="Theme Test">
+    <ScrollView>
+        <VerticalStackLayout Spacing="20" Padding="20">
+            <!-- Theme Switcher -->
+            <Frame Padding="10" Margin="0,0,0,10">
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="15">
+                    <Label x:Name="ThemeIconLabel" 
+                           Text="&#xf186;" 
+                           Style="{StaticResource FontAwesome}" 
+                           FontSize="32"
+                           VerticalOptions="Center" />
+                    
+                    <Label Grid.Column="1" 
+                           Text="Theme Controls" 
+                           Style="{StaticResource HeaderLabelStyle}"
+                           VerticalOptions="Center" />
+                    
+                    <Button Grid.Column="2" 
+                            x:Name="ThemeToggleButton" 
+                            Text="Switch to Dark Theme"
+                            Clicked="OnThemeToggleClicked"
+                            VerticalOptions="Center" />
+                </Grid>
+            </Frame>
+
+            <!-- Color Palette -->
+            <Frame>
+                <VerticalStackLayout Spacing="15">
+                    <Label Text="Theme Color Palette" Style="{StaticResource HeaderLabelStyle}" />
+                    
+                    <Grid ColumnDefinitions="*,*,*,*,*" RowDefinitions="Auto,60,60,60" ColumnSpacing="5" RowSpacing="10">
+                        <!-- Headers -->
+                        <Label Text="Primary" Grid.Column="0" HorizontalOptions="Center" />
+                        <Label Text="Secondary" Grid.Column="1" HorizontalOptions="Center" />
+                        <Label Text="Accent" Grid.Column="2" HorizontalOptions="Center" />
+                        <Label Text="Background" Grid.Column="3" HorizontalOptions="Center" />
+                        <Label Text="Surface" Grid.Column="4" HorizontalOptions="Center" />
+                        
+                        <!-- Color Boxes using AppThemeBinding -->
+                        <Border Grid.Row="1" Grid.Column="0" BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Primary}}" />
+                        <Border Grid.Row="1" Grid.Column="1" BackgroundColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource Secondary}}" />
+                        <Border Grid.Row="1" Grid.Column="2" BackgroundColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource Accent}}" />
+                        <Border Grid.Row="1" Grid.Column="3" BackgroundColor="{AppThemeBinding Light={StaticResource Background}, Dark={StaticResource Background}}" />
+                        <Border Grid.Row="1" Grid.Column="4" BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceBackground}, Dark={StaticResource SurfaceBackground}}" />
+                        
+                        <!-- Headers -->
+                        <Label Text="Success" Grid.Row="2" Grid.Column="0" HorizontalOptions="Center" />
+                        <Label Text="Info" Grid.Row="2" Grid.Column="1" HorizontalOptions="Center" />
+                        <Label Text="Warning" Grid.Row="2" Grid.Column="2" HorizontalOptions="Center" />
+                        <Label Text="Error" Grid.Row="2" Grid.Column="3" HorizontalOptions="Center" />
+                        <Label Text="Text" Grid.Row="2" Grid.Column="4" HorizontalOptions="Center" />
+                        
+                        <!-- Color Boxes using AppThemeBinding -->
+                        <Border Grid.Row="3" Grid.Column="0" BackgroundColor="{AppThemeBinding Light={StaticResource Success}, Dark={StaticResource Success}}" />
+                        <Border Grid.Row="3" Grid.Column="1" BackgroundColor="{AppThemeBinding Light={StaticResource Info}, Dark={StaticResource Info}}" />
+                        <Border Grid.Row="3" Grid.Column="2" BackgroundColor="{AppThemeBinding Light={StaticResource Warning}, Dark={StaticResource Warning}}" />
+                        <Border Grid.Row="3" Grid.Column="3" BackgroundColor="{AppThemeBinding Light={StaticResource Error}, Dark={StaticResource Error}}" />
+                        <Border Grid.Row="3" Grid.Column="4" BackgroundColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColor}}" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Frame>
+
+            <!-- Typography Showcase -->
+            <Frame>
+                <VerticalStackLayout Spacing="15">
+                    <Label Text="Typography" Style="{StaticResource HeaderLabelStyle}" />
+                    
+                    <Grid RowDefinitions="Auto,Auto,Auto,Auto" ColumnDefinitions="Auto,*" RowSpacing="15" ColumnSpacing="15">
+                        <Label Text="Regular" VerticalOptions="Center" />
+                        <Label Grid.Column="1" Text="The quick brown fox jumps over the lazy dog" FontFamily="OpenSansRegular" />
+                        
+                        <Label Grid.Row="1" Text="SemiBold" VerticalOptions="Center" />
+                        <Label Grid.Row="1" Grid.Column="1" Text="The quick brown fox jumps over the lazy dog" FontFamily="OpenSansSemiBold" />
+                        
+                        <Label Grid.Row="2" Text="Bold" VerticalOptions="Center" />
+                        <Label Grid.Row="2" Grid.Column="1" Text="The quick brown fox jumps over the lazy dog" FontFamily="OpenSansBold" />
+                        
+                        <Label Grid.Row="3" Text="Sizes" VerticalOptions="Center" />
+                        <VerticalStackLayout Grid.Row="3" Grid.Column="1" Spacing="8">
+                            <Label Text="Small Text (12)" FontSize="12" />
+                            <Label Text="Regular Text (14)" FontSize="14" />
+                            <Label Text="Medium Text (16)" FontSize="16" />
+                            <Label Text="Large Text (18)" FontSize="18" />
+                            <Label Text="Header Text (22)" FontSize="22" />
+                            <Label Text="Title Text (26)" FontSize="26" />
+                        </VerticalStackLayout>
+                    </Grid>
+                </VerticalStackLayout>
+            </Frame>
+
+            <!-- Text Styles -->
+            <Frame>
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Text Styles" Style="{StaticResource HeaderLabelStyle}" />
+                    
+                    <Label Text="Standard Label" />
+                    <Label Text="Header Label" Style="{StaticResource HeaderLabelStyle}" />
+                    <Label Text="Sub-header Label" Style="{StaticResource SubHeaderLabelStyle}" />
+                    <Border Padding="10" BackgroundColor="{StaticResource SurfaceBackground}">
+                        <Label Text="Text in a different background" />
+                    </Border>
+                </VerticalStackLayout>
+            </Frame>
+
+            <!-- FontAwesome Icons Gallery -->
+            <Frame>
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="FontAwesome Icons Gallery" Style="{StaticResource SubHeaderLabelStyle}" />
+                    
+                    <Label Text="Basic Icons" FontSize="16" FontFamily="OpenSansSemiBold" />
+                    <Grid ColumnDefinitions="*,*,*,*,*" RowDefinitions="Auto,Auto,Auto" HorizontalOptions="Center" ColumnSpacing="20" RowSpacing="15">
+                        <!-- Row 1 -->
+                        <Label Text="&#xf007;" Style="{StaticResource FontAwesome}" FontSize="24" /> <!-- User -->
+                        <Label Grid.Column="1" Text="&#xf0e0;" Style="{StaticResource FontAwesome}" FontSize="24" /> <!-- Envelope -->
+                        <Label Grid.Column="2" Text="&#xf075;" Style="{StaticResource FontAwesome}" FontSize="24" /> <!-- Comment -->
+                        <Label Grid.Column="3" Text="&#xf013;" Style="{StaticResource FontAwesome}" FontSize="24" /> <!-- Gear -->
+                        <Label Grid.Column="4" Text="&#xf019;" Style="{StaticResource FontAwesome}" FontSize="24" /> <!-- Download -->
+                        
+                        <!-- Row 2 -->
+                        <Label Grid.Row="1" Text="&#xf067;" Style="{StaticResource FontAwesome}" FontSize="24" /> <!-- Plus -->
+                        <Label Grid.Row="1" Grid.Column="1" Text="&#xf068;" Style="{StaticResource FontAwesome}" FontSize="24" /> <!-- Minus -->
+                        <Label Grid.Row="1" Grid.Column="2" Text="&#xf00c;" Style="{StaticResource FontAwesome}" FontSize="24" /> <!-- Check -->
+                        <Label Grid.Row="1" Grid.Column="3" Text="&#xf00d;" Style="{StaticResource FontAwesome}" FontSize="24" /> <!-- Times/X -->
+                        <Label Grid.Row="1" Grid.Column="4" Text="&#xf021;" Style="{StaticResource FontAwesome}" FontSize="24" /> <!-- Refresh -->
+                        
+                        <!-- Row 3 -->
+                        <Label Grid.Row="2" Text="&#xf002;" Style="{StaticResource FontAwesome}" FontSize="24" /> <!-- Search -->
+                        <Label Grid.Row="2" Grid.Column="1" Text="&#xf1d8;" Style="{StaticResource FontAwesome}" FontSize="24" /> <!-- Send -->
+                        <Label Grid.Row="2" Grid.Column="2" Text="&#xf128;" Style="{StaticResource FontAwesome}" FontSize="24" /> <!-- Question -->
+                        <Label Grid.Row="2" Grid.Column="3" Text="&#xf129;" Style="{StaticResource FontAwesome}" FontSize="24" /> <!-- Info -->
+                        <Label Grid.Row="2" Grid.Column="4" Text="&#xf071;" Style="{StaticResource FontAwesome}" FontSize="24" /> <!-- Warning -->
+                    </Grid>
+                    
+                    <Label Text="Sized Icons" FontSize="16" FontFamily="OpenSansSemiBold" Margin="0,15,0,0" />
+                    <HorizontalStackLayout Spacing="20" HorizontalOptions="Center">
+                        <Label Text="&#xf005;" Style="{StaticResource FontAwesome}" FontSize="16" /> <!-- Star -->
+                        <Label Text="&#xf005;" Style="{StaticResource FontAwesome}" FontSize="24" /> <!-- Star -->
+                        <Label Text="&#xf005;" Style="{StaticResource FontAwesome}" FontSize="32" /> <!-- Star -->
+                        <Label Text="&#xf005;" Style="{StaticResource FontAwesome}" FontSize="40" /> <!-- Star -->
+                    </HorizontalStackLayout>
+                </VerticalStackLayout>
+            </Frame>
+            
+            <!-- Buttons -->
+            <Frame>
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Buttons" Style="{StaticResource SubHeaderLabelStyle}" />
+                    <Button Text="Standard Button" />
+                    <Button Text="Disabled Button" IsEnabled="False" />
+                    <HorizontalStackLayout HorizontalOptions="Center" Spacing="10">
+                        <Button Text="&#xf1d8;" Style="{StaticResource IconButton}" /> <!-- Send -->
+                        <Button Text="&#xf067;" Style="{StaticResource IconButton}" /> <!-- Plus -->
+                        <Button Text="&#xf00c;" Style="{StaticResource IconButton}" /> <!-- Check -->
+                        <Button Text="&#xf00d;" Style="{StaticResource IconButton}" /> <!-- X -->
+                    </HorizontalStackLayout>
+                    <Button Text="Outline Button" Style="{StaticResource OutlineButton}" />
+                    <Button Text="Disabled Outline Button" Style="{StaticResource OutlineButton}" IsEnabled="False" />
+                </VerticalStackLayout>
+            </Frame>
+            
+            <!-- Input Fields -->
+            <Frame>
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Input Fields" Style="{StaticResource SubHeaderLabelStyle}" />
+                    <Entry Placeholder="Text Entry" />
+                    <Entry Placeholder="Password Entry" IsPassword="True" />
+                    <Entry Placeholder="Disabled Entry" IsEnabled="False" />
+                    <Editor Placeholder="Multi-line Editor" HeightRequest="100" />
+                    
+                    <Grid ColumnDefinitions="*,Auto" Margin="0,10,0,0">
+                        <Entry Placeholder="Search..." />
+                        <Button Grid.Column="1" Text="&#xf002;" Style="{StaticResource IconButton}" /> <!-- Search -->
+                    </Grid>
+                </VerticalStackLayout>
+            </Frame>
+            
+            <!-- Message Bubbles -->
+            <Label Text="Message Bubbles" Style="{StaticResource HeaderLabelStyle}" />
+            
+            <Frame Style="{StaticResource UserMessageFrame}">
+                <VerticalStackLayout>
+                    <Label Text="This is a user message in a chat bubble" />
+                    <Label Text="10:30 AM" FontSize="10" TextColor="{StaticResource SecondaryTextColor}" HorizontalOptions="End" />
+                </VerticalStackLayout>
+            </Frame>
+            
+            <Frame Style="{StaticResource AIMessageFrame}">
+                <VerticalStackLayout>
+                    <Label Text="This is an AI response in a chat bubble. It contains more text to demonstrate how longer messages are displayed in the chat interface." />
+                    <Label Text="10:31 AM" FontSize="10" TextColor="{StaticResource SecondaryTextColor}" HorizontalOptions="End" />
+                </VerticalStackLayout>
+            </Frame>
+            
+            <!-- Form Example -->
+            <Frame>
+                <VerticalStackLayout Spacing="15">
+                    <Label Text="Form Example" Style="{StaticResource HeaderLabelStyle}" />
+                    
+                    <VerticalStackLayout Spacing="5">
+                        <Label Text="Username" />
+                        <Entry Placeholder="Enter your username" />
+                    </VerticalStackLayout>
+                    
+                    <VerticalStackLayout Spacing="5">
+                        <Label Text="Password" />
+                        <Entry IsPassword="True" Placeholder="Enter your password" />
+                    </VerticalStackLayout>
+                    
+                    <VerticalStackLayout Spacing="5">
+                        <Label Text="AI Model" />
+                        <Border Stroke="{StaticResource InputBorder}"
+                                StrokeThickness="1"
+                                Padding="10">
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                                <Label Text="&#xf233;" Style="{StaticResource FontAwesome}" FontSize="20" /> <!-- Server icon -->
+                                <Label Grid.Column="1" Text="GPT-4 Turbo" VerticalOptions="Center" />
+                                <Label Grid.Column="2" Text="&#xf0d7;" Style="{StaticResource FontAwesome}" VerticalOptions="Center" /> <!-- Caret down -->
+                            </Grid>
+                        </Border>
+                    </VerticalStackLayout>
+                    
+                    <HorizontalStackLayout Spacing="10">
+                        <Switch IsToggled="True" />
+                        <Label Text="Remember me" VerticalOptions="Center" />
+                    </HorizontalStackLayout>
+                    
+                    <Button Text="Submit" HorizontalOptions="End" />
+                </VerticalStackLayout>
+            </Frame>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>
