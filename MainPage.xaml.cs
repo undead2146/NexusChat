@@ -1,13 +1,14 @@
 ﻿using NexusChat.ViewModels;
 using System;
 using System.Threading.Tasks;
-using CommunityToolkit.Mvvm.Input; // Add this import for AsyncRelayCommand
+using CommunityToolkit.Mvvm.Input;
 
 namespace NexusChat
 {
     public partial class MainPage : ContentPage, IDisposable
     {
         private MainPageViewModel _viewModel;
+        private bool _handlersInitialized = false;
 
         public MainPage()
         {
@@ -19,7 +20,13 @@ namespace NexusChat
         protected override void OnAppearing()
         {
             base.OnAppearing();
-            SetupUIHandlers();
+            
+            // Only set up handlers once to prevent duplicate registrations
+            if (!_handlersInitialized)
+            {
+                SetupUIHandlers();
+                _handlersInitialized = true;
+            }
             
             // Pass UI references to the ViewModel
             _viewModel.InitializeUI((Grid)Content, CounterBtn);
@@ -90,9 +97,23 @@ namespace NexusChat
             if (_viewModel.CounterClickCommand is IAsyncRelayCommand cmd)
                 await cmd.ExecuteAsync(null);
         }
+
+        // Alternative cleanup approach - remove existing handlers
+        private void CleanupEventHandlers()
+        {
+            // Remove tap gesture recognizers to prevent duplicate events
+            if (StartNewChatButton.GestureRecognizers.Count > 0)
+            {
+                StartNewChatButton.GestureRecognizers.Clear();
+            }
+
+            // For other controls, you could save references to the handlers
+            // and explicitly unsubscribe if needed
+        }
         
         public void Dispose()
         {
+            CleanupEventHandlers();
             _viewModel.Dispose();
         }
     }
