@@ -44,6 +44,9 @@ namespace NexusChat.ViewModels
             
             // Add the new model tests command
             RunModelTestsCommand = new AsyncRelayCommand(RunModelTests);
+            
+            // Add database viewer command
+            ViewDatabaseCommand = new AsyncRelayCommand(ViewDatabase);
         }
         
         #region Commands
@@ -102,6 +105,11 @@ namespace NexusChat.ViewModels
         /// Command to run model tests
         /// </summary>
         public ICommand RunModelTestsCommand { get; }
+        
+        /// <summary>
+        /// Command to view the database
+        /// </summary>
+        public ICommand ViewDatabaseCommand { get; }
 
         #endregion
         
@@ -236,6 +244,14 @@ namespace NexusChat.ViewModels
         private async Task RunModelTests()
         {
             await SafeNavigate(nameof(Views.ModelTestingPage));
+        }
+        
+        /// <summary>
+        /// Opens the database viewer
+        /// </summary>
+        private async Task ViewDatabase()
+        {
+            await SafeNavigate(nameof(Views.DatabaseViewerPage));
         }
         
         #endregion
