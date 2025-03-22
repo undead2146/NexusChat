@@ -51,7 +51,8 @@ namespace NexusChat.Data
 
             // Create tables
             await _database.CreateTableAsync<User>();
-
+            await _database.CreateTableAsync<Conversation>();
+            
             // Set initialization flag
             _isInitialized = true;
         }
