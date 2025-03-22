@@ -2,6 +2,7 @@
 using System;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
+using NexusChat.Views;
 
 namespace NexusChat
 {
@@ -58,7 +59,7 @@ namespace NexusChat
                 
                 // Simple animation stays in the view since it's UI-specific
                 if (s is Button btn)
-                {
+                {   
                     await btn.ScaleTo(0.95, 100);
                     await btn.ScaleTo(1.0, 100);
                 }
@@ -85,6 +86,19 @@ namespace NexusChat
                 button.IsEnabled = false;
                 
             if (_viewModel.NavigateToIconTestCommand is IAsyncRelayCommand cmd)
+                await cmd.ExecuteAsync(null);
+            
+            await Task.Delay(500);
+            if (sender is Button btn)
+                btn.IsEnabled = true;
+        }
+
+        private async void ModelTestBtn_Clicked(object sender, EventArgs e)
+        {
+            if (sender is Button button)
+                button.IsEnabled = false;
+                
+            if (_viewModel.RunModelTestsCommand is IAsyncRelayCommand cmd)
                 await cmd.ExecuteAsync(null);
             
             await Task.Delay(500);

@@ -1,4 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
+using NexusChat.Data; // We'll create this shortly
+using Microsoft.Extensions.DependencyInjection;
 
 namespace NexusChat;
 
@@ -21,6 +23,12 @@ public static class MauiProgram
                 fonts.AddFont("fa-solid-900.ttf", "FontAwesome-Solid");      // Make sure filename matches exactly
                 fonts.AddFont("fa-brands-400.ttf", "FontAwesome-Brands");    // Make sure filename matches exactly
             });
+
+        // Register database and repositories
+        builder.Services.AddSingleton<DatabaseService>();
+
+        // Register SQLite initializer
+        builder.Services.AddTransient<IStartupInitializer, DatabaseInitializer>();
 
 #if DEBUG
         builder.Logging.AddDebug();
