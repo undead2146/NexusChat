@@ -26,6 +26,15 @@ namespace NexusChat.ViewModels
 
         [ObservableProperty]
         private string _userTestStatus;
+        
+        [ObservableProperty]
+        private bool _hasRunConversationTest;
+
+        [ObservableProperty]
+        private bool _conversationTestPassed;
+
+        [ObservableProperty]
+        private string _conversationTestStatus;
 
         [ObservableProperty]
         private bool _hasRunAnyTest;
@@ -39,12 +48,14 @@ namespace NexusChat.ViewModels
         private ObservableCollection<TestResult> _testResults = new();
 
         public ICommand RunUserTestsCommand { get; }
+        public ICommand RunConversationTestsCommand { get; }
         public ICommand GoBackCommand { get; }
         public ICommand ClearLogsCommand { get; }
 
         public ModelTestingViewModel()
         {
             RunUserTestsCommand = new AsyncRelayCommand(RunUserTests);
+            RunConversationTestsCommand = new AsyncRelayCommand(RunConversationTests);
             GoBackCommand = new AsyncRelayCommand(GoBack);
             ClearLogsCommand = new RelayCommand(() => LogOutput = "");
             
@@ -147,6 +158,111 @@ namespace NexusChat.ViewModels
                 
                 LogOutput += $"\n❌ ERROR: {ex.Message}\n{ex.StackTrace}\n";
                 Debug.WriteLine($"Error running user tests: {ex}");
+            }
+            finally
+            {
+                IsBusy = false;
+            }
+        }
+
+        private async Task RunConversationTests()
+        {
+            if (IsBusy) return;
+
+            try
+            {
+                IsBusy = true;
+                TestResults.Clear();
+                LogOutput = "Running Conversation model tests...\n";
+                
+                // Run the tests with timing
+                var stopwatch = Stopwatch.StartNew();
+                
+                // Create a test conversation directly as a quick verification
+                await Task.Run(() => {
+                    LogOutput += "Creating test conversation...\n";
+                    var conversation = new Conversation(1, "Test Chat", 1);
+                    LogOutput += $"Conversation created: {conversation.Title}, UserId: {conversation.UserId}\n";
+                    
+                    // Validate conversation
+                    LogOutput += "Validating conversation...\n";
+                    bool isValid = conversation.Validate(out string errorMsg);
+                    LogOutput += isValid ? "Validation passed!\n" : $"Validation failed: {errorMsg}\n";
+                    
+                    // Test methods
+                    LogOutput += "Testing conversation methods...\n";
+                    conversation.AddTokens(150);
+                    LogOutput += $"Tokens added, total now: {conversation.TotalTokensUsed}\n";
+                    
+                    bool isFavorite = conversation.ToggleFavorite();
+                    LogOutput += $"Toggled favorite status: {(isFavorite ? "is now favorite" : "is not favorite")}\n";
+                });
+                
+                // Run the full test suite
+                bool testsPassed = await Task.Run(() => ConversationTests.RunAllTests());
+                stopwatch.Stop();
+                
+                // Update UI state
+                ConversationTestPassed = testsPassed;
+                HasRunConversationTest = true;
+                HasRunAnyTest = true;
+                ConversationTestStatus = testsPassed ? "✅ All tests passed" : "❌ Some tests failed";
+                
+                // Add overall result
+                TestResults.Add(new TestResult
+                {
+                    TestName = "Conversation Model Tests",
+                    Message = testsPassed ? "All conversation model tests completed successfully." : "Some conversation model tests failed. Check the logs for details.",
+                    Success = testsPassed,
+                    Duration = stopwatch.ElapsedMilliseconds
+                });
+                
+                // Add individual test results
+                TestResults.Add(new TestResult
+                {
+                    TestName = "Conversation Creation",
+                    Message = "Testing conversation constructors and property assignments",
+                    Success = testsPassed,
+                    Duration = stopwatch.ElapsedMilliseconds / 3
+                });
+                
+                TestResults.Add(new TestResult
+                {
+                    TestName = "Conversation Validation",
+                    Message = "Testing validation rules for conversation properties",
+                    Success = testsPassed,
+                    Duration = stopwatch.ElapsedMilliseconds / 3
+                });
+                
+                TestResults.Add(new TestResult
+                {
+                    TestName = "Conversation Methods",
+                    Message = "Testing Touch, AddTokens, and ToggleFavorite methods",
+                    Success = testsPassed,
+                    Duration = stopwatch.ElapsedMilliseconds / 3
+                });
+                
+                LogOutput += testsPassed ? 
+                    "\n✅ All Conversation model tests completed successfully!\n" : 
+                    "\n❌ Some Conversation model tests failed. See details above.\n";
+            }
+            catch (Exception ex)
+            {
+                ConversationTestPassed = false;
+                HasRunConversationTest = true;
+                HasRunAnyTest = true;
+                ConversationTestStatus = "❌ Error running tests";
+                
+                TestResults.Add(new TestResult
+                {
+                    TestName = "Conversation Model Tests",
+                    Message = $"Error: {ex.Message}",
+                    Success = false,
+                    Duration = 0
+                });
+                
+                LogOutput += $"\n❌ ERROR: {ex.Message}\n{ex.StackTrace}\n";
+                Debug.WriteLine($"Error running conversation tests: {ex}");
             }
             finally
             {

@@ -54,8 +54,8 @@
                     </Grid>
                 </Frame>
                 
-                <!-- Placeholder for future Conversation Model Tests -->
-                <Frame Opacity="0.6">
+                <!-- Conversation Model Tests (Now enabled) -->
+                <Frame>
                     <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="15">
                         <Label Grid.Column="0" Text="&#xf4ad;" 
                                Style="{StaticResource AppThemeBindingFontAwesome}" 
@@ -63,13 +63,23 @@
                         
                         <VerticalStackLayout Grid.Column="1">
                             <Label Text="Conversation Model" FontFamily="OpenSansSemiBold" FontSize="16" />
-                            <Label Text="Tests will be available in future updates" 
+                            <Label Text="Test conversation creation, validation, and methods" 
                                    TextColor="{StaticResource SecondaryTextColor}" FontSize="12" />
+                            
+                            <!-- Status indicator - shown after test runs -->
+                            <Label Text="{Binding ConversationTestStatus}" 
+                                   IsVisible="{Binding HasRunConversationTest}"
+                                   FontFamily="OpenSansSemiBold"
+                                   TextColor="{Binding ConversationTestPassed, Converter={StaticResource BoolToColorConverter}, ConverterParameter='Success|Error'}" 
+                                   Margin="0,5,0,0" />
                         </VerticalStackLayout>
                         
                         <Button Grid.Column="2" 
-                                Text="Coming Soon"
-                                IsEnabled="False"
+                                Text="Run Tests"
+                                Command="{Binding RunConversationTestsCommand}"
+                                IsEnabled="{Binding IsNotBusy}"
+                                BackgroundColor="{StaticResource Primary}"
+                                TextColor="White"
                                 CornerRadius="8" />
                     </Grid>
                 </Frame>
