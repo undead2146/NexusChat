@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using NexusChat.Resources.Styles;
 
-namespace NexusChat.Helpers
+namespace NexusChat
 {
     /// <summary>
     /// Centralized manager for application theme switching

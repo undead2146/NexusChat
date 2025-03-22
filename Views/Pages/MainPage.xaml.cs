@@ -106,6 +106,19 @@ namespace NexusChat
                 btn.IsEnabled = true;
         }
 
+        private async void DbViewerBtn_Clicked(object sender, EventArgs e)
+        {
+            if (sender is Button button)
+                button.IsEnabled = false;
+                
+            if (_viewModel.ViewDatabaseCommand is IAsyncRelayCommand cmd)
+                await cmd.ExecuteAsync(null);
+            
+            await Task.Delay(500);
+            if (sender is Button btn)
+                btn.IsEnabled = true;
+        }
+
         private async void OnCounterClicked(object sender, EventArgs e)
         {
             if (_viewModel.CounterClickCommand is IAsyncRelayCommand cmd)

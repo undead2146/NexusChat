@@ -1,6 +1,9 @@
 ﻿using Microsoft.Extensions.Logging;
-using NexusChat.Data; // We'll create this shortly
+using NexusChat.Data;
 using Microsoft.Extensions.DependencyInjection;
+using CommunityToolkit.Maui;
+using NexusChat.Views;
+using NexusChat.ViewModels;
 
 namespace NexusChat;
 
@@ -11,6 +14,7 @@ public static class MauiProgram
         var builder = MauiApp.CreateBuilder();
         builder
             .UseMauiApp<App>()
+            .UseMauiCommunityToolkit() // Required for EventToCommandBehavior
             .ConfigureFonts(fonts =>
             {
                 // Open Sans fonts
@@ -19,17 +23,23 @@ public static class MauiProgram
                 fonts.AddFont("OpenSans-Bold.ttf", "OpenSansBold");
                 
                 // FontAwesome fonts
-                fonts.AddFont("fa-regular-400.ttf", "FontAwesome-Regular");  // Make sure filename matches exactly
-                fonts.AddFont("fa-solid-900.ttf", "FontAwesome-Solid");      // Make sure filename matches exactly
-                fonts.AddFont("fa-brands-400.ttf", "FontAwesome-Brands");    // Make sure filename matches exactly
+                fonts.AddFont("fa-regular-400.ttf", "FontAwesome-Regular"); 
+                fonts.AddFont("fa-solid-900.ttf", "FontAwesome-Solid");     
+                fonts.AddFont("fa-brands-400.ttf", "FontAwesome-Brands");   
             });
 
-        // Register database and repositories
+        // Register services as singletons to ensure they are properly shared
         builder.Services.AddSingleton<DatabaseService>();
-
-        // Register SQLite initializer
-        builder.Services.AddTransient<IStartupInitializer, DatabaseInitializer>();
-
+        builder.Services.AddSingleton<IStartupInitializer, DatabaseInitializer>();
+        
+        // Register ViewModels
+        builder.Services.AddTransient<DatabaseViewerViewModel>();
+        builder.Services.AddTransient<ModelTestingViewModel>();
+        
+        // Register Views
+        builder.Services.AddTransient<DatabaseViewerPage>();
+        builder.Services.AddTransient<ModelTestingPage>();
+        
 #if DEBUG
         builder.Logging.AddDebug();
 #endif

@@ -203,21 +203,14 @@ namespace NexusChat.Models
         /// </summary>
         public static User CreateTestUser()
         {
-            // Generate a test password hash - in production, use BCrypt properly
-            string passwordHash = BCrypt.Net.BCrypt.HashPassword("Test@123");
-            
-            return new User
+            return new User("testuser", BCrypt.Net.BCrypt.HashPassword("password123"))
             {
-                Username = "testuser",
-                PasswordHash = passwordHash,
                 DisplayName = "Test User",
                 Email = "test@example.com",
-                DateCreated = DateTime.UtcNow.AddDays(-7), // Created a week ago
-                LastLogin = DateTime.UtcNow.AddHours(-2),  // Last login 2 hours ago
-                PreferredTheme = "Dark",
-                AvatarPath = "default_avatar.png",
+                DateCreated = DateTime.UtcNow.AddDays(-30),
+                LastLogin = DateTime.UtcNow.AddHours(-2),
                 IsActive = true,
-                IsEmailVerified = true
+                PreferredTheme = "System"
             };
         }
     }
