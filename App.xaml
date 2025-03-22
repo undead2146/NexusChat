@@ -2,6 +2,7 @@
 <Application xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:local="clr-namespace:NexusChat"
+             xmlns:converters="clr-namespace:NexusChat.Converters"
              x:Class="NexusChat.App">
     <Application.Resources>
         <ResourceDictionary>
@@ -12,12 +13,24 @@
                 
             </ResourceDictionary.MergedDictionaries>
             
+            <!-- Fix for FontAwesome icons - using existing color resources instead of PrimaryTextColor -->
             <Style x:Key="AppThemeBindingFontAwesome" TargetType="Label">
                 <Setter Property="FontFamily" Value="FontAwesome-Solid" />
                 <Setter Property="HorizontalOptions" Value="Center" />
                 <Setter Property="VerticalOptions" Value="Center" />
-                <Setter Property="TextColor" Value="{AppThemeBinding Light=#212529, Dark=#f8f9fa}" />
+                <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Black}, Dark={StaticResource White}}" />
             </Style>
+            
+            <!-- Converters -->
+            <converters:BoolToColorConverter x:Key="BoolToColorConverter" />
+            <converters:BoolToStringConverter x:Key="BoolToStringConverter" />
+            
+            <!-- Common app color values -->
+            <Color x:Key="Success">#28a745</Color>
+            <Color x:Key="Error">#dc3545</Color>
+            <Color x:Key="Warning">#ffc107</Color>
+            <Color x:Key="Info">#17a2b8</Color>
+            <Color x:Key="SeparatorColor">#dee2e6</Color>
         </ResourceDictionary>
     </Application.Resources>
 </Application>
