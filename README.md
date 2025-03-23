@@ -33,15 +33,36 @@ NexusChat is a cross-platform mobile application built with .NET MAUI that provi
 
 ## 🏗️ Project Structure
 
+The project follows MVVM architecture with a clear separation of concerns:
+
 ```
 NexusChat/
-├── Models/ - Data models for the application
-├── ViewModels/ - MVVM ViewModels with business logic
-├── Views/ - XAML UI components and pages
-├── Services/ - Core services including AI providers
-├── Data/ - Database access and repositories
-├── Helpers/ - Utility classes and helpers
-└── Resources/ - Application resources and assets
+├── Core/
+│   ├── Models/ - Domain model classes (User, Conversation, Message, AIModel)
+│   └── ViewModels/ - MVVM ViewModels with business logic
+│       └── DevTools/ - Specialized ViewModels for developer tools
+├── Data/
+│   ├── Context/ - Database context and initialization
+│   └── Repositories/ - Data access repositories with CRUD operations
+├── Helpers/ - Utility classes and extension methods
+├── Resources/
+│   ├── AppIcon/ - Application icon assets
+│   ├── Fonts/ - Application fonts including FontAwesome
+│   ├── Images/ - Image assets used in the UI
+│   ├── Raw/ - Raw resource files
+│   ├── Splash/ - Splash screen assets
+│   └── Styles/ - XAML styles and themes
+│       ├── DarkTheme.xaml - Dark mode resources
+│       ├── LightTheme.xaml - Light mode resources
+│       └── MessageBubbleStyles.xaml - Specialized styles for chat bubbles
+├── Services/
+│   ├── AIProviders/ - AI service implementations for different providers
+│   └── Interfaces/ - Service interfaces for dependency injection
+└── Views/
+    ├── Controls/ - Reusable UI components
+    ├── Converters/ - Value converters for XAML bindings
+    └── Pages/ - Application pages/screens
+        └── DevTools/ - Developer tools and debugging pages
 ```
 
 ## 📋 Prerequisites
@@ -98,23 +119,23 @@ The app uses SQLite with the following key tables:
 1. **User Authentication**
    - Local password-based authentication
    - Profile customization options
-   - Secure credential storage
+   - Secure credential storage with SHA-256 hashing
 
 2. **Chat Interface**
-   - Real-time AI interactions
-   - Message formatting with markdown
-   - Code syntax highlighting
-   - Typing indicators
+   - Real-time AI interactions with typing indicators
+   - Message bubble UI with sender distinction
+   - Timestamp and message status display
+   - Light and dark theme support
 
 3. **Model Selection**
    - Switch between different AI models
    - Configure model parameters
    - Compare model capabilities
 
-4. **Settings Management**
-   - Theme customization
-   - Message display preferences
-   - Privacy controls
+4. **Developer Tools**
+   - Database viewer for inspecting SQLite data
+   - Model testing environment
+   - Theme and UI component showcase
 
 ## 🧪 Testing Strategy
 
