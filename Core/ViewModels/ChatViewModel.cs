@@ -249,139 +249,89 @@ namespace NexusChat.Core.ViewModels
             
             try
             {
-                IsBusy = true;
-                
-                // Ensure we have a valid conversation
-                if (CurrentConversation == null || CurrentConversation.Id <= 0)
-                {
-                    await InitializeAsync();
-                    if (CurrentConversation == null || CurrentConversation.Id <= 0)
-                    {
-                        throw new InvalidOperationException("Failed to create conversation");
-                    }
-                }
-                
-                // Get and validate the user's message text
-                string userMessageText = MessageText?.Trim() ?? "";
-                if (string.IsNullOrWhiteSpace(userMessageText))
-                {
-                    Debug.WriteLine("Empty message text, not sending");
-                    return;
-                }
-                
                 // Clear the input field immediately for better UX
+                string userMessageText = MessageText?.Trim() ?? "";
                 MessageText = string.Empty;
                 
-                // Create user message with proper validation
+                // Create user message
                 var userMessage = new Message
                 {
-                    ConversationId = CurrentConversation.Id,
+                    ConversationId = CurrentConversation?.Id ?? 0,
                     Content = userMessageText,
                     IsAI = false,
                     Timestamp = DateTime.Now,
-                    Status = "Sent",
-                    IsNew = true
+                    Status = "Sent"
                 };
                 
-                // Log message for debugging
-                Debug.WriteLine($"Adding user message: {userMessage.Content}");
+                // EMERGENCY FIX: Add message directly to collection on UI thread
+                MainThread.BeginInvokeOnMainThread(() => Messages.Add(userMessage));
                 
-                // Important: Add synchronously to collection on UI thread
-                // FIXED: Use the correct method InvokeOnMainThreadAsync instead of BeginInvokeOnMainThreadAsync
-                await MainThread.InvokeOnMainThreadAsync(() => 
-                {
-                    // Add to collection
-                    Messages.Add(userMessage);
-                    
-                    // Force notification of collection change
-                    OnPropertyChanged(nameof(Messages));
-                    
-                    Debug.WriteLine("User message added to collection - sending notification");
-                });
-                
-                // Save to database - do this after UI update
-                try
-                {
-                    var savedMessage = await _messageRepository.AddAsync(userMessage);
-                    userMessage.Id = savedMessage.Id;
-                    Debug.WriteLine($"Saved user message with ID: {userMessage.Id}");
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"Error saving user message: {ex.Message}");
-                }
-                
-                // Show AI typing indicator
+                // Start AI response in background
                 IsAITyping = true;
                 
+                // Save message to database in background
+                Task saveTask = Task.Run(async () => {
+                    try {
+                        // If conversation exists, save message
+                        if (CurrentConversation != null && CurrentConversation.Id > 0)
+                        {
+                            await _messageRepository.AddAsync(userMessage);
+                        }
+                    }
+                    catch (Exception ex) {
+                        Debug.WriteLine($"Error saving message: {ex.Message}");
+                    }
+                });
+                
                 try
                 {
-                    // Get AI response with proper error handling
+                    // Get AI response
                     string aiResponseText = await _aiService.SendMessageAsync(
                         userMessageText, 
                         _cancellationTokenSource.Token);
                     
-                    // Validate AI response
-                    if (string.IsNullOrWhiteSpace(aiResponseText))
-                    {
-                        throw new Exception("AI returned empty response");
-                    }
-                    
-                    Debug.WriteLine($"Received AI response: {aiResponseText.Substring(0, Math.Min(50, aiResponseText.Length))}...");
-                    
-                    // Hide typing indicator before adding message
                     IsAITyping = false;
                     
                     // Create AI response message
                     var aiResponse = new Message
                     {
-                        ConversationId = CurrentConversation.Id,
+                        ConversationId = CurrentConversation?.Id ?? 0,
                         Content = aiResponseText,
                         IsAI = true,
                         Timestamp = DateTime.Now,
                         TokensUsed = Message.EstimateTokens(aiResponseText),
-                        Status = "Delivered",
-                        IsNew = true
+                        Status = "Delivered"
                     };
                     
-                    // Important: Add synchronously to collection on UI thread
-                    // FIXED: Use the correct method InvokeOnMainThreadAsync instead of BeginInvokeOnMainThreadAsync
-                    await MainThread.InvokeOnMainThreadAsync(() => 
-                    {
-                        // Add to collection
-                        Messages.Add(aiResponse);
-                        
-                        // Force notification of collection change
-                        OnPropertyChanged(nameof(Messages));
-                        
-                        Debug.WriteLine("AI message added to UI collection - sending notification");
-                    });
+                    // EMERGENCY FIX: Add AI message directly too
+                    MainThread.BeginInvokeOnMainThread(() => Messages.Add(aiResponse));
                     
-                    // Save to database - do this after UI update
-                    try
-                    {
-                        var savedAiMessage = await _messageRepository.AddAsync(aiResponse);
-                        aiResponse.Id = savedAiMessage.Id;
-                        
-                        // Update conversation
-                        CurrentConversation.UpdatedAt = DateTime.Now;
-                        CurrentConversation.TotalTokensUsed += aiResponse.TokensUsed;
-                        
-                        if (string.IsNullOrEmpty(CurrentConversation.Title) || 
-                            CurrentConversation.Title == "New Chat" ||
-                            CurrentConversation.Title == "Temporary Chat")
-                        {
-                            // Generate title from first message
-                            CurrentConversation.Title = GenerateTitle(userMessageText);
-                            OnPropertyChanged(nameof(CurrentConversation));
+                    // Update conversation in background
+                    Task.Run(async () => {
+                        try {
+                            if (CurrentConversation != null && CurrentConversation.Id > 0)
+                            {
+                                var savedAiMessage = await _messageRepository.AddAsync(aiResponse);
+                                
+                                CurrentConversation.UpdatedAt = DateTime.Now;
+                                CurrentConversation.TotalTokensUsed += aiResponse.TokensUsed;
+                                
+                                if (string.IsNullOrEmpty(CurrentConversation.Title) || 
+                                    CurrentConversation.Title == "New Chat" ||
+                                    CurrentConversation.Title == "Temporary Chat")
+                                {
+                                    CurrentConversation.Title = GenerateTitle(userMessageText);
+                                    MainThread.BeginInvokeOnMainThread(() => 
+                                        OnPropertyChanged(nameof(CurrentConversation)));
+                                }
+                                
+                                await _conversationRepository.UpdateAsync(CurrentConversation);
+                            }
                         }
-                        
-                        await _conversationRepository.UpdateAsync(CurrentConversation);
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"Error saving AI message: {ex.Message}");
-                    }
+                        catch (Exception ex) {
+                            Debug.WriteLine($"Error saving AI message: {ex.Message}");
+                        }
+                    });
                 }
                 catch (OperationCanceledException)
                 {
@@ -391,38 +341,30 @@ namespace NexusChat.Core.ViewModels
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"Error getting AI response: {ex.Message}");
-                    
-                    // Hide typing indicator
                     IsAITyping = false;
                     
                     // Add error message to UI
                     var errorMessage = new Message
                     {
-                        ConversationId = CurrentConversation.Id,
+                        ConversationId = CurrentConversation?.Id ?? 0,
                         Content = "Sorry, I encountered an error processing your request. Please try again.",
                         IsAI = true,
                         Timestamp = DateTime.Now,
                         Status = "Error"
                     };
                     
-                    await MainThread.InvokeOnMainThreadAsync(() => 
-                    {
-                        Messages.Add(errorMessage);
-                    });
+                    MainThread.BeginInvokeOnMainThread(() => Messages.Add(errorMessage));
                 }
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error in SendMessageAsync: {ex.Message}");
                 StatusMessage = $"Error: {ex.Message}";
-                
-                // Hide typing indicator if it's showing
                 IsAITyping = false;
             }
             finally
             {
                 IsBusy = false;
-                // Update can send message state
                 (SendMessageCommand as AsyncRelayCommand)?.NotifyCanExecuteChanged();
             }
         }
@@ -792,6 +734,12 @@ namespace NexusChat.Core.ViewModels
         {
             OnPropertyChanged(nameof(CanSendMessage));
             (SendMessageCommand as AsyncRelayCommand)?.NotifyCanExecuteChanged();
+        }
+
+        partial void OnMessagesChanged(ObservableCollection<Message> value)
+        {
+            // Force notification whenever the Messages collection changes
+            OnPropertyChanged(nameof(Messages));
         }
     }
 }

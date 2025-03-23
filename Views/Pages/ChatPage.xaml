@@ -9,13 +9,13 @@
              x:Class="NexusChat.Views.Pages.ChatPage"
              Shell.NavBarIsVisible="False"
              BackgroundColor="{AppThemeBinding Light={StaticResource Gray100}, Dark={StaticResource Gray950}}">
-    
+
     <ContentPage.Resources>
         <ResourceDictionary>
             <converters:StringEmptyConverter x:Key="StringEmptyConverter" FallbackValue="New Chat" />
             <converters:NotNullConverter x:Key="NotNullConverter" />
             <converters:InvertedBoolConverter x:Key="InvertedBoolConverter" />
-            
+
             <Style x:Key="MessageTextStyle" TargetType="Label">
                 <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource Foreground}}" />
                 <Setter Property="LineBreakMode" Value="WordWrap" />
@@ -33,7 +33,7 @@
               Padding="12,10"
               HeightRequest="56"
               ColumnSpacing="12">
-            
+
             <!-- Back Button -->
             <Button Grid.Column="0"
                     Text="&#xf053;" 
@@ -47,7 +47,7 @@
                     BackgroundColor="Transparent"
                     BorderColor="Transparent"
                     TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Primary}}"/>
-            
+
             <!-- Title -->
             <Label Grid.Column="1" 
                    Text="{Binding CurrentConversation.Title, Converter={StaticResource StringEmptyConverter}}" 
@@ -55,7 +55,7 @@
                    FontSize="16"
                    VerticalOptions="Center"
                    HorizontalOptions="Center" />
-            
+
             <!-- Edit Title Button (Pencil Icon) -->
             <Button Grid.Column="2"
                     Text="&#xf303;" 
@@ -69,7 +69,7 @@
                     BackgroundColor="Transparent"
                     BorderColor="Transparent"
                     TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Primary}}"/>
-                   
+
             <!-- Menu Button -->
             <Button Grid.Column="3"
                     Text="&#xf142;" 
@@ -84,52 +84,44 @@
                     BorderColor="Transparent"
                     TextColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource Secondary}}" />
         </Grid>
-        
-        <!-- Messages List -->
-        <RefreshView Grid.Row="1" 
-                     Command="{Binding RefreshCommand}" 
-                     IsRefreshing="{Binding IsBusy}">
-            <!-- Add VerticalScrollBarVisibility="Always" to make sure the ScrollView works properly -->
+
+        <!-- Messages List - EMERGENCY FIX -->
+        <Grid Grid.Row="1">
             <ScrollView x:Name="MessageScrollView" 
-                        VerticalScrollBarVisibility="Always">
+                        VerticalScrollBarVisibility="Default">
                 <CollectionView x:Name="MessagesCollection"
                                 ItemsSource="{Binding Messages}"
-                                ItemsUpdatingScrollMode="KeepLastItemInView"
-                                RemainingItemsThreshold="2"
                                 Margin="8">
                     <CollectionView.ItemsLayout>
-                        <!-- Use a linear layout with explicit sizing to ensure proper scrolling -->
-                        <LinearItemsLayout Orientation="Vertical" 
-                                           ItemSpacing="4" />
+                        <LinearItemsLayout Orientation="Vertical" ItemSpacing="4" />
                     </CollectionView.ItemsLayout>
-                    
+
                     <CollectionView.ItemTemplate>
                         <DataTemplate>
-                            <!-- Use explicit HorizontalOptions to ensure proper layout -->
-                            <controls:MessageBubble Message="{Binding ., Mode=OneWay}" 
+                            <controls:MessageBubble Message="{Binding}" 
                                                    HorizontalOptions="Fill" 
                                                    Margin="0,2" />
                         </DataTemplate>
                     </CollectionView.ItemTemplate>
-                    
+
                     <CollectionView.EmptyView>
                         <Grid>
                             <VerticalStackLayout HorizontalOptions="Center" 
                                                  VerticalOptions="Center"
                                                  Spacing="20"
                                                  Padding="20">
-                                
+
                                 <Image Source="dotnet_bot.png" 
                                        HeightRequest="120" 
                                        Opacity="0.8"
                                        HorizontalOptions="Center" />
-                                       
+
                                 <Label Text="Start a conversation" 
                                        FontSize="18"
                                        FontAttributes="Bold"
                                        TextColor="{StaticResource Gray500}"
                                        HorizontalOptions="Center"/>
-                                       
+
                                 <Label Text="Type a message below to begin chatting"
                                        FontSize="14"
                                        TextColor="{StaticResource Gray400}"
@@ -140,24 +132,24 @@
                     </CollectionView.EmptyView>
                 </CollectionView>
             </ScrollView>
-        </RefreshView>
-        
-        <!-- Simple Activity Indicator -->
-        <ActivityIndicator Grid.Row="1"
-                           IsVisible="{Binding IsAITyping}" 
-                           IsRunning="{Binding IsAITyping}"
-                           Color="{StaticResource Primary}"
-                           HorizontalOptions="Center"
-                           VerticalOptions="End"
-                           Margin="0,0,0,20"
-                           Scale="1.2" />
-        
+
+            <!-- Simple Activity Indicator -->
+            <ActivityIndicator Grid.Row="1"
+                               IsVisible="{Binding IsAITyping}" 
+                               IsRunning="{Binding IsAITyping}"
+                               Color="{StaticResource Primary}"
+                               HorizontalOptions="Center"
+                               VerticalOptions="End"
+                               Margin="0,0,0,20"
+                               Scale="1.2" />
+        </Grid>
+
         <!-- Simplified Input Area -->
         <Grid Grid.Row="2" 
               ColumnDefinitions="*,Auto"
               Padding="12,10,12,16"
               BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceBackground}, Dark={StaticResource Gray900}}">
-            
+
             <!-- Simple Entry -->
             <Entry Grid.Column="0"
                    x:Name="MessageEntry"
@@ -171,7 +163,7 @@
                    VerticalOptions="Center"
                    HeightRequest="48"
                    Margin="0,0,8,0" />
-            
+
             <!-- Send Button -->
             <Button Grid.Column="1"
                     x:Name="SendButton"

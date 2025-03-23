@@ -22,7 +22,6 @@ namespace NexusChat.Views.Controls
             try
             {
                 InitializeComponent();
-                Debug.WriteLine("MessageBubble control initialized successfully");
             }
             catch (Exception ex)
             {
@@ -34,81 +33,48 @@ namespace NexusChat.Views.Controls
         {
             if (bindable is MessageBubble bubble && newValue is Message message)
             {
-                Debug.WriteLine($"MessageBubble: Message changed - Content: {message?.Content?.Substring(0, Math.Min(20, message?.Content?.Length ?? 0))}..., IsAI: {message?.IsAI}");
+                // Directly update UI - no async operations or extra methods
+                if (message == null) return;
                 
-                // Fix: Use BeginInvokeOnMainThread instead of InvokeOnMainThread
-                MainThread.BeginInvokeOnMainThread(() => {
-                    bubble.UpdateUI(message);
-                });
-            }
-        }
-
-        private void UpdateUI(Message message)
-        {
-            if (message == null)
-                return;
-
-            try
-            {
-                // Set content
-                ContentLabel.Text = message.Content;
-                
-                // Set timestamp
-                TimestampLabel.Text = message.Timestamp.ToString("t");
-                
-                // Set horizontal alignment based on message sender
-                MainGrid.HorizontalOptions = message.IsAI ? LayoutOptions.Start : LayoutOptions.End;
-                
-                // Apply styling based on message type
-                if (message.IsAI)
+                try
                 {
-                    // Set user message styling
-                    MessageFrame.BackgroundColor = Application.Current?.RequestedTheme == AppTheme.Dark 
-                        ? Color.FromArgb("#303030") 
-                        : Color.FromArgb("#f0f0f0");
-                }
-                else
-                {
-                    // Set AI message styling
-                    MessageFrame.BackgroundColor = Application.Current?.RequestedTheme == AppTheme.Dark 
-                        ? Color.FromArgb("#0d47a1") 
-                        : Color.FromArgb("#e3f2fd");
-                }
-                
-                // Always set these properties directly rather than relying on styles
-                MessageFrame.CornerRadius = 10;
-                MessageFrame.Padding = new Thickness(12, 8);
-                MessageFrame.BorderColor = Colors.Transparent;
-                MessageFrame.HasShadow = false;
-                
-                // Set status text and visibility
-                if (!message.IsAI && !string.IsNullOrEmpty(message.Status))
-                {
-                    string statusText = message.Status switch
-                    {
-                        "Sent" => "✓ Sent",
-                        "Delivered" => "✓✓ Delivered",
-                        "Read" => "✓✓ Read",
-                        "Failed" => "⚠️ Failed to send",
-                        _ => string.Empty
-                    };
+                    // Simple direct property setting - no layout calculations
+                    bubble.ContentLabel.Text = message.Content;
+                    bubble.TimestampLabel.Text = message.Timestamp.ToString("t");
+                    bubble.MainGrid.HorizontalOptions = message.IsAI ? LayoutOptions.Start : LayoutOptions.End;
                     
-                    StatusLabel.Text = statusText;
-                    StatusLabel.IsVisible = !string.IsNullOrEmpty(statusText);
+                    // Set background color directly
+                    bubble.MessageFrame.BackgroundColor = message.IsAI 
+                        ? Color.FromArgb(Application.Current?.RequestedTheme == AppTheme.Dark ? "#303030" : "#f0f0f0")
+                        : Color.FromArgb(Application.Current?.RequestedTheme == AppTheme.Dark ? "#0d47a1" : "#e3f2fd");
+                    
+                    // Set other properties
+                    bubble.MessageFrame.BorderColor = Colors.Transparent;
+                    
+                    // Set status text
+                    if (!message.IsAI && !string.IsNullOrEmpty(message.Status))
+                    {
+                        string statusText = message.Status switch
+                        {
+                            "Sent" => "✓ Sent",
+                            "Delivered" => "✓✓ Delivered",
+                            "Read" => "✓✓ Read",
+                            "Failed" => "⚠️ Failed to send",
+                            _ => string.Empty
+                        };
+                        
+                        bubble.StatusLabel.Text = statusText;
+                        bubble.StatusLabel.IsVisible = !string.IsNullOrEmpty(statusText);
+                    }
+                    else
+                    {
+                        bubble.StatusLabel.IsVisible = false;
+                    }
                 }
-                else
+                catch (Exception ex)
                 {
-                    StatusLabel.IsVisible = false;
+                    Debug.WriteLine($"Error updating MessageBubble UI: {ex.Message}");
                 }
-                
-                // Force layout update to ensure changes are applied immediately
-                InvalidateLayout();
-                
-                Debug.WriteLine($"MessageBubble UI updated for: {message.Content?.Substring(0, Math.Min(20, message.Content?.Length ?? 0))}...");
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error updating MessageBubble UI: {ex.Message}");
             }
         }
     }

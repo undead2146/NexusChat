@@ -67,80 +67,48 @@ public partial class ChatPage : ContentPage
     
     private async void Messages_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
     {
-        // Scroll to bottom when new messages are added
+        // Only handle additions
         if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Add)
         {
             try
             {
-                Debug.WriteLine("Collection changed - attempting to scroll to bottom");
+                // EMERGENCY FIX: Ultra-simple scroll with minimal overhead
+                // Use a very short delay then scroll directly
+                await Task.Delay(50);
                 
-                // Give the UI time to update before scrolling
-                await Task.Delay(150); // Increase delay slightly
-                
-                // Ensure the collection view has updated its layout - fix error by using InvalidateMeasure
-                MessagesCollection.InvalidateMeasure();
-                
-                // Try different scroll methods
-                try
-                {
-                    // Method 1: Using ScrollToAsync
-                    await MessageScrollView.ScrollToAsync(0, MessageScrollView.ContentSize.Height, true);
-                    Debug.WriteLine("Method 1: Scrolled to bottom using ScrollToAsync with ContentSize.Height");
-                }
-                catch
-                {
+                MainThread.BeginInvokeOnMainThread(async () => {
                     try
                     {
-                        // Method 2: Using double.MaxValue
-                        await MessageScrollView.ScrollToAsync(0, double.MaxValue, true);
-                        Debug.WriteLine("Method 2: Scrolled to bottom using ScrollToAsync with double.MaxValue");
+                        // Direct scroll to bottom - no layout invalidation or other operations
+                        await MessageScrollView.ScrollToAsync(0, MessageScrollView.ContentSize.Height, false);
                     }
                     catch (Exception ex)
                     {
-                        Debug.WriteLine($"Error scrolling using method 2: {ex.Message}");
-                        
-                        // Method 3: Force layout updates first
-                        MainThread.BeginInvokeOnMainThread(async () =>
-                        {
-                            try
-                            {
-                                // Force layout update - fix error by using InvalidateMeasure
-                                MessageScrollView.InvalidateMeasure();
-                                MessagesCollection.InvalidateMeasure();
-                                
-                                // Wait a bit longer
-                                await Task.Delay(100);
-                                
-                                // Try scrolling again
-                                await MessageScrollView.ScrollToAsync(MessageScrollView.ScrollX, MessageScrollView.ContentSize.Height, true);
-                                Debug.WriteLine("Method 3: Scrolled to bottom after forcing layout updates");
-                            }
-                            catch (Exception scrollEx)
-                            {
-                                Debug.WriteLine($"Failed to scroll using method 3: {scrollEx.Message}");
-                            }
-                        });
+                        Debug.WriteLine($"Scroll error: {ex.Message}");
                     }
-                }
+                });
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error scrolling to bottom: {ex.Message}");
+                Debug.WriteLine($"Error in collection handler: {ex.Message}");
             }
         }
     }
     
     private async Task ScrollToBottomAsync()
     {
-        try
-        {
-            // Give the UI time to update before scrolling
-            await Task.Delay(50);
-            await MessageScrollView.ScrollToAsync(0, MessageScrollView.ContentSize.Height, true);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error scrolling to bottom: {ex.Message}");
-        }
+        // EMERGENCY FIX: Ultra-simple scroll with minimal overhead
+        await Task.Delay(50);
+        
+        MainThread.BeginInvokeOnMainThread(async () => {
+            try
+            {
+                await MessageScrollView.ScrollToAsync(0, MessageScrollView.ContentSize.Height, false);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Scroll error: {ex.Message}");
+            }
+        });
     }
 }
