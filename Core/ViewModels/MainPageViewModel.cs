@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.Input;
 using NexusChat.Helpers;
 using NexusChat.Views;
 using Microsoft.Maui.Controls;
+using NexusChat.Tests;
 
 namespace NexusChat.ViewModels
 {
@@ -40,6 +41,12 @@ namespace NexusChat.ViewModels
             NavigateToThemeTestCommand = new AsyncRelayCommand(async () => await SafeNavigate(nameof(ThemeTestPage)));
             NavigateToIconTestCommand = new AsyncRelayCommand(async () => await SafeNavigate(nameof(IconTestPage)));
             CounterClickCommand = new AsyncRelayCommand(HandleCounterClicked);
+            
+            // Add the new model tests command
+            RunModelTestsCommand = new AsyncRelayCommand(RunModelTests);
+            
+            // Add database viewer command
+            ViewDatabaseCommand = new AsyncRelayCommand(ViewDatabase);
         }
         
         #region Commands
@@ -93,6 +100,16 @@ namespace NexusChat.ViewModels
         /// Command for counter button click
         /// </summary>
         public ICommand CounterClickCommand { get; }
+        
+        /// <summary>
+        /// Command to run model tests
+        /// </summary>
+        public ICommand RunModelTestsCommand { get; }
+        
+        /// <summary>
+        /// Command to view the database
+        /// </summary>
+        public ICommand ViewDatabaseCommand { get; }
 
         #endregion
         
@@ -215,6 +232,26 @@ namespace NexusChat.ViewModels
         public void Dispose()
         {
             Cleanup();
+        }
+        
+        #endregion
+        
+        #region Test Handlers
+        
+        /// <summary>
+        /// Runs tests for data models
+        /// </summary>
+        private async Task RunModelTests()
+        {
+            await SafeNavigate(nameof(Views.ModelTestingPage));
+        }
+        
+        /// <summary>
+        /// Opens the database viewer
+        /// </summary>
+        private async Task ViewDatabase()
+        {
+            await SafeNavigate(nameof(Views.DatabaseViewerPage));
         }
         
         #endregion

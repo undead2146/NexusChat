@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:viewmodels="clr-namespace:NexusChat.ViewModels"
+             x:Class="NexusChat.Views.ModelTestingPage"
+             Title="Model Testing">
+
+    <Grid RowDefinitions="Auto,*,Auto" Padding="20">
+        <!-- Header -->
+        <VerticalStackLayout Grid.Row="0" Spacing="10" Margin="0,0,0,20">
+            <Label Text="Random Data Generator" 
+                   Style="{StaticResource HeaderLabelStyle}" 
+                   HorizontalOptions="Center" />
+
+            <Label Text="Create random test data for the application" 
+                   TextColor="{StaticResource SecondaryTextColor}"
+                   HorizontalOptions="Center" />
+        </VerticalStackLayout>
+
+        <!-- Main Content -->
+        <ScrollView Grid.Row="1">
+            <VerticalStackLayout Spacing="20">
+                <!-- User Generation -->
+                <Frame>
+                    <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="15">
+                        <Label Grid.Row="0" Grid.Column="0" Grid.RowSpan="2" 
+                               Text="&#xf007;" 
+                               Style="{StaticResource AppThemeBindingFontAwesome}" 
+                               FontSize="24" VerticalOptions="Center" />
+
+                        <Label Grid.Row="0" Grid.Column="1" 
+                               Text="Generate Users" 
+                               FontFamily="OpenSansSemiBold" 
+                               FontSize="16" />
+                               
+                        <HorizontalStackLayout Grid.Row="1" Grid.Column="1" Spacing="10">
+                            <Label Text="Count:" VerticalOptions="Center" />
+                            <Entry Text="{Binding UserCount}" 
+                                   Keyboard="Numeric"
+                                   WidthRequest="50" />
+                        </HorizontalStackLayout>
+
+                        <Button Grid.Row="0" Grid.Column="2" Grid.RowSpan="2"
+                                Text="Generate"
+                                Command="{Binding GenerateUsersCommand}"
+                                IsEnabled="{Binding IsNotBusy}"
+                                BackgroundColor="{StaticResource Primary}"
+                                TextColor="White"
+                                WidthRequest="100"
+                                CornerRadius="8" />
+                    </Grid>
+                </Frame>
+
+                <!-- Conversation Generation -->
+                <Frame>
+                    <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="15">
+                        <Label Grid.Row="0" Grid.Column="0" Grid.RowSpan="2" 
+                               Text="&#xf4ad;" 
+                               Style="{StaticResource AppThemeBindingFontAwesome}" 
+                               FontSize="24" VerticalOptions="Center" />
+
+                        <Label Grid.Row="0" Grid.Column="1" 
+                               Text="Generate Conversations" 
+                               FontFamily="OpenSansSemiBold" 
+                               FontSize="16" />
+                               
+                        <HorizontalStackLayout Grid.Row="1" Grid.Column="1" Spacing="10">
+                            <Label Text="Count:" VerticalOptions="Center" />
+                            <Entry Text="{Binding ConversationCount}" 
+                                   Keyboard="Numeric"
+                                   WidthRequest="50" />
+                        </HorizontalStackLayout>
+
+                        <Button Grid.Row="0" Grid.Column="2" Grid.RowSpan="2"
+                                Text="Generate"
+                                Command="{Binding GenerateConversationsCommand}"
+                                IsEnabled="{Binding IsNotBusy}"
+                                BackgroundColor="{StaticResource Primary}"
+                                TextColor="White"
+                                WidthRequest="100"
+                                CornerRadius="8" />
+                    </Grid>
+                </Frame>
+
+                <!-- Message Generation -->
+                <Frame>
+                    <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="15">
+                        <Label Grid.Row="0" Grid.Column="0" Grid.RowSpan="2" 
+                               Text="&#xf075;" 
+                               Style="{StaticResource AppThemeBindingFontAwesome}" 
+                               FontSize="24" VerticalOptions="Center" />
+
+                        <Label Grid.Row="0" Grid.Column="1" 
+                               Text="Generate Messages" 
+                               FontFamily="OpenSansSemiBold" 
+                               FontSize="16" />
+                               
+                        <HorizontalStackLayout Grid.Row="1" Grid.Column="1" Spacing="10">
+                            <Label Text="Count:" VerticalOptions="Center" />
+                            <Entry Text="{Binding MessageCount}" 
+                                   Keyboard="Numeric"
+                                   WidthRequest="50" />
+                        </HorizontalStackLayout>
+
+                        <Button Grid.Row="0" Grid.Column="2" Grid.RowSpan="2"
+                                Text="Generate"
+                                Command="{Binding GenerateMessagesCommand}"
+                                IsEnabled="{Binding IsNotBusy}"
+                                BackgroundColor="{StaticResource Primary}"
+                                TextColor="White"
+                                WidthRequest="100"
+                                CornerRadius="8" />
+                    </Grid>
+                </Frame>
+
+                <!-- Results Section -->
+                <Frame Padding="10" Margin="0,10,0,0">
+                    <VerticalStackLayout Spacing="10">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <Label Text="Generated Items" FontFamily="OpenSansSemiBold" FontSize="16" />
+                            <Button Grid.Column="1" 
+                                    Text="Clear"
+                                    Command="{Binding ClearLogCommand}" 
+                                    HorizontalOptions="End" 
+                                    VerticalOptions="Start"
+                                    FontSize="12" 
+                                    Padding="10,5" />
+                        </Grid>
+
+                        <Frame BackgroundColor="{AppThemeBinding Light=#f8f9fa, Dark=#222}" 
+                               Padding="10" BorderColor="{AppThemeBinding Light=#dee2e6, Dark=#444}"
+                               HeightRequest="200">
+                            <ScrollView>
+                                <VerticalStackLayout Spacing="5" BindableLayout.ItemsSource="{Binding GenerationResults}">
+                                    <BindableLayout.ItemTemplate>
+                                        <DataTemplate>
+                                            <Label Text="{Binding}" 
+                                                   FontSize="12" 
+                                                   LineBreakMode="WordWrap" />
+                                        </DataTemplate>
+                                    </BindableLayout.ItemTemplate>
+                                </VerticalStackLayout>
+                            </ScrollView>
+                        </Frame>
+                    </VerticalStackLayout>
+                </Frame>
+                
+                <!-- Log Output -->
+                <Frame Padding="10">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="Log Output" FontFamily="OpenSansSemiBold" FontSize="16" />
+                        <Frame BackgroundColor="{AppThemeBinding Light=#f8f9fa, Dark=#222}" 
+                               Padding="10" BorderColor="{AppThemeBinding Light=#dee2e6, Dark=#444}"
+                               HeightRequest="100">
+                            <ScrollView>
+                                <Label Text="{Binding LogOutput}" 
+                                       FontFamily="Monospace" 
+                                       FontSize="12" 
+                                       LineBreakMode="WordWrap" />
+                            </ScrollView>
+                        </Frame>
+                    </VerticalStackLayout>
+                </Frame>
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <!-- Footer with loading indicator and close button -->
+        <Grid Grid.Row="2" RowDefinitions="Auto,Auto" Margin="0,20,0,0">
+            <ActivityIndicator Grid.Row="0" 
+                               IsRunning="{Binding IsBusy}" 
+                               IsVisible="{Binding IsBusy}"
+                               HorizontalOptions="Center" />
+
+            <Button Grid.Row="1" 
+                    Text="Close" 
+                    Command="{Binding GoBackCommand}"
+                    HorizontalOptions="Center"
+                    Margin="0,10,0,0"
+                    IsEnabled="{Binding IsNotBusy}" />
+        </Grid>
+    </Grid>
+</ContentPage>
