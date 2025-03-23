@@ -3,11 +3,12 @@ using SQLiteNetExtensions.Attributes;
 using System;
 using System.Text.Json;
 
-namespace NexusChat.Models
+namespace NexusChat.Core.Models
 {
     /// <summary>
     /// Represents a message within a conversation
     /// </summary>
+    [Table("Messages")]
     public class Message
     {
         /// <summary>
@@ -68,6 +69,12 @@ namespace NexusChat.Models
         public Conversation Conversation { get; set; }
         
         /// <summary>
+        /// Gets or sets whether this message is new and should be animated
+        /// </summary>
+        [Ignore]
+        public bool IsNew { get; set; }
+        
+        /// <summary>
         /// Default constructor
         /// </summary>
         public Message()
@@ -86,6 +93,18 @@ namespace NexusChat.Models
             Timestamp = DateTime.UtcNow;
             TokensUsed = 0; // Will be updated for AI messages after processing
             Status = "delivered";
+        }
+        
+        /// <summary>
+        /// Creates a message with specific content and AI flag
+        /// </summary>
+        public Message(string content, bool isAI)
+        {
+            Content = content;
+            IsAI = isAI;
+            Timestamp = DateTime.UtcNow;
+            Status = isAI ? "Delivered" : "Sent";
+            TokensUsed = isAI ? EstimateTokens(content) : 0;
         }
         
         /// <summary>
@@ -141,9 +160,19 @@ namespace NexusChat.Models
         /// <returns>Estimated token count</returns>
         public int EstimateTokens()
         {
+            return EstimateTokens(Content);
+        }
+        
+        /// <summary>
+        /// Static method to estimate tokens for a given text
+        /// </summary>
+        public static int EstimateTokens(string text)
+        {
+            if (string.IsNullOrEmpty(text))
+                return 0;
+                
             // Simple estimation: ~4 characters per token on average for English text
-            // This is just a rough estimate for demonstration purposes
-            return Content.Length / 4 + 1;
+            return text.Length / 4 + 1;
         }
         
         /// <summary>

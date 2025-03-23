@@ -20,7 +20,7 @@ namespace NexusChat.Data.Repositories
         /// <returns>List of messages for the conversation</returns>
         Task<List<Message>> GetByConversationIdAsync(
             int conversationId, 
-            int limit = 50, 
+            int limit = 100, 
             int offset = 0, 
             CancellationToken cancellationToken = default);
             
@@ -39,5 +39,25 @@ namespace NexusChat.Data.Repositories
         /// <param name="cancellationToken">Optional cancellation token</param>
         /// <returns>Number of messages deleted</returns>
         Task<int> DeleteByConversationIdAsync(int conversationId, CancellationToken cancellationToken = default);
+        
+        /// <summary>
+        /// Gets the most recent message in a conversation
+        /// </summary>
+        /// <param name="conversationId">The conversation identifier</param>
+        /// <param name="cancellationToken">Optional cancellation token</param>
+        /// <returns>The most recent message, or null if none exists</returns>
+        Task<Message> GetMostRecentMessageAsync(
+            int conversationId,
+            CancellationToken cancellationToken = default);
+            
+        /// <summary>
+        /// Gets messages that match a search term
+        /// </summary>
+        /// <param name="searchTerm">The term to search for</param>
+        /// <param name="cancellationToken">Optional cancellation token</param>
+        /// <returns>List of messages that match the search term</returns>
+        Task<List<Message>> SearchMessagesAsync(
+            string searchTerm,
+            CancellationToken cancellationToken = default);
     }
 }

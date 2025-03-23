@@ -65,12 +65,48 @@
 		<PackageReference Include="CommunityToolkit.Maui" Version="9.1.1" />
 		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
 		<PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="9.0.0" />
-		<PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
+		<PackageReference Include="Microsoft.Maui.Controls" Version="9.0.30" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="9.0.0" />
 		<PackageReference Include="RestSharp" Version="112.1.0" />
 		<PackageReference Include="sqlite-net-pcl" Version="1.9.172" />
 		<PackageReference Include="SQLiteNetExtensions" Version="2.1.0" />
 		<PackageReference Include="Bogus" Version="35.5.0" />
+        <PackageReference Include="CommunityToolkit.Maui.Markup" Version="5.1.0" />
+        <PackageReference Include="SQLiteNetExtensions.Async" Version="2.1.0" />
+   
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Compile Update="Views\Controls\Accessibilities.xaml.cs">
+	    <DependentUpon>Accessibilities.xaml</DependentUpon>
+	  </Compile>
+	  <Compile Update="Views\Controls\Buttons.xaml.cs">
+	    <DependentUpon>Buttons.xaml</DependentUpon>
+	  </Compile>
+	  <Compile Update="Views\Controls\ChatComponents.xaml.cs">
+	    <DependentUpon>ChatComponents.xaml</DependentUpon>
+	  </Compile>
+	  <Compile Update="Views\Controls\ColorPalette.xaml.cs">
+	    <DependentUpon>ColorPalette.xaml</DependentUpon>
+	  </Compile>
+	  <Compile Update="Views\Controls\FormComponents.xaml.cs">
+	    <DependentUpon>FormComponents.xaml</DependentUpon>
+	  </Compile>
+	  <Compile Update="Views\Controls\FunctionalColors.xaml.cs">
+	    <DependentUpon>FunctionalColors.xaml</DependentUpon>
+	  </Compile>
+	  <Compile Update="Views\Controls\InputControls.xaml.cs">
+	    <DependentUpon>InputControls.xaml</DependentUpon>
+	  </Compile>
+	  <Compile Update="Views\Controls\LayoutComponents.xaml.cs">
+	    <DependentUpon>LayoutComponents.xaml</DependentUpon>
+	  </Compile>
+	  <Compile Update="Views\Controls\StatusIndicators.xaml.cs">
+	    <DependentUpon>StatusIndicators.xaml</DependentUpon>
+	  </Compile>
+	  <Compile Update="Views\Controls\Typography.xaml.cs">
+	    <DependentUpon>Typography.xaml</DependentUpon>
+	  </Compile>
 	</ItemGroup>
 
 </Project>

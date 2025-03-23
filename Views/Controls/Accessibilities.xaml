@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="NexusChat.Views.Controls.Accessibilities">
+    
+    <VerticalStackLayout Spacing="15">
+        <Label Text="ACCESSIBILITY" Style="{StaticResource HeaderLabelStyle}" Margin="0,20,0,0" />
+        
+        <!-- Accessibility Examples -->
+        <Frame>
+            <VerticalStackLayout Spacing="15">
+                <Label Text="Accessibility Features" Style="{StaticResource SubHeaderLabelStyle}" />
+                
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Semantic Properties" FontSize="16" FontFamily="OpenSansSemiBold" />
+                    
+                    <Button Text="Send Message" 
+                            SemanticProperties.Description="Sends the current message to the AI"
+                            SemanticProperties.Hint="Double tap to send your message"
+                            ToolTipProperties.Text="Send the message to the AI" />
+                            
+                    <Label Text="This example shows semantic properties that improve screen reader support"
+                           SemanticProperties.Description="Explanation of semantic properties for accessibility"
+                           SemanticProperties.HeadingLevel="Level2" />
+                </VerticalStackLayout>
+                
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Text Scaling" FontSize="16" FontFamily="OpenSansSemiBold" />
+                    
+                    <Frame Padding="10" BackgroundColor="{AppThemeBinding Light=#f8f9fa, Dark=#343a40}">
+                        <VerticalStackLayout>
+                            <Label Text="Font scaling is supported" FontAttributes="Bold" />
+                            <Label Text="Text should properly scale with system font size settings to improve readability for users with visual impairments."
+                                   FontSize="14" />
+                        </VerticalStackLayout>
+                    </Frame>
+                </VerticalStackLayout>
+            </VerticalStackLayout>
+        </Frame>
+        
+        <!-- Component Information -->
+        <Frame BackgroundColor="{AppThemeBinding Light={StaticResource Info}, Dark=#164754}">
+            <VerticalStackLayout>
+                <Label Text="UI Component Library" FontAttributes="Bold" TextColor="White" />
+                <Label Text="This page showcases the NexusChat UI components and styling. Components follow the MVVM pattern and support light/dark themes." 
+                       TextColor="White" />
+            </VerticalStackLayout>
+        </Frame>
+    </VerticalStackLayout>
+</ContentView>

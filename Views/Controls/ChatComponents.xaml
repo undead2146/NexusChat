@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="NexusChat.Views.Controls.ChatComponents">
+    
+    <VerticalStackLayout Spacing="15">
+        <Label Text="CHAT COMPONENTS" Style="{StaticResource HeaderLabelStyle}" Margin="0,20,0,0" />
+        
+        <!-- Message Bubbles -->
+        <Frame>
+            <VerticalStackLayout Spacing="15">
+                <Label Text="Message Bubbles" Style="{StaticResource SubHeaderLabelStyle}" />
+                
+                <!-- User Message -->
+                <Grid HorizontalOptions="End" WidthRequest="300" Margin="0,0,0,10">
+                    <Frame Style="{StaticResource UserMessageFrame}" HorizontalOptions="Fill">
+                        <VerticalStackLayout>
+                            <Label Text="This is a user message in a chat bubble" Style="{StaticResource MessageTextStyle}" />
+                            <Grid ColumnDefinitions="*,Auto" Margin="0,5,0,0">
+                                <Label Grid.Column="1" Text="10:30 AM" FontSize="10" TextColor="{StaticResource SecondaryTextColor}" />
+                            </Grid>
+                        </VerticalStackLayout>
+                    </Frame>
+                </Grid>
+                
+                <!-- AI Message -->
+                <Grid HorizontalOptions="Start" WidthRequest="300" Margin="0,0,0,10">
+                    <Frame Style="{StaticResource AIMessageFrame}" HorizontalOptions="Fill">
+                        <VerticalStackLayout>
+                            <VerticalStackLayout Spacing="2" Margin="0,0,0,5">
+                                <Label Text="NexusAI" FontAttributes="Bold" FontSize="12" TextColor="{StaticResource Accent}" />
+                            </VerticalStackLayout>
+                            <Label Text="This is an AI response in a chat bubble. It contains more text to demonstrate how longer messages are displayed in the chat interface." 
+                                   Style="{StaticResource MessageTextStyle}" />
+                            <Grid ColumnDefinitions="*,Auto" Margin="0,5,0,0">
+                                <Label Grid.Column="0" Text="GPT-4 Turbo" FontSize="10" TextColor="{StaticResource SecondaryTextColor}" />
+                                <Label Grid.Column="1" Text="10:31 AM" FontSize="10" TextColor="{StaticResource SecondaryTextColor}" />
+                            </Grid>
+                        </VerticalStackLayout>
+                    </Frame>
+                </Grid>
+                
+                <!-- System Message -->
+                <Border StrokeShape="RoundRectangle 8" 
+                        Stroke="{StaticResource SeparatorColor}"
+                        StrokeThickness="1"
+                        BackgroundColor="Transparent"
+                        Padding="10,5"
+                        HorizontalOptions="Center">
+                    <Label Text="Today, 10:30 AM" FontSize="12" TextColor="{StaticResource SecondaryTextColor}" />
+                </Border>
+                
+                <!-- Typing Indicator -->
+                <Frame Style="{StaticResource AIMessageFrame}" HorizontalOptions="Start" Padding="12,8" WidthRequest="80">
+                    <HorizontalStackLayout Spacing="5" HorizontalOptions="Center">
+                        <Ellipse Fill="{StaticResource SecondaryTextColor}" WidthRequest="8" HeightRequest="8">
+                            <VisualStateManager.VisualStateGroups>
+                                <VisualStateGroup Name="CommonStates">
+                                    <VisualState Name="Normal">
+                                        <VisualState.Setters>
+                                            <Setter Property="Opacity" Value="0.6" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                </VisualStateGroup>
+                            </VisualStateManager.VisualStateGroups>
+                        </Ellipse>
+                        
+                        <Ellipse Fill="{StaticResource SecondaryTextColor}" WidthRequest="8" HeightRequest="8">
+                            <VisualStateManager.VisualStateGroups>
+                                <VisualStateGroup Name="CommonStates">
+                                    <VisualState Name="Normal">
+                                        <VisualState.Setters>
+                                            <Setter Property="Opacity" Value="0.6" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                </VisualStateGroup>
+                            </VisualStateManager.VisualStateGroups>
+                        </Ellipse>
+                        <Ellipse Fill="{StaticResource SecondaryTextColor}" WidthRequest="8" HeightRequest="8">
+                            <VisualStateManager.VisualStateGroups>
+                                <VisualStateGroup Name="CommonStates">
+                                    <VisualState Name="Normal">
+                                        <VisualState.Setters>
+                                            <Setter Property="Opacity" Value="0.6" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                </VisualStateGroup>
+                            </VisualStateManager.VisualStateGroups>
+                        </Ellipse>
+                    </HorizontalStackLayout>
+                </Frame>
+            </VerticalStackLayout>
+        </Frame>
+
+        <!-- Chat Input -->
+        <Frame>
+            <VerticalStackLayout Spacing="15">
+                <Label Text="Chat Input Bar" Style="{StaticResource SubHeaderLabelStyle}" />
+                
+                <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="10">
+                    <Button Grid.Column="0" Text="&#xf039;" Style="{StaticResource IconButton}" ToolTipProperties.Text="More options" />
+                    
+                    <Border Grid.Column="1" Stroke="{StaticResource InputBorder}" StrokeThickness="1" StrokeShape="RoundRectangle 20" Padding="15,0">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <Entry Placeholder="Type a message..." BackgroundColor="Transparent" VerticalOptions="Center"/>
+                            <Button Grid.Column="1" Text="&#xf574;" Style="{StaticResource IconButton}" BackgroundColor="Transparent" 
+                                    TextColor="{StaticResource Secondary}" ToolTipProperties.Text="Voice input" />
+                        </Grid>
+                    </Border>
+                    
+                    <Button Grid.Column="2" Text="&#xf0c6;" Style="{StaticResource IconButton}" ToolTipProperties.Text="Attach file" />
+                    <Button Grid.Column="3" Text="&#xf1d8;" Style="{StaticResource IconButton}" ToolTipProperties.Text="Send" />
+                </Grid>
+            </VerticalStackLayout>
+        </Frame>
+        
+        <!-- Conversation Card -->
+        <Frame>
+            <VerticalStackLayout Spacing="15">
+                <Label Text="Conversation Cards" Style="{StaticResource SubHeaderLabelStyle}" />
+                
+                <Frame Padding="15" Margin="0">
+                    <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto" RowSpacing="5">
+                        <VerticalStackLayout Grid.Row="0" Grid.Column="0">
+                            <Label Text="How to implement MVVM in MAUI" FontAttributes="Bold" />
+                            <Label Text="Last message: I'll show you how to create ViewModels..." FontSize="12" TextColor="{StaticResource SecondaryTextColor}" />
+                        </VerticalStackLayout>
+                        
+                        <VerticalStackLayout Grid.Row="0" Grid.Column="1" HorizontalOptions="End">
+                            <Label Text="10:45 AM" FontSize="12" TextColor="{StaticResource SecondaryTextColor}" />
+                            <Label Text="GPT-4" FontSize="11" TextColor="{StaticResource Accent}" HorizontalOptions="End" />
+                        </VerticalStackLayout>
+                        
+                        <HorizontalStackLayout Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Spacing="5" Margin="0,5,0,0">
+                            <Border BackgroundColor="{StaticResource Info}" StrokeShape="RoundRectangle 10" Padding="6,2">
+                                <Label Text="MVVM" FontSize="11" TextColor="White" />
+                            </Border>
+                            <Border BackgroundColor="{StaticResource Info}" StrokeShape="RoundRectangle 10" Padding="6,2">
+                                <Label Text="MAUI" FontSize="11" TextColor="White" />
+                            </Border>
+                            <Border BackgroundColor="{StaticResource Info}" StrokeShape="RoundRectangle 10" Padding="6,2">
+                                <Label Text="C#" FontSize="11" TextColor="White" />
+                            </Border>
+                        </HorizontalStackLayout>
+                    </Grid>
+                </Frame>
+                
+                <Frame Padding="15" BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceBackground}, Dark={StaticResource SurfaceBackground}}" Margin="0">
+                    <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto" RowSpacing="5">
+                        <VerticalStackLayout Grid.Row="0" Grid.Column="0">
+                            <Label Text="Discuss NexusChat app architecture" FontAttributes="Bold" />
+                            <Label Text="Let's talk about the database structure and repositories..." FontSize="12" TextColor="{StaticResource SecondaryTextColor}" />
+                        </VerticalStackLayout>
+                        
+                        <VerticalStackLayout Grid.Row="0" Grid.Column="1" HorizontalOptions="End">
+                            <Label Text="Yesterday" FontSize="12" TextColor="{StaticResource SecondaryTextColor}" />
+                            <Label Text="Claude" FontSize="11" TextColor="{StaticResource Accent}" HorizontalOptions="End" />
+                        </VerticalStackLayout>
+                    </Grid>
+                </Frame>
+            </VerticalStackLayout>
+        </Frame>
+    </VerticalStackLayout>
+</ContentView>

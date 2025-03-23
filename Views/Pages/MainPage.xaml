@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             x:Class="NexusChat.MainPage"
+             x:Class="NexusChat.Views.Pages.MainPage"
              BackgroundColor="{AppThemeBinding Light={StaticResource Background}, Dark={StaticResource Background}}">
 
     <Grid RowDefinitions="Auto,*,Auto" Padding="0" RowSpacing="0">
@@ -109,42 +109,22 @@
                         <BoxView HeightRequest="1" 
                                  BackgroundColor="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray600}}" />
                         
-                        <!-- Theme Testing -->
+                        <!-- Theme Testing - Updated to include icons -->
                         <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="15">
                             <Label Grid.Column="0" Text="&#xf042;" 
                                    Style="{StaticResource AppThemeBindingFontAwesome}" 
                                    FontSize="24" VerticalOptions="Center" />
                             
                             <VerticalStackLayout Grid.Column="1">
-                                <Label Text="Theme Testing" FontFamily="OpenSansSemiBold" FontSize="16" />
-                                <Label Text="View and test different theme components" 
+                                <Label Text="Theme &amp; Icon Testing" FontFamily="OpenSansSemiBold" FontSize="16" />
+                                <Label Text="View theme components and icons reference" 
                                        TextColor="{StaticResource SecondaryTextColor}" FontSize="12" />
                             </VerticalStackLayout>
                             
                             <Button Grid.Column="2" 
-                                    Text="Open" 
-                                    Clicked="TestBtn_Clicked"
-                                    Style="{StaticResource OutlineButton}" />
-                        </Grid>
-                        
-                        <BoxView HeightRequest="1" 
-                                 BackgroundColor="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray600}}" />
-                        
-                        <!-- Icon Testing -->
-                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="15">
-                            <Label Grid.Column="0" Text="&#xf03e;" 
-                                   Style="{StaticResource AppThemeBindingFontAwesome}" 
-                                   FontSize="24" VerticalOptions="Center" />
-                            
-                            <VerticalStackLayout Grid.Column="1">
-                                <Label Text="Icon Testing" FontFamily="OpenSansSemiBold" FontSize="16" />
-                                <Label Text="View available FontAwesome icons" 
-                                       TextColor="{StaticResource SecondaryTextColor}" FontSize="12" />
-                            </VerticalStackLayout>
-                            
-                            <Button Grid.Column="2" 
-                                    Text="Open" 
-                                    Clicked="IconTestBtn_Clicked"
+                                    Text="{Binding ThemesButtonText}"
+                                    IsEnabled="{Binding ThemesButtonEnabled}" 
+                                    Clicked="ThemesBtn_Clicked"
                                     Style="{StaticResource OutlineButton}" />
                         </Grid>
                         

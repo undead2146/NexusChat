@@ -1,14 +1,17 @@
 using System;
 using System.Threading.Tasks;
 using System.Windows.Input;
+using System.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NexusChat.Helpers;
-using NexusChat.Views;
+using NexusChat.Views.Pages.DevTools;
 using Microsoft.Maui.Controls;
 using NexusChat.Tests;
+using NexusChat.Views.Pages;
+using NexusChat.Core.ViewModels.DevTools;
 
-namespace NexusChat.ViewModels
+namespace NexusChat.Core.ViewModels
 {
     /// <summary>
     /// ViewModel for the main page containing application home screen and navigation
@@ -19,7 +22,18 @@ namespace NexusChat.ViewModels
         private MiniGameHelper _miniGameHelper;
         private Grid _mainGrid;
         private Button _counterButton;
+
+        [ObservableProperty]
         private bool _isNavigating;
+
+        [ObservableProperty]
+        private bool _isNavigatingToThemes;
+
+        [ObservableProperty]
+        private string _themesButtonText = "Themes";
+
+        [ObservableProperty]
+        private bool _themesButtonEnabled = true;
 
         /// <summary>
         /// Initializes a new instance of the MainPageViewModel class
@@ -38,15 +52,12 @@ namespace NexusChat.ViewModels
             SettingsCommand = new RelayCommand(ShowSettingsAlert);
             
             StartNewChatCommand = new AsyncRelayCommand(HandleStartNewChat);
-            NavigateToThemeTestCommand = new AsyncRelayCommand(async () => await SafeNavigate(nameof(ThemeTestPage)));
-            NavigateToIconTestCommand = new AsyncRelayCommand(async () => await SafeNavigate(nameof(IconTestPage)));
             CounterClickCommand = new AsyncRelayCommand(HandleCounterClicked);
             
-            // Add the new model tests command
-            RunModelTestsCommand = new AsyncRelayCommand(RunModelTests);
-            
-            // Add database viewer command
-            ViewDatabaseCommand = new AsyncRelayCommand(ViewDatabase);
+            // Define navigation commands - remove IconsPage command
+            NavigateToThemesCommand = new AsyncRelayCommand(HandleNavigateToThemes);
+            RunModelTestsCommand = new AsyncRelayCommand(HandleRunModelTests);
+            ViewDatabaseCommand = new AsyncRelayCommand(HandleViewDatabase);
         }
         
         #region Commands
@@ -89,27 +100,24 @@ namespace NexusChat.ViewModels
         /// <summary>
         /// Command to navigate to theme test page
         /// </summary>
-        public ICommand NavigateToThemeTestCommand { get; }
+        public IAsyncRelayCommand NavigateToThemesCommand { get; }
 
-        /// <summary>
-        /// Command to navigate to icon test page
-        /// </summary>
-        public ICommand NavigateToIconTestCommand { get; }
+        // Remove NavigateToIconsCommand
 
         /// <summary>
         /// Command for counter button click
         /// </summary>
-        public ICommand CounterClickCommand { get; }
+        public IAsyncRelayCommand CounterClickCommand { get; }
         
         /// <summary>
         /// Command to run model tests
         /// </summary>
-        public ICommand RunModelTestsCommand { get; }
+        public IAsyncRelayCommand RunModelTestsCommand { get; }
         
         /// <summary>
         /// Command to view the database
         /// </summary>
-        public ICommand ViewDatabaseCommand { get; }
+        public IAsyncRelayCommand ViewDatabaseCommand { get; }
 
         #endregion
         
@@ -154,9 +162,22 @@ namespace NexusChat.ViewModels
         /// </summary>
         private async Task HandleStartNewChat()
         {
-            await Application.Current.MainPage.DisplayAlert("New Chat", "Ready to start a new conversation?", "OK");
-            
-            // Animation handled in view - just for this control since it's a simple animation
+            try
+            {
+                _isNavigating = true;
+                // Navigate to ChatPage with better error handling
+                await Shell.Current.GoToAsync("ChatPage");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Navigation error: {ex.Message}");
+                await Application.Current.MainPage.DisplayAlert("Error", 
+                    $"Could not start a new chat: {ex.Message}", "OK");
+            }
+            finally
+            {
+                _isNavigating = false;
+            }
         }
         
         /// <summary>
@@ -177,24 +198,118 @@ namespace NexusChat.ViewModels
         
         #endregion
         
-        #region Navigation
+        #region Navigation Handlers
         
+        /// <summary>
+        /// Handles navigation to the Themes page
+        /// </summary>
+        private async Task HandleNavigateToThemes()
+        {
+            if (IsNavigatingToThemes) return;
+            
+            Debug.WriteLine("MainPageViewModel: HandleNavigateToThemes - Start");
+            
+            try
+            {
+                IsNavigatingToThemes = true;
+                ThemesButtonEnabled = false;
+                ThemesButtonText = "Loading...";
+                
+                // FIXED NAVIGATION: Create a new instance directly rather than using complex routing
+                await MainThread.InvokeOnMainThreadAsync(async () => 
+                {
+                    try
+                    {
+                        // Simple navigation with direct instance creation
+                        var viewModel = new ThemesPageViewModel(); // Create viewmodel directly
+                        var page = new ThemesPage(viewModel);      // Create page with viewmodel
+                        
+                        // Push page directly to navigation stack - avoid Shell complexity
+                        await _navigation.PushAsync(page);
+                        
+                        Debug.WriteLine("ThemesPage navigation successful");
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Navigation error: {ex.Message}");
+                        
+                        // Alert user with clearer error message
+                        await Application.Current.MainPage.DisplayAlert(
+                            "Navigation Failed", 
+                            "Could not open component library page.", 
+                            "OK");
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error in HandleNavigateToThemes: {ex.Message}");
+            }
+            finally
+            {
+                await Task.Delay(300);
+                ThemesButtonText = "Themes";
+                ThemesButtonEnabled = true;
+                IsNavigatingToThemes = false;
+            }
+        }
+
+        /// <summary>
+        /// Handles running model tests
+        /// </summary>
+        private async Task HandleRunModelTests()
+        {
+            Debug.WriteLine("MainPageViewModel: HandleRunModelTests start");
+            try
+            {
+                // FIX: Use SafeNavigate just like other navigation methods
+                await SafeNavigate(nameof(ModelTestingPage));
+                Debug.WriteLine("MainPageViewModel: HandleRunModelTests completed successfully");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error in HandleRunModelTests: {ex.Message}");
+                
+                // Show error alert when navigation fails
+                await Application.Current.MainPage.DisplayAlert(
+                    "Navigation Error", 
+                    $"Could not navigate to Model Testing Page: {ex.Message}", 
+                    "OK");
+            }
+        }
+        
+        /// <summary>
+        /// Handles viewing the database
+        /// </summary>
+        private async Task HandleViewDatabase()
+        {
+            await SafeNavigate(nameof(DatabaseViewerPage));
+        }
+
         /// <summary>
         /// Safely navigates to a page, preventing multiple rapid navigations
         /// </summary>
         private async Task SafeNavigate(string route)
         {
-            if (_isNavigating) return;
+            if (IsNavigating) return;
             
             try
             {
-                _isNavigating = true;
-                await Shell.Current.GoToAsync(route);
+                IsNavigating = true;
+                
+                // Always navigate on UI thread
+                await MainThread.InvokeOnMainThreadAsync(async () => {
+                    await Shell.Current.GoToAsync(route);
+                });
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Navigation error to {route}: {ex.Message}");
             }
             finally
             {
                 await Task.Delay(500);
-                _isNavigating = false;
+                IsNavigating = false;
             }
         }
         
@@ -243,7 +358,8 @@ namespace NexusChat.ViewModels
         /// </summary>
         private async Task RunModelTests()
         {
-            await SafeNavigate(nameof(Views.ModelTestingPage));
+            // Ensure consistent namespace usage
+            await SafeNavigate(nameof(ModelTestingPage));
         }
         
         /// <summary>
@@ -251,7 +367,7 @@ namespace NexusChat.ViewModels
         /// </summary>
         private async Task ViewDatabase()
         {
-            await SafeNavigate(nameof(Views.DatabaseViewerPage));
+            await SafeNavigate(nameof(DatabaseViewerPage));
         }
         
         #endregion

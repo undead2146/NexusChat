@@ -1,9 +1,14 @@
 ﻿using Microsoft.Extensions.Logging;
-using NexusChat.Data;
-using Microsoft.Extensions.DependencyInjection;
+using NexusChat.Data.Context;
 using CommunityToolkit.Maui;
-using NexusChat.Views;
-using NexusChat.ViewModels;
+using NexusChat.Views.Pages.DevTools;
+using NexusChat.Views.Pages;
+using NexusChat.Core.ViewModels.DevTools;
+using NexusChat.Core.ViewModels;
+using NexusChat.Data.Repositories;
+using NexusChat.Services.Interfaces;
+using NexusChat.Services.AIProviders;
+using NexusChat.Views.Controls;
 
 namespace NexusChat;
 
@@ -28,17 +33,46 @@ public static class MauiProgram
                 fonts.AddFont("fa-brands-400.ttf", "FontAwesome-Brands");   
             });
 
-        // Register services as singletons to ensure they are properly shared
+        // Register services
         builder.Services.AddSingleton<DatabaseService>();
+        
+        // Register the startup initializer
         builder.Services.AddSingleton<IStartupInitializer, DatabaseInitializer>();
         
-        // Register ViewModels
-        builder.Services.AddTransient<DatabaseViewerViewModel>();
-        builder.Services.AddTransient<ModelTestingViewModel>();
+        // Register repositories
+        builder.Services.AddSingleton<IUserRepository, UserRepository>();
+        builder.Services.AddSingleton<IConversationRepository, ConversationRepository>();
+        builder.Services.AddSingleton<IMessageRepository, MessageRepository>();
         
-        // Register Views
-        builder.Services.AddTransient<DatabaseViewerPage>();
+        // Register AI services
+        builder.Services.AddSingleton<IAIService, DummyAIService>();
+        
+        // Register ViewModels
+        builder.Services.AddTransient<ChatViewModel>();
+        builder.Services.AddTransient<MainPageViewModel>();
+        builder.Services.AddTransient<ThemesPageViewModel>();
+        builder.Services.AddTransient<ModelTestingViewModel>();
+        builder.Services.AddTransient<DatabaseViewerViewModel>();
+        
+        // Register Pages
+        builder.Services.AddTransient<MainPage>();
+        builder.Services.AddTransient<ChatPage>();
+        builder.Services.AddTransient<ThemesPage>();
         builder.Services.AddTransient<ModelTestingPage>();
+        builder.Services.AddTransient<DatabaseViewerPage>();
+        
+        // Register Theme Components
+        builder.Services.AddTransient<ColorPalette>();
+        builder.Services.AddTransient<Typography>();
+        builder.Services.AddTransient<Buttons>();
+        builder.Services.AddTransient<FunctionalColors>();
+        builder.Services.AddTransient<InputControls>();
+        builder.Services.AddTransient<ChatComponents>();
+        builder.Services.AddTransient<StatusIndicators>();
+        builder.Services.AddTransient<LayoutComponents>();
+        builder.Services.AddTransient<FormComponents>();
+        builder.Services.AddTransient<Accessibilities>();
+        builder.Services.AddTransient<Icons>(); // Add Icons control registration
         
 #if DEBUG
         builder.Logging.AddDebug();

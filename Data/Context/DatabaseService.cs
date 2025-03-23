@@ -1,115 +1,178 @@
-using SQLite;
-using NexusChat.Models;
-using System.Threading.Tasks;
 using System;
-using System.IO;
 using System.Diagnostics;
+using System.IO;
 using System.Threading;
+using System.Threading.Tasks;
+using NexusChat.Core.Models;
+using SQLite;
 
-namespace NexusChat.Data
+namespace NexusChat.Data.Context
 {
     /// <summary>
     /// Service for database operations
     /// </summary>
     public class DatabaseService
     {
-        private readonly SQLiteAsyncConnection _database;
-        private readonly string _databasePath;
-        private bool _isInitialized = false;
-        private bool _isInitializing = false;
-        private readonly SemaphoreSlim _initLock = new SemaphoreSlim(1, 1);
+        private const string DatabaseFilename = "nexuschat.db3";
+        private static readonly SQLiteAsyncConnection _database;
+        private static bool _isInitialized = false;
+        private static readonly SemaphoreSlim _initializationLock = new SemaphoreSlim(1, 1);
 
-        /// <summary>
-        /// Creates a new instance of DatabaseService with the specified database path
-        /// </summary>
-        public DatabaseService()
+        static DatabaseService()
         {
-            _databasePath = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "nexuschat.db3");
-            
-            _database = new SQLiteAsyncConnection(_databasePath,
-                SQLiteOpenFlags.ReadWrite | SQLiteOpenFlags.Create | SQLiteOpenFlags.SharedCache);
+            try
+            {
+                // Get the database path
+                var basePath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+                var dbPath = Path.Combine(basePath, DatabaseFilename);
+                
+                Debug.WriteLine($"Database path: {dbPath}");
+                
+                // Create the connection with write ahead logging for better concurrency
+                _database = new SQLiteAsyncConnection(dbPath, SQLiteOpenFlags.Create | 
+                                                             SQLiteOpenFlags.ReadWrite | 
+                                                             SQLiteOpenFlags.SharedCache);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error creating database connection: {ex.Message}");
+                throw;
+            }
         }
 
         /// <summary>
         /// Gets the database connection
         /// </summary>
-        public SQLiteAsyncConnection Database
-        {
-            get
-            {
-                if (!_isInitialized)
-                    throw new InvalidOperationException("Database not initialized. Call Initialize first.");
-                return _database;
-            }
-        }
+        public SQLiteAsyncConnection Database => _database;
 
         /// <summary>
         /// Initializes the database by creating tables
         /// </summary>
         public async Task Initialize(CancellationToken cancellationToken = default)
         {
-            // Use a semaphore to prevent multiple simultaneous initialization attempts
             if (_isInitialized)
                 return;
-                
-            await _initLock.WaitAsync(cancellationToken);
+            
+            await _initializationLock.WaitAsync(cancellationToken);
             
             try
             {
                 if (_isInitialized)
                     return;
-                    
-                _isInitializing = true;
-                Debug.WriteLine("Initializing database...");
                 
-                // Enable foreign keys
-                await _database.ExecuteAsync("PRAGMA foreign_keys = ON");
+                // Create tables for all our models
+                await _database.CreateTableAsync<User>(CreateFlags.None);
+                await _database.CreateTableAsync<Conversation>(CreateFlags.None);
+                await _database.CreateTableAsync<Message>(CreateFlags.None);
+                await _database.CreateTableAsync<AIModel>(CreateFlags.None);
                 
-                // Create tables
-                await _database.CreateTableAsync<User>();
-                await _database.CreateTableAsync<Conversation>();
-                await _database.CreateTableAsync<Message>();
-                await _database.CreateTableAsync<AIModel>();
-                //await _database.CreateTableAsync<APIKey>();
-                //await _database.CreateTableAsync<Setting>();
+                // Create test data if needed
+                await CreateTestUserIfNotExists();
+                await CreateDefaultAIModelsIfNotExists();
                 
-                // Set initialization flag
                 _isInitialized = true;
-                Debug.WriteLine("Database initialized successfully!");
+                Debug.WriteLine("Database initialized successfully");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error initializing database: {ex}");
-                throw; // Re-throw so callers know initialization failed
+                Debug.WriteLine($"Error initializing database: {ex.Message}");
+                throw;
             }
             finally
             {
-                _isInitializing = false;
-                _initLock.Release();
+                _initializationLock.Release();
             }
         }
-
+        
+        /// <summary>
+        /// Ensures the database is initialized safely
+        /// </summary>
+        public async Task SafeInitializeAsync()
+        {
+            try
+            {
+                await Initialize();
+                Debug.WriteLine("Database initialized safely");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to initialize database: {ex.Message}");
+            }
+        }
+        
         /// <summary>
         /// Creates a test user for development purposes
         /// </summary>
-        public async Task<User> CreateTestUserIfNotExists()
+        private async Task CreateTestUserIfNotExists()
         {
-            await Initialize();
-            
-            // Check if test user exists
-            var existingUser = await _database.Table<User>()
-                .Where(u => u.Username == "testuser")
-                .FirstOrDefaultAsync();
-
-            if (existingUser != null)
-                return existingUser;
-
-            // Create test user
-            var testUser = User.CreateTestUser();
-            await _database.InsertAsync(testUser);
-            return testUser;
+            try
+            {
+                // Check if any user exists
+                var userCount = await _database.Table<User>().CountAsync();
+                if (userCount == 0)
+                {
+                    var testUser = User.CreateTestUser();
+                    await _database.InsertAsync(testUser);
+                    Debug.WriteLine("Created test user");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error creating test user: {ex.Message}");
+            }
+        }
+        
+        /// <summary>
+        /// Creates default AI models for development purposes
+        /// </summary>
+        private async Task CreateDefaultAIModelsIfNotExists()
+        {
+            try
+            {
+                // Check if any models exist
+                var modelCount = await _database.Table<AIModel>().CountAsync();
+                if (modelCount == 0)
+                {
+                    var models = new[]
+                    {
+                        new AIModel 
+                        { 
+                            ModelName = "GPT-4 Turbo", 
+                            ProviderName = "OpenAI",
+                            IsAvailable = true,
+                            MaxTokens = 4096,
+                            DefaultTemperature = 0.7f
+                        },
+                        new AIModel 
+                        { 
+                            ModelName = "Claude 2", 
+                            ProviderName = "Anthropic",
+                            IsAvailable = true,
+                            MaxTokens = 8192,
+                            DefaultTemperature = 0.5f
+                        },
+                        new AIModel 
+                        { 
+                            ModelName = "Llama 2", 
+                            ProviderName = "Meta",
+                            IsAvailable = false,
+                            MaxTokens = 4096,
+                            DefaultTemperature = 0.6f
+                        }
+                    };
+                    
+                    foreach (var model in models)
+                    {
+                        await _database.InsertAsync(model);
+                    }
+                    
+                    Debug.WriteLine("Created default AI models");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error creating default AI models: {ex.Message}");
+            }
         }
         
         /// <summary>
@@ -117,57 +180,36 @@ namespace NexusChat.Data
         /// </summary>
         public async Task ClearAllData(CancellationToken cancellationToken = default)
         {
-            await Initialize(cancellationToken);
+            await _initializationLock.WaitAsync(cancellationToken);
             
             try
             {
-                // Delete in reverse order of dependency
-                // Don't pass the cancellation token to ExecuteAsync - it doesn't support it
-                await _database.ExecuteAsync("DELETE FROM Message");
-                cancellationToken.ThrowIfCancellationRequested();
+                // Delete data in order to avoid foreign key constraints
+                Debug.WriteLine("Clearing all data from database...");
                 
-                await _database.ExecuteAsync("DELETE FROM Conversation");
-                cancellationToken.ThrowIfCancellationRequested();
+                // First delete messages, which reference conversations
+                await _database.ExecuteAsync("DELETE FROM Messages");
+                Debug.WriteLine("Cleared Messages table");
                 
-                await _database.ExecuteAsync("DELETE FROM User");
-                cancellationToken.ThrowIfCancellationRequested();
+                // Then delete conversations, which reference users and models
+                await _database.ExecuteAsync("DELETE FROM Conversations");
+                Debug.WriteLine("Cleared Conversations table");
                 
-                await _database.ExecuteAsync("DELETE FROM AIModel");
+                // We'll keep the users and AI models, but you can uncomment these if needed
+                // await _database.ExecuteAsync("DELETE FROM Users");
+                // await _database.ExecuteAsync("DELETE FROM AIModels");
                 
-                Debug.WriteLine("All database data cleared");
+                Debug.WriteLine("All data cleared from database");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error clearing database: {ex}");
+                Debug.WriteLine($"Error clearing database: {ex.Message}");
                 throw;
             }
-        }
-    }
-
-    /// <summary>
-    /// Interface for startup initialization
-    /// </summary>
-    public interface IStartupInitializer
-    {
-        Task Initialize();
-    }
-
-    /// <summary>
-    /// Database initializer for startup
-    /// </summary>
-    public class DatabaseInitializer : IStartupInitializer
-    {
-        private readonly DatabaseService _databaseService;
-
-        public DatabaseInitializer(DatabaseService databaseService)
-        {
-            _databaseService = databaseService;
-        }
-
-        public async Task Initialize()
-        {
-            await _databaseService.Initialize();
-            await _databaseService.CreateTestUserIfNotExists();
+            finally
+            {
+                _initializationLock.Release();
+            }
         }
     }
 }

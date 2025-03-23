@@ -2,7 +2,8 @@
 <Application xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:local="clr-namespace:NexusChat"
-             xmlns:converters="clr-namespace:NexusChat.Converters"
+             xmlns:converters="clr-namespace:NexusChat.Views.Converters"
+             xmlns:styles="clr-namespace:NexusChat.Resources.Styles"
              x:Class="NexusChat.App">
     <Application.Resources>
         <ResourceDictionary>
@@ -10,10 +11,11 @@
                 <!-- Core resource files - order matters -->
                 <ResourceDictionary Source="Resources/Styles/Colors.xaml" />
                 <ResourceDictionary Source="Resources/Styles/Styles.xaml" />
-                
+                <!-- Add our message bubble styles -->
+                <styles:MessageBubbleStyles />
             </ResourceDictionary.MergedDictionaries>
             
-            <!-- Fix for FontAwesome icons - using existing color resources instead of PrimaryTextColor -->
+            <!-- Fix for FontAwesome icons -->
             <Style x:Key="AppThemeBindingFontAwesome" TargetType="Label">
                 <Setter Property="FontFamily" Value="FontAwesome-Solid" />
                 <Setter Property="HorizontalOptions" Value="Center" />
@@ -21,10 +23,18 @@
                 <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Black}, Dark={StaticResource White}}" />
             </Style>
             
+            <!-- Simple style for FontAwesome icons -->
+            <Style x:Key="FontAwesome" TargetType="Label">
+                <Setter Property="FontFamily" Value="FontAwesome-Solid" />
+                <Setter Property="HorizontalOptions" Value="Center" />
+                <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Black}, Dark={StaticResource White}}" />
+            </Style>
+            
             <!-- Converters -->
             <converters:BoolToColorConverter x:Key="BoolToColorConverter" />
             <converters:BoolToStringConverter x:Key="BoolToStringConverter" />
             <converters:InvertedBoolConverter x:Key="InvertedBoolConverter" />
+            <converters:TextToWidthConverter x:Key="TextToWidthConverter" />
             
             <!-- Common app color values -->
             <Color x:Key="Success">#28a745</Color>

@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="NexusChat.Views.Controls.StatusIndicators">
+    
+    <VerticalStackLayout Spacing="15">
+        <Label Text="STATUS INDICATORS" Style="{StaticResource HeaderLabelStyle}" Margin="0,20,0,0" />
+        
+        <!-- Progress Indicators -->
+        <Frame>
+            <VerticalStackLayout Spacing="15">
+                <Label Text="Progress Indicators" Style="{StaticResource SubHeaderLabelStyle}" />
+                
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Activity Indicators" FontSize="16" FontFamily="OpenSansSemiBold" />
+                    
+                    <HorizontalStackLayout Spacing="20">
+                        <ActivityIndicator IsRunning="True" Color="{StaticResource Primary}" />
+                        <ActivityIndicator IsRunning="True" Color="{StaticResource Success}" />
+                        <ActivityIndicator IsRunning="True" Color="{StaticResource Info}" />
+                    </HorizontalStackLayout>
+                </VerticalStackLayout>
+                
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Progress Bars" FontSize="16" FontFamily="OpenSansSemiBold" />
+                    
+                    <VerticalStackLayout Spacing="5">
+                        <Label Text="25% Complete" FontSize="12" />
+                        <ProgressBar Progress="0.25" ProgressColor="{StaticResource Primary}" />
+                    </VerticalStackLayout>
+                    
+                    <VerticalStackLayout Spacing="5">
+                        <Label Text="50% Complete" FontSize="12" />
+                        <ProgressBar Progress="0.5" ProgressColor="{StaticResource Success}" />
+                    </VerticalStackLayout>
+                    
+                    <VerticalStackLayout Spacing="5">
+                        <Label Text="75% Complete" FontSize="12" />
+                        <ProgressBar Progress="0.75" ProgressColor="{StaticResource Info}" />
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </VerticalStackLayout>
+        </Frame>
+
+        <!-- Alerts and Status Cards -->
+        <Frame>
+            <VerticalStackLayout Spacing="15">
+                <Label Text="Alerts and Status Cards" Style="{StaticResource SubHeaderLabelStyle}" />
+                
+                <!-- Success Alert -->
+                <Frame BackgroundColor="{AppThemeBinding Light=#d4edda, Dark=#1e382a}" BorderColor="{AppThemeBinding Light=#c3e6cb, Dark=#275e3f}">
+                    <Grid ColumnDefinitions="Auto,*">
+                        <Label Text="&#xf058;" FontFamily="FontAwesome-Solid" TextColor="{StaticResource Success}" FontSize="24" VerticalOptions="Start" />
+                        <VerticalStackLayout Grid.Column="1" Spacing="5" Margin="10,0,0,0">
+                            <Label Text="Operation Successful" FontAttributes="Bold" />
+                            <Label Text="Your message was sent successfully." TextColor="{StaticResource SecondaryTextColor}" />
+                        </VerticalStackLayout>
+                    </Grid>
+                </Frame>
+                
+                <!-- Warning Alert -->
+                <Frame BackgroundColor="{AppThemeBinding Light=#fff3cd, Dark=#382e1e}" BorderColor="{AppThemeBinding Light=#ffeeba, Dark=#5e4c27}">
+                    <Grid ColumnDefinitions="Auto,*">
+                        <Label Text="&#xf071;" FontFamily="FontAwesome-Solid" TextColor="{StaticResource Warning}" FontSize="24" VerticalOptions="Start" />
+                        <VerticalStackLayout Grid.Column="1" Spacing="5" Margin="10,0,0,0">
+                            <Label Text="Warning" FontAttributes="Bold" />
+                            <Label Text="This action cannot be undone. Please proceed with caution." TextColor="{StaticResource SecondaryTextColor}" />
+                        </VerticalStackLayout>
+                    </Grid>
+                </Frame>
+                
+                <!-- Error Alert -->
+                <Frame BackgroundColor="{AppThemeBinding Light=#f8d7da, Dark=#38201e}" BorderColor="{AppThemeBinding Light=#f5c6cb, Dark=#5e2c27}">
+                    <Grid ColumnDefinitions="Auto,*,Auto">
+                        <Label Text="&#xf06a;" FontFamily="FontAwesome-Solid" TextColor="{StaticResource Error}" FontSize="24" VerticalOptions="Start" />
+                        <VerticalStackLayout Grid.Column="1" Spacing="5" Margin="10,0,0,0">
+                            <Label Text="Error" FontAttributes="Bold" />
+                            <Label Text="Failed to connect to server. Please check your internet connection." TextColor="{StaticResource SecondaryTextColor}" />
+                        </VerticalStackLayout>
+                        <Button Grid.Column="2" Text="&#xf00d;" Style="{StaticResource IconButton}" BackgroundColor="Transparent" 
+                                TextColor="{StaticResource Error}" WidthRequest="30" HeightRequest="30" Padding="0" />
+                    </Grid>
+                </Frame>
+            </VerticalStackLayout>
+        </Frame>
+    </VerticalStackLayout>
+</ContentView>

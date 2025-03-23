@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:NexusChat.Core.ViewModels.DevTools"
+             xmlns:converters="clr-namespace:NexusChat.Views.Converters"
+             xmlns:components="clr-namespace:NexusChat.Views.Controls"
+             x:Class="NexusChat.Views.Pages.DevTools.ThemesPage"
+             Shell.NavBarIsVisible="False"
+             Title="UI Component Reference">
+
+    <ContentPage.Resources>
+        <ResourceDictionary>
+            <converters:BoolToStringConverter x:Key="ConnectedConverter" 
+                                             TrueValue="Online" 
+                                             FalseValue="Offline" />
+        </ResourceDictionary>
+    </ContentPage.Resources>
+
+    <Grid RowDefinitions="Auto,*">
+        <!-- Fixed Controls Bar -->
+        <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackground}}"
+              Padding="15,10" ColumnSpacing="15">
+            
+            <Button Text="&#xf060;" 
+                    Command="{Binding GoBackCommand}"
+                    Style="{StaticResource IconButton}"
+                    ToolTipProperties.Text="Go Back"
+                    SemanticProperties.Description="Go back to previous page" />
+                    
+            <Label Grid.Column="1" 
+                   Text="UI Component Library" 
+                   Style="{StaticResource HeaderLabelStyle}"
+                   VerticalOptions="Center" />
+                   
+            <HorizontalStackLayout Grid.Column="2" Spacing="10">
+                <HorizontalStackLayout Spacing="5" VerticalOptions="Center" IsVisible="{Binding IsNotUsingSystemTheme}">
+                    <Label Text="&#xf186;" 
+                           Style="{StaticResource FontAwesome}" 
+                           FontSize="18" 
+                           VerticalOptions="Center" />
+                    <Switch IsToggled="{Binding IsDarkTheme}" 
+                            Toggled="ThemeSwitch_Toggled"
+                            OnColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Primary}}"
+                            ThumbColor="White" />
+                    <Label Text="&#xf185;" 
+                           Style="{StaticResource FontAwesome}" 
+                           FontSize="18" 
+                           VerticalOptions="Center" />
+                </HorizontalStackLayout>
+                
+                <Label Style="{StaticResource FontAwesome}" 
+                       Text="{Binding ThemeIconText}" 
+                       FontSize="18">
+                    <Label.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding ToggleUseSystemThemeCommand}" />
+                    </Label.GestureRecognizers>
+                </Label>
+            </HorizontalStackLayout>
+        </Grid>
+
+        <!-- Page Loading Indicator -->
+        <Grid Grid.Row="1" IsVisible="{Binding IsPageLoading}" BackgroundColor="{AppThemeBinding Light={StaticResource Background}, Dark={StaticResource Background}}">
+            <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center" Spacing="20">
+                <ActivityIndicator IsRunning="{Binding IsPageLoading}" 
+                                  Color="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Primary}}" 
+                                  HeightRequest="50" WidthRequest="50" />
+                <Label Text="Loading components..." 
+                       FontAttributes="Bold" 
+                       HorizontalOptions="Center" />
+            </VerticalStackLayout>
+        </Grid>
+
+        <!-- Main Content (Hidden until loaded) -->
+        <ScrollView Grid.Row="1" IsVisible="{Binding IsPageLoading, Converter={StaticResource InvertedBoolConverter}}">
+            <VerticalStackLayout x:Name="ComponentsContainer" Spacing="20" Padding="20">
+                <!-- Theme Info Panel -->
+                <Frame>
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="Current Theme Settings" Style="{StaticResource HeaderLabelStyle}" />
+                        <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="15" RowSpacing="10">
+                            <Label Text="Theme Mode:" FontAttributes="Bold" />
+                            <Label Grid.Column="1" Text="{Binding CurrentThemeText}" />
+                            
+                            <Label Grid.Row="1" Text="System Theme:" FontAttributes="Bold" />
+                            <Label Grid.Row="1" Grid.Column="1" Text="{Binding SystemThemeText}" />
+                            
+                            <Label Grid.Row="2" Text="Theme Source:" FontAttributes="Bold" />
+                            <Label Grid.Row="2" Grid.Column="1" Text="{Binding UseSystemTheme, Converter={StaticResource ConnectedConverter}, ConverterParameter='System|Manual'}" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </Frame>
+
+                <!-- Component Sections - Load on demand by tabs -->
+                <VerticalStackLayout Spacing="15">
+                    <!-- Tab Selection Panel -->
+                    <Label Text="Select Component Category" FontSize="16" FontFamily="OpenSansSemiBold" />
+                    
+                    <!-- Replace ScrollView with FlexLayout -->
+                    <FlexLayout Wrap="Wrap" JustifyContent="Start" AlignItems="Center"
+                                Margin="0,0,0,10"
+                                BindableLayout.ItemsSource="{Binding ComponentCategories}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="x:String">
+                                <Button Text="{Binding}"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:ThemesPageViewModel}}, Path=SelectComponentCommand}"
+                                        CommandParameter="{Binding}"
+                                        Margin="0,5,8,5"
+                                        HeightRequest="40"
+                                        MinimumWidthRequest="120"
+                                        WidthRequest="{Binding Length, Converter={StaticResource TextToWidthConverter}, ConverterParameter=20}" />
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </FlexLayout>
+
+                    <!-- Component Display Area -->
+                    <Grid>
+                        <!-- Component Loading Indicator -->
+                        <ActivityIndicator IsRunning="{Binding IsComponentLoading}" 
+                                          IsVisible="{Binding IsComponentLoading}"
+                                          Color="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Primary}}"
+                                          HorizontalOptions="Center" 
+                                          VerticalOptions="Center" 
+                                          HeightRequest="40" 
+                                          WidthRequest="40" />
+                        
+                        <ContentView x:Name="ComponentDisplay" Margin="0,10,0,0">
+                            <Frame BackgroundColor="{AppThemeBinding Light=WhiteSmoke, Dark=#333333}" Padding="20">
+                                <VerticalStackLayout HorizontalOptions="Center" VerticalOptions="Center">
+                                    <Label Text="Select a component category from above to view examples" 
+                                           HorizontalOptions="Center"
+                                           TextColor="{StaticResource SecondaryTextColor}" />
+                                </VerticalStackLayout>
+                            </Frame>
+                        </ContentView>
+                    </Grid>
+                </VerticalStackLayout>
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>

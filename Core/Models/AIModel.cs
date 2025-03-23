@@ -1,11 +1,12 @@
-using SQLite;
 using System;
+using SQLite;
 
-namespace NexusChat.Models
+namespace NexusChat.Core.Models
 {
     /// <summary>
     /// Represents an AI model that can be used for conversations
     /// </summary>
+    [Table("AIModels")]
     public class AIModel
     {
         /// <summary>
@@ -15,58 +16,65 @@ namespace NexusChat.Models
         public int Id { get; set; }
         
         /// <summary>
-        /// Name of the AI provider (e.g., OpenAI, Anthropic)
+        /// Name of the model (e.g., "GPT-4", "Claude 2")
+        /// </summary>
+        [NotNull, MaxLength(50)]
+        public string ModelName { get; set; }
+        
+        /// <summary>
+        /// Provider of the model (e.g., "OpenAI", "Anthropic")
         /// </summary>
         [NotNull, MaxLength(50)]
         public string ProviderName { get; set; }
         
         /// <summary>
-        /// Name of the specific model (e.g., GPT-4, Claude-2)
-        /// </summary>
-        [NotNull, MaxLength(100)]
-        public string ModelName { get; set; }
-        
-        /// <summary>
-        /// Description of the model capabilities
+        /// Description of the model's capabilities
         /// </summary>
         [MaxLength(500)]
         public string Description { get; set; }
         
         /// <summary>
-        /// Maximum tokens the model can process
+        /// Whether the model is currently available
+        /// </summary>
+        public bool IsAvailable { get; set; }
+        
+        /// <summary>
+        /// Maximum number of tokens the model can process
         /// </summary>
         public int MaxTokens { get; set; }
         
         /// <summary>
-        /// Default temperature setting
+        /// Default temperature setting for the model
         /// </summary>
-        public float DefaultTemperature { get; set; } = 0.7f;
+        public float DefaultTemperature { get; set; }
         
         /// <summary>
-        /// Whether the model is currently available for use
+        /// Default constructor
         /// </summary>
-        public bool IsAvailable { get; set; } = true;
-        
-        /// <summary>
-        /// Path to the model's icon
-        /// </summary>
-        public string IconPath { get; set; }
-        
-        /// <summary>
-        /// Creates a test AI model for development purposes
-        /// </summary>
-        public static AIModel CreateTestModel()
+        public AIModel()
         {
-            return new AIModel
-            {
-                ProviderName = "OpenAI",
-                ModelName = "GPT-4",
-                Description = "Advanced language model for general purpose AI tasks",
-                MaxTokens = 8192,
-                DefaultTemperature = 0.7f,
-                IsAvailable = true,
-                IconPath = "openai_logo.png"
-            };
+            IsAvailable = true;
+            DefaultTemperature = 0.7f;
+        }
+        
+        /// <summary>
+        /// Creates an AI model with basic information
+        /// </summary>
+        public AIModel(string modelName, string providerName, int maxTokens)
+        {
+            ModelName = modelName;
+            ProviderName = providerName;
+            MaxTokens = maxTokens;
+            IsAvailable = true;
+            DefaultTemperature = 0.7f;
+        }
+        
+        /// <summary>
+        /// String representation for debugging
+        /// </summary>
+        public override string ToString()
+        {
+            return $"{ModelName} by {ProviderName}";
         }
     }
 }

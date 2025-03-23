@@ -1,13 +1,14 @@
-using SQLite;
-using SQLiteNetExtensions.Attributes;
 using System;
 using System.Collections.Generic;
+using SQLite;
+using SQLiteNetExtensions.Attributes;
 
-namespace NexusChat.Models
+namespace NexusChat.Core.Models
 {
     /// <summary>
-    /// Represents a conversation thread between a user and an AI model
+    /// Represents a conversation between a user and an AI
     /// </summary>
+    [Table("Conversations")]
     public class Conversation
     {
         /// <summary>
@@ -24,24 +25,30 @@ namespace NexusChat.Models
         public int UserId { get; set; }
         
         /// <summary>
-        /// Title of the conversation
+        /// AI model used for this conversation
+        /// </summary>
+        [ForeignKey(typeof(AIModel))]
+        public int ModelId { get; set; }
+        
+        /// <summary>
+        /// Title/name of the conversation
         /// </summary>
         [MaxLength(100)]
         public string Title { get; set; }
         
         /// <summary>
-        /// AI model used for this conversation
+        /// Optional category for organization
         /// </summary>
-        [ForeignKey(typeof(AIModel))]
-        public int? ModelId { get; set; }
+        [MaxLength(50)]
+        public string Category { get; set; }
         
         /// <summary>
-        /// Date and time when the conversation was created
+        /// When the conversation was created
         /// </summary>
         public DateTime CreatedAt { get; set; }
         
         /// <summary>
-        /// Date and time when the conversation was last updated
+        /// When the conversation was last updated
         /// </summary>
         public DateTime UpdatedAt { get; set; }
         
@@ -51,159 +58,76 @@ namespace NexusChat.Models
         public bool IsFavorite { get; set; }
         
         /// <summary>
-        /// Category for organization/filtering
+        /// Whether the conversation is archived
         /// </summary>
-        [MaxLength(50)]
-        public string Category { get; set; }
+        public bool IsArchived { get; set; }
         
         /// <summary>
-        /// Summary of the conversation (auto-generated or user-edited)
-        /// </summary>
-        [MaxLength(200)]
-        public string Summary { get; set; }
-        
-        /// <summary>
-        /// Total token count used in this conversation
+        /// Total tokens used in this conversation
         /// </summary>
         public int TotalTokensUsed { get; set; }
         
         /// <summary>
-        /// Navigation property for the user who owns this conversation
+        /// Brief summary of the conversation content
+        /// </summary>
+        [MaxLength(500)]
+        public string Summary { get; set; }
+        
+        /// <summary>
+        /// Navigation property for the user
         /// </summary>
         [ManyToOne]
         public User User { get; set; }
         
         /// <summary>
-        /// Navigation property for the AI model used in this conversation
+        /// Navigation property for the AI model
         /// </summary>
-        [OneToOne]
+        [ManyToOne]
         public AIModel Model { get; set; }
         
         /// <summary>
-        /// Navigation property for the messages in this conversation
+        /// Navigation property for messages in this conversation
         /// </summary>
-        [OneToMany(CascadeOperations = CascadeOperation.All)]
+        [OneToMany]
         public List<Message> Messages { get; set; }
         
         /// <summary>
-        /// Default constructor required by SQLite
+        /// Default constructor
         /// </summary>
         public Conversation()
         {
-            Messages = new List<Message>();
-            CreatedAt = DateTime.UtcNow;
-            UpdatedAt = DateTime.UtcNow;
-        }
-        
-        /// <summary>
-        /// Creates a conversation with basic required properties
-        /// </summary>
-        public Conversation(int userId, string title = null, int? modelId = null)
-        {
-            UserId = userId;
-            Title = title ?? "New Conversation";
-            ModelId = modelId;
             CreatedAt = DateTime.UtcNow;
             UpdatedAt = DateTime.UtcNow;
             IsFavorite = false;
-            Messages = new List<Message>();
+            IsArchived = false;
             TotalTokensUsed = 0;
+            Messages = new List<Message>();
         }
         
         /// <summary>
-        /// Validates the conversation model
+        /// Creates a conversation with basic information
         /// </summary>
-        /// <param name="errorMessage">Error message if validation fails</param>
-        /// <returns>True if valid, false otherwise</returns>
-        public bool Validate(out string errorMessage)
+        public Conversation(int userId, int modelId, string title = null)
         {
-            // UserId validation
-            if (UserId <= 0)
-            {
-                errorMessage = "Valid user ID is required";
-                return false;
-            }
-            
-            // Title validation
-            if (string.IsNullOrWhiteSpace(Title))
-            {
-                errorMessage = "Conversation title is required";
-                return false;
-            }
-            
-            if (Title.Length > 100)
-            {
-                errorMessage = "Conversation title cannot exceed 100 characters";
-                return false;
-            }
-            
-            // Category validation
-            if (!string.IsNullOrWhiteSpace(Category) && Category.Length > 50)
-            {
-                errorMessage = "Category cannot exceed 50 characters";
-                return false;
-            }
-            
-            // Summary validation
-            if (!string.IsNullOrWhiteSpace(Summary) && Summary.Length > 200)
-            {
-                errorMessage = "Summary cannot exceed 200 characters";
-                return false;
-            }
-            
-            // All validations passed
-            errorMessage = null;
-            return true;
-        }
-        
-        /// <summary>
-        /// Updates the last modified timestamp
-        /// </summary>
-        public void Touch()
-        {
+            UserId = userId;
+            ModelId = modelId;
+            Title = title ?? "New Conversation";
+            CreatedAt = DateTime.UtcNow;
             UpdatedAt = DateTime.UtcNow;
+            IsFavorite = false;
+            IsArchived = false;
+            TotalTokensUsed = 0;
+            Messages = new List<Message>();
         }
         
         /// <summary>
-        /// Adds a token count to the total
+        /// Updates the conversation with a new message's token count
         /// </summary>
-        public void AddTokens(int tokens)
+        /// <param name="tokensUsed">Number of tokens used in the new message</param>
+        public void AddTokens(int tokensUsed)
         {
-            if (tokens > 0)
-            {
-                TotalTokensUsed += tokens;
-                Touch();
-            }
-        }
-        
-        /// <summary>
-        /// Toggles the favorite status
-        /// </summary>
-        /// <returns>The new favorite status</returns>
-        public bool ToggleFavorite()
-        {
-            IsFavorite = !IsFavorite;
-            Touch();
-            return IsFavorite;
-        }
-        
-        /// <summary>
-        /// Creates a test conversation for development purposes
-        /// </summary>
-        public static Conversation CreateTestConversation(int userId = 1, int? modelId = 1)
-        {
-            return new Conversation
-            {
-                UserId = userId,
-                Title = "Test Conversation",
-                ModelId = modelId,
-                CreatedAt = DateTime.UtcNow.AddDays(-3), // Created 3 days ago
-                UpdatedAt = DateTime.UtcNow.AddHours(-5), // Updated 5 hours ago
-                IsFavorite = true,
-                Category = "Testing",
-                Summary = "This is a test conversation created for development purposes.",
-                TotalTokensUsed = 1250
-            };
+            TotalTokensUsed += tokensUsed;
+            UpdatedAt = DateTime.UtcNow;
         }
         
         /// <summary>
@@ -211,7 +135,23 @@ namespace NexusChat.Models
         /// </summary>
         public override string ToString()
         {
-            return $"Conversation: {Title} (ID: {Id}, UserId: {UserId})";
+            return $"Conversation: {Title} (ID: {Id}, Messages: {Messages?.Count ?? 0})";
+        }
+        
+        /// <summary>
+        /// Creates a test conversation for development purposes
+        /// </summary>
+        public static Conversation CreateTestConversation(int userId = 1, int modelId = 1)
+        {
+            return new Conversation
+            {
+                UserId = userId,
+                ModelId = modelId,
+                Title = "Test Conversation",
+                CreatedAt = DateTime.UtcNow.AddHours(-1),
+                UpdatedAt = DateTime.UtcNow,
+                TotalTokensUsed = 0
+            };
         }
     }
 }

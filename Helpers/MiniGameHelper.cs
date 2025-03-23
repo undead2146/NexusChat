@@ -29,8 +29,8 @@ namespace NexusChat.Helpers
         
         // Constants
         private const int COMBO_TIMEOUT_MS = 1500;
-        private const double MAX_SCALE = 1.25;
-        private const int MAX_STARS = 5;
+        private const double MAX_SCALE = 2.25;
+        private const int MAX_STARS = 10;
         private const string INITIAL_BUTTON_TEXT = "Click Me!";
 
         /// <summary>

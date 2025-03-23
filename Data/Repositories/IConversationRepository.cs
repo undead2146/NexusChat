@@ -14,13 +14,13 @@ namespace NexusChat.Data.Repositories
         /// Gets conversations for a specific user
         /// </summary>
         /// <param name="userId">The user identifier</param>
-        /// <param name="limit">Maximum number of conversations to return</param>
-        /// <param name="offset">Starting offset for pagination</param>
+        /// <param name="limit">Maximum number of conversations to return (for pagination)</param>
+        /// <param name="offset">Starting offset (for pagination)</param>
         /// <param name="cancellationToken">Optional cancellation token</param>
-        /// <returns>List of user's conversations</returns>
+        /// <returns>List of conversations for the user</returns>
         Task<List<Conversation>> GetByUserIdAsync(
             int userId, 
-            int limit = 100, 
+            int limit = 50, 
             int offset = 0, 
             CancellationToken cancellationToken = default);
             

@@ -1,33 +1,48 @@
 using System;
 using System.Globalization;
 using Microsoft.Maui.Controls;
+using Microsoft.Maui.Graphics;
 
-namespace NexusChat.Converters
+namespace NexusChat.Views.Converters
 {
+    /// <summary>
+    /// Converter that changes color based on a boolean value
+    /// </summary>
     public class BoolToColorConverter : IValueConverter
     {
+        /// <summary>
+        /// Gets or sets the color to use when the value is true
+        /// </summary>
+        public object TrueValue { get; set; }
+        
+        /// <summary>
+        /// Gets or sets the color to use when the value is false
+        /// </summary>
+        public object FalseValue { get; set; }
+        
+        /// <summary>
+        /// Converts a boolean to a color
+        /// </summary>
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
             if (value is bool boolValue)
             {
-                // Parse parameter if provided (format: "TrueColor|FalseColor")
-                string[] colorNames = parameter?.ToString().Split('|');
-                
-                if (colorNames != null && colorNames.Length >= 2)
+                // If the parameter is true, invert the logic
+                if (parameter is bool invertLogic && invertLogic)
                 {
-                    // Look up colors by name
-                    string colorName = boolValue ? colorNames[0] : colorNames[1];
-                    if (Application.Current.Resources.TryGetValue(colorName, out var color))
-                        return color;
+                    boolValue = !boolValue;
                 }
                 
-                // Default colors if parameter parsing fails
-                return boolValue ? Colors.Green : Colors.Red;
+                return boolValue ? TrueValue : FalseValue;
             }
             
-            return Colors.Gray; // Default for non-boolean values
+            // Default to the false value if the input isn't a boolean
+            return FalseValue;
         }
-
+        
+        /// <summary>
+        /// Not implemented - converting from color to boolean
+        /// </summary>
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         {
             throw new NotImplementedException();

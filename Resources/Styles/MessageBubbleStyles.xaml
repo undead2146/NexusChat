@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ResourceDictionary 
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    x:Class="NexusChat.Resources.Styles.MessageBubbleStyles">
+
+    <!-- User message styles -->
+    <Style x:Key="MessageBubbleUserFrame" TargetType="Frame">
+        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light=#e3f2fd, Dark=#0d47a1}" />
+        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="Padding" Value="12,8" />
+        <Setter Property="BorderColor" Value="Transparent" />
+        <Setter Property="HasShadow" Value="False" />
+    </Style>
+    
+    <!-- AI message styles -->
+    <Style x:Key="MessageBubbleAIFrame" TargetType="Frame">
+        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light=#f0f0f0, Dark=#303030}" />
+        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="Padding" Value="12,8" />
+        <Setter Property="BorderColor" Value="Transparent" />
+        <Setter Property="HasShadow" Value="False" />
+    </Style>
+    
+    <!-- Message content text style -->
+    <Style x:Key="MessageContentStyle" TargetType="Label">
+        <Setter Property="TextColor" Value="{AppThemeBinding Light=Black, Dark=White}" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="LineBreakMode" Value="WordWrap" />
+    </Style>
+</ResourceDictionary>

@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="NexusChat.Views.Controls.Buttons">
+    
+    <VerticalStackLayout Spacing="15">
+        <Label Text="INTERACTIVE CONTROLS" Style="{StaticResource HeaderLabelStyle}" Margin="0,20,0,0" />
+        
+        <!-- Buttons -->
+        <Frame>
+            <VerticalStackLayout Spacing="15">
+                <Label Text="Buttons" Style="{StaticResource SubHeaderLabelStyle}" />
+                
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="10" RowDefinitions="Auto,Auto,Auto" RowSpacing="10">
+                    <!-- Standard Buttons -->
+                    <Button Grid.Row="0" Grid.Column="0" Text="Primary Button" />
+                    <Button Grid.Row="0" Grid.Column="1" Text="Disabled Button" IsEnabled="False" />
+                    
+                    <!-- Outline Buttons -->
+                    <Button Grid.Row="1" Grid.Column="0" Text="Outline Button" Style="{StaticResource OutlineButton}" />
+                    <Button Grid.Row="1" Grid.Column="1" Text="Disabled Outline" Style="{StaticResource OutlineButton}" IsEnabled="False" />
+                </Grid>
+                
+                <!-- Advanced Buttons -->
+                <Label Text="Advanced Buttons" FontSize="16" FontFamily="OpenSansSemiBold" Margin="0,15,0,5" />
+                <HorizontalStackLayout HorizontalOptions="Start" Spacing="10">
+                    <!-- Button with icon and text -->
+                    <Border Stroke="{StaticResource Primary}" 
+                        BackgroundColor="{StaticResource Primary}"
+                        StrokeShape="RoundRectangle 10"
+                        Padding="12,8"
+                        HorizontalOptions="Start">
+                        <HorizontalStackLayout Spacing="5">
+                            <Label Text="&#xf019;" FontFamily="FontAwesome-Solid" TextColor="White" VerticalOptions="Center" />
+                            <Label Text="Download" TextColor="White" FontFamily="OpenSansSemiBold" VerticalOptions="Center" />
+                        </HorizontalStackLayout>
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding DownloadCommand}" />
+                        </Border.GestureRecognizers>
+                    </Border>
+                    
+                    <!-- Button with badge -->
+                    <Grid HorizontalOptions="Start">
+                        <Button Style="{StaticResource IconButton}" Text="&#xf0f3;" ToolTipProperties.Text="Notifications" />
+                        <Border BackgroundColor="{StaticResource Error}" HeightRequest="18" WidthRequest="18" 
+                            StrokeShape="RoundRectangle 9" HorizontalOptions="End" VerticalOptions="Start"
+                            Margin="0,-5,-5,0">
+                            <Label Text="3" TextColor="White" FontSize="10" FontAttributes="Bold" 
+                                HorizontalOptions="Center" VerticalOptions="Center" />
+                        </Border>
+                    </Grid>
+                </HorizontalStackLayout>
+
+                <!-- Icon Buttons -->
+                <Label Text="Icon Buttons" FontSize="16" FontFamily="OpenSansSemiBold" Margin="0,10,0,5" />
+                <HorizontalStackLayout HorizontalOptions="Start" Spacing="10">
+                    <Button Text="&#xf067;" Style="{StaticResource IconButton}" ToolTipProperties.Text="Add new" />
+                    <Button Text="&#xf00c;" Style="{StaticResource IconButton}" ToolTipProperties.Text="Save" />
+                    <Button Text="&#xf00d;" Style="{StaticResource IconButton}" ToolTipProperties.Text="Close" />
+                    <Button Text="&#xf013;" Style="{StaticResource IconButton}" ToolTipProperties.Text="Settings" />
+                    <Button Text="&#xf1d8;" Style="{StaticResource IconButton}" ToolTipProperties.Text="Send" />
+                </HorizontalStackLayout>
+            </VerticalStackLayout>
+        </Frame>
+    </VerticalStackLayout>
+</ContentView>

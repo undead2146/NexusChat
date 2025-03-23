@@ -8,46 +8,52 @@ namespace NexusChat.Data.Repositories
     /// <summary>
     /// Generic repository interface for data access operations
     /// </summary>
-    /// <typeparam name="T">The entity type</typeparam>
+    /// <typeparam name="T">Entity type</typeparam>
     public interface IRepository<T> where T : class
     {
         /// <summary>
-        /// Gets entity by its identifier
+        /// Gets an entity by its identifier
         /// </summary>
-        /// <param name="id">The entity identifier</param>
+        /// <param name="id">Entity identifier</param>
         /// <param name="cancellationToken">Optional cancellation token</param>
-        /// <returns>The entity, or null if not found</returns>
+        /// <returns>Entity if found, null otherwise</returns>
         Task<T> GetByIdAsync(int id, CancellationToken cancellationToken = default);
         
         /// <summary>
         /// Gets all entities
         /// </summary>
         /// <param name="cancellationToken">Optional cancellation token</param>
-        /// <returns>List of entities</returns>
+        /// <returns>List of all entities</returns>
         Task<List<T>> GetAllAsync(CancellationToken cancellationToken = default);
         
         /// <summary>
         /// Adds a new entity
         /// </summary>
-        /// <param name="entity">The entity to add</param>
+        /// <param name="entity">Entity to add</param>
         /// <param name="cancellationToken">Optional cancellation token</param>
-        /// <returns>The added entity with its generated ID</returns>
+        /// <returns>Added entity with assigned identifier</returns>
         Task<T> AddAsync(T entity, CancellationToken cancellationToken = default);
         
         /// <summary>
         /// Updates an existing entity
         /// </summary>
-        /// <param name="entity">The entity to update</param>
+        /// <param name="entity">Entity to update</param>
         /// <param name="cancellationToken">Optional cancellation token</param>
-        /// <returns>The updated entity</returns>
-        Task<T> UpdateAsync(T entity, CancellationToken cancellationToken = default);
+        /// <returns>True if update succeeded, false otherwise</returns>
+        Task<bool> UpdateAsync(T entity, CancellationToken cancellationToken = default);
         
         /// <summary>
-        /// Deletes an entity
+        /// Deletes an entity by its identifier
         /// </summary>
-        /// <param name="id">The entity identifier</param>
+        /// <param name="id">Entity identifier</param>
         /// <param name="cancellationToken">Optional cancellation token</param>
-        /// <returns>True if deleted, false if not found</returns>
+        /// <returns>True if deletion succeeded, false otherwise</returns>
         Task<bool> DeleteAsync(int id, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Ensures the database is initialized
+        /// </summary>
+        /// <param name="cancellationToken">Optional cancellation token</param>
+        Task EnsureDatabaseAsync(CancellationToken cancellationToken = default);
     }
 }

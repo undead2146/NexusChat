@@ -4,11 +4,12 @@ using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using NexusChat.Data.Context;
+using SQLite;
 
 namespace NexusChat.Data.Repositories
 {
     /// <summary>
-    /// Base repository implementation with common functionality
+    /// Base repository implementation for data access operations
     /// </summary>
     /// <typeparam name="T">Entity type</typeparam>
     public abstract class BaseRepository<T> : IRepository<T> where T : class, new()
@@ -19,13 +20,29 @@ namespace NexusChat.Data.Repositories
         /// Initializes a new repository instance
         /// </summary>
         /// <param name="databaseService">Database service</param>
-        public BaseRepository(DatabaseService databaseService)
+        protected BaseRepository(DatabaseService databaseService)
         {
             _databaseService = databaseService ?? throw new ArgumentNullException(nameof(databaseService));
         }
         
         /// <summary>
-        /// Gets entity by its identifier
+        /// Ensures the database is initialized
+        /// </summary>
+        public virtual async Task EnsureDatabaseAsync(CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                await _databaseService.Initialize(cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error initializing database: {ex.Message}");
+                throw;
+            }
+        }
+        
+        /// <summary>
+        /// Gets an entity by its identifier
         /// </summary>
         public virtual async Task<T> GetByIdAsync(int id, CancellationToken cancellationToken = default)
         {
@@ -36,7 +53,7 @@ namespace NexusChat.Data.Repositories
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error in {GetType().Name}.GetByIdAsync: {ex.Message}");
+                Debug.WriteLine($"Error in GetByIdAsync: {ex.Message}");
                 throw;
             }
         }
@@ -53,7 +70,7 @@ namespace NexusChat.Data.Repositories
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error in {GetType().Name}.GetAllAsync: {ex.Message}");
+                Debug.WriteLine($"Error in GetAllAsync: {ex.Message}");
                 throw;
             }
         }
@@ -63,8 +80,6 @@ namespace NexusChat.Data.Repositories
         /// </summary>
         public virtual async Task<T> AddAsync(T entity, CancellationToken cancellationToken = default)
         {
-            if (entity == null) throw new ArgumentNullException(nameof(entity));
-            
             try
             {
                 await _databaseService.Initialize(cancellationToken);
@@ -73,7 +88,7 @@ namespace NexusChat.Data.Repositories
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error in {GetType().Name}.AddAsync: {ex.Message}");
+                Debug.WriteLine($"Error in AddAsync: {ex.Message}");
                 throw;
             }
         }
@@ -81,40 +96,35 @@ namespace NexusChat.Data.Repositories
         /// <summary>
         /// Updates an existing entity
         /// </summary>
-        public virtual async Task<T> UpdateAsync(T entity, CancellationToken cancellationToken = default)
+        public virtual async Task<bool> UpdateAsync(T entity, CancellationToken cancellationToken = default)
         {
-            if (entity == null) throw new ArgumentNullException(nameof(entity));
-            
             try
             {
                 await _databaseService.Initialize(cancellationToken);
-                await _databaseService.Database.UpdateAsync(entity);
-                return entity;
+                int result = await _databaseService.Database.UpdateAsync(entity);
+                return result > 0;
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error in {GetType().Name}.UpdateAsync: {ex.Message}");
+                Debug.WriteLine($"Error in UpdateAsync: {ex.Message}");
                 throw;
             }
         }
         
         /// <summary>
-        /// Deletes an entity
+        /// Deletes an entity by its identifier
         /// </summary>
         public virtual async Task<bool> DeleteAsync(int id, CancellationToken cancellationToken = default)
         {
             try
             {
                 await _databaseService.Initialize(cancellationToken);
-                var entity = await GetByIdAsync(id, cancellationToken);
-                if (entity == null) return false;
-                
-                int result = await _databaseService.Database.DeleteAsync(entity);
+                int result = await _databaseService.Database.DeleteAsync<T>(id);
                 return result > 0;
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error in {GetType().Name}.DeleteAsync: {ex.Message}");
+                Debug.WriteLine($"Error in DeleteAsync: {ex.Message}");
                 throw;
             }
         }

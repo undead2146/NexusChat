@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:converters="clr-namespace:NexusChat.Views.Converters"
+             x:Class="NexusChat.Views.Controls.MessageBubble">
+
+    <ContentView.Resources>
+        <ResourceDictionary>
+            <converters:BoolToAlignmentConverter x:Key="BoolToAlignmentConverter" 
+                                               TrueValue="Start" 
+                                               FalseValue="End" />
+            <converters:DateTimeToTimeStringConverter x:Key="DateTimeToTimeStringConverter" />
+        </ResourceDictionary>
+    </ContentView.Resources>
+    
+    <Grid x:Name="MainGrid" 
+          Padding="2,4" 
+          WidthRequest="300">
+        <Frame x:Name="MessageFrame" 
+               MaximumWidthRequest="300"
+               Margin="2">
+            <StackLayout Spacing="4">
+                <Label x:Name="ContentLabel"
+                       LineBreakMode="WordWrap"
+                       FontSize="14" />
+                
+                <Label x:Name="StatusLabel"
+                       FontSize="10"
+                       TextColor="{AppThemeBinding Light=#757575, Dark=#aaaaaa}"
+                       HorizontalOptions="End"
+                       IsVisible="False" />
+                       
+                <Label x:Name="TimestampLabel"
+                       FontSize="10"
+                       TextColor="{AppThemeBinding Light=#757575, Dark=#aaaaaa}"
+                       HorizontalOptions="End" />
+            </StackLayout>
+        </Frame>
+    </Grid>
+</ContentView>

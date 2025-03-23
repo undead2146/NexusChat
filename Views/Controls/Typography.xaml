@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="NexusChat.Views.Controls.Typography">
+    
+    <VerticalStackLayout Spacing="15">
+        <Label Text="TYPOGRAPHY" Style="{StaticResource HeaderLabelStyle}" Margin="0,20,0,0" />
+        
+        <!-- Typography Showcase -->
+        <Frame>
+            <VerticalStackLayout Spacing="15">
+                <Label Text="Font Family" Style="{StaticResource SubHeaderLabelStyle}" />
+                
+                <Grid RowDefinitions="Auto,Auto,Auto,Auto" ColumnDefinitions="Auto,*" RowSpacing="15" ColumnSpacing="15">
+                    <Label Text="Regular" VerticalOptions="Center" />
+                    <Label Grid.Column="1" Text="The quick brown fox jumps over the lazy dog" FontFamily="OpenSansRegular" />
+                    
+                    <Label Grid.Row="1" Text="SemiBold" VerticalOptions="Center" />
+                    <Label Grid.Row="1" Grid.Column="1" Text="The quick brown fox jumps over the lazy dog" FontFamily="OpenSansSemiBold" />
+                    
+                    <Label Grid.Row="2" Text="Bold" VerticalOptions="Center" />
+                    <Label Grid.Row="2" Grid.Column="1" Text="The quick brown fox jumps over the lazy dog" FontFamily="OpenSansBold" />
+                    
+                    <Label Grid.Row="3" Text="FontAwesome" VerticalOptions="Center" />
+                    <Label Grid.Row="3" Grid.Column="1" Text="&#xf007; &#xf0e0; &#xf075; &#xf013; &#xf019; &#xf067; &#xf068;" 
+                           FontFamily="FontAwesome-Solid" />
+                </Grid>
+            </VerticalStackLayout>
+        </Frame>
+
+        <!-- Text Styles -->
+        <Frame>
+            <VerticalStackLayout Spacing="15">
+                <Label Text="Text Styles" Style="{StaticResource SubHeaderLabelStyle}" />
+                
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Display Title" FontSize="32" FontFamily="OpenSansBold" />
+                    <Label Text="Page Title" FontSize="28" FontFamily="OpenSansBold" />
+                    <Label Text="Section Header" Style="{StaticResource HeaderLabelStyle}" />
+                    <Label Text="Subheader" Style="{StaticResource SubHeaderLabelStyle}" />
+                    <Label Text="Body Text" />
+                    <Label Text="Small Text" FontSize="12" TextColor="{StaticResource SecondaryTextColor}" />
+                </VerticalStackLayout>
+            </VerticalStackLayout>
+        </Frame>
+    </VerticalStackLayout>
+</ContentView>

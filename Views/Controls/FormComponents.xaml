@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="NexusChat.Views.Controls.FormComponents">
+    
+    <VerticalStackLayout Spacing="15">
+        <Label Text="FORM COMPONENTS" Style="{StaticResource HeaderLabelStyle}" Margin="0,20,0,0" />
+        
+        <!-- Form Layout -->
+        <Frame>
+            <VerticalStackLayout Spacing="15">
+                <Label Text="Form Layout" Style="{StaticResource SubHeaderLabelStyle}" />
+                
+                <VerticalStackLayout Spacing="15">
+                    <!-- Personal Info Section -->
+                    <VerticalStackLayout Spacing="5">
+                        <Label Text="PERSONAL INFORMATION" FontAttributes="Bold" FontSize="12" TextColor="{StaticResource SecondaryTextColor}" />
+                        
+                        <VerticalStackLayout Spacing="3">
+                            <Label Text="Full Name" />
+                            <Entry Placeholder="Enter your full name" />
+                        </VerticalStackLayout>
+                        
+                        <VerticalStackLayout Spacing="3">
+                            <Label Text="Email Address" />
+                            <Entry Placeholder="Enter your email address" Keyboard="Email" />
+                        </VerticalStackLayout>
+                        
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                            <VerticalStackLayout Spacing="3">
+                                <Label Text="Date of Birth" />
+                                <DatePicker />
+                            </VerticalStackLayout>
+                            
+                            <VerticalStackLayout Grid.Column="1" Spacing="3">
+                                <Label Text="Gender" />
+                                <Border Stroke="{StaticResource InputBorder}" StrokeThickness="1" Padding="10">
+                                    <Label Text="Select gender" TextColor="{StaticResource InputPlaceholder}" />
+                                </Border>
+                            </VerticalStackLayout>
+                        </Grid>
+                    </VerticalStackLayout>
+                    
+                    <!-- AI Preferences Section -->
+                    <VerticalStackLayout Spacing="5">
+                        <Label Text="AI PREFERENCES" FontAttributes="Bold" FontSize="12" TextColor="{StaticResource SecondaryTextColor}" />
+                        
+                        <VerticalStackLayout Spacing="3">
+                            <Label Text="Default AI Model" />
+                            <Border Stroke="{StaticResource InputBorder}" StrokeThickness="1" Padding="10">
+                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                                    <Label Text="&#xf233;" Style="{StaticResource FontAwesome}" FontSize="20" />
+                                    <Label Grid.Column="1" Text="GPT-4 Turbo" VerticalOptions="Center" />
+                                    <Label Grid.Column="2" Text="&#xf0d7;" Style="{StaticResource FontAwesome}" VerticalOptions="Center" />
+                                </Grid>
+                            </Border>
+                            <Label Text="The AI model that will be used by default for new conversations" 
+                                   FontSize="12" TextColor="{StaticResource SecondaryTextColor}" />
+                        </VerticalStackLayout>
+                        
+                        <VerticalStackLayout Spacing="3">
+                            <Label Text="System Prompt (Optional)" />
+                            <Editor Placeholder="Enter a system prompt to be used for all conversations" HeightRequest="100" />
+                            <Label Text="This prompt will be applied to all conversations unless overridden" 
+                                   FontSize="12" TextColor="{StaticResource SecondaryTextColor}" />
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+                    
+                    <!-- Settings Section -->
+                    <VerticalStackLayout Spacing="5">
+                        <Label Text="APPLICATION SETTINGS" FontAttributes="Bold" FontSize="12" TextColor="{StaticResource SecondaryTextColor}" />
+                        
+                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto" RowSpacing="15">
+                            <Label Text="Enable Notifications" VerticalOptions="Center" />
+                            <Switch Grid.Column="1" IsToggled="True" />
+                            
+                            <Label Grid.Row="1" Text="Use System Theme" VerticalOptions="Center" />
+                            <Switch Grid.Row="1" Grid.Column="1" IsToggled="{Binding UseSystemTheme}" />
+                            
+                            <Label Grid.Row="2" Text="Save Chat History" VerticalOptions="Center" />
+                            <Switch Grid.Row="2" Grid.Column="1" IsToggled="True" />
+                        </Grid>
+                    </VerticalStackLayout>
+                    
+                    <!-- Button Group -->
+                    <HorizontalStackLayout Spacing="10" HorizontalOptions="End">
+                        <Button Text="Cancel" Style="{StaticResource OutlineButton}" />
+                        <Button Text="Save Changes" />
+                    </HorizontalStackLayout>
+                </VerticalStackLayout>
+            </VerticalStackLayout>
+        </Frame>
+    </VerticalStackLayout>
+</ContentView>
