@@ -1,0 +1,146 @@
+# This workflow uses actions that are not certified by GitHub.
+# They are provided by a third-party and are governed by
+# separate terms of service, privacy policy, and support
+# documentation.
+
+# This workflow will build, test, sign and package a WPF or Windows Forms desktop application
+# built on .NET Core.
+# To learn how to migrate your existing application to .NET Core,
+# refer to https://docs.microsoft.com/en-us/dotnet/desktop-wpf/migration/convert-project-from-net-framework
+#
+# To configure this workflow:
+#
+# 1. Configure environment variables
+# GitHub sets default environment variables for every workflow run.
+# Replace the variables relative to your project in the "env" section below.
+#
+# 2. Signing
+# Generate a signing certificate in the Windows Application
+# Packaging Project or add an existing signing certificate to the project.
+# Next, use PowerShell to encode the .pfx file using Base64 encoding
+# by running the following Powershell script to generate the output string:
+#
+# $pfx_cert = Get-Content '.\SigningCertificate.pfx' -Encoding Byte
+# [System.Convert]::ToBase64String($pfx_cert) | Out-File 'SigningCertificate_Encoded.txt'
+#
+# Open the output file, SigningCertificate_Encoded.txt, and copy the
+# string inside. Then, add the string to the repo as a GitHub secret
+# and name it "Base64_Encoded_Pfx."
+# For more information on how to configure your signing certificate for
+# this workflow, refer to https://github.com/microsoft/github-actions-for-desktop-apps#signing
+#
+# Finally, add the signing certificate password to the repo as a secret and name it "Pfx_Key".
+# See "Build the Windows Application Packaging project" below to see how the secret is used.
+#
+# For more information on GitHub Actions, refer to https://github.com/features/actions
+# For a complete CI/CD sample to get started with GitHub Action workflows for Desktop Applications,
+# refer to https://github.com/microsoft/github-actions-for-desktop-apps
+name: Build NexusChat
+
+on:
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - '**/*.md'
+      - '**/*.gitignore'
+      - '**/*.gitattributes'
+      - 'Local/**'
+  pull_request:
+    branches: [ main ]
+
+env:
+  DOTNET_VERSION: '9.0.x'
+  SOLUTION_PATH: 'NexusChat.sln'
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    name: Windows Build
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+        
+    - name: Install MAUI Workload
+      run: |
+        dotnet workload install maui
+        dotnet workload install android ios maccatalyst
+        
+    - name: Restore NuGet packages
+      run: dotnet restore ${{ env.SOLUTION_PATH }}
+      
+    - name: Run Tests
+      run: dotnet test ${{ env.SOLUTION_PATH }} --no-restore --verbosity normal
+        
+    - name: Build Windows App
+      run: dotnet build ${{ env.SOLUTION_PATH }} -c Release -f net9.0-windows10.0.19041.0
+      
+    - name: Build Android App
+      run: dotnet build ${{ env.SOLUTION_PATH }} -c Release -f net9.0-android
+      
+    - name: Upload Windows Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: windows-artifacts
+        path: |
+          **/bin/Release/net9.0-windows10.0.19041.0/win10-x64/
+          !**/obj/**
+        
+    - name: Upload Android Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: android-artifacts
+        path: |
+          **/bin/Release/net9.0-android/**/*.apk
+          !**/obj/**
+
+  build-macos:
+    runs-on: macos-latest
+    name: macOS Build
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+        
+    - name: Install MAUI Workload
+      run: |
+        dotnet workload install maui
+        dotnet workload install ios maccatalyst
+        
+    - name: Restore NuGet packages
+      run: dotnet restore ${{ env.SOLUTION_PATH }}
+      
+    - name: Run Tests
+      run: dotnet test ${{ env.SOLUTION_PATH }} --no-restore --verbosity normal
+      
+    - name: Build iOS App
+      run: dotnet build ${{ env.SOLUTION_PATH }} -c Release -f net9.0-ios
+      
+    - name: Build MacCatalyst App
+      run: dotnet build ${{ env.SOLUTION_PATH }} -c Release -f net9.0-maccatalyst
+      
+    - name: Upload iOS Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ios-artifacts
+        path: |
+          **/bin/Release/net9.0-ios/**/*.app
+          !**/obj/**
+        
+    - name: Upload MacCatalyst Artifacts  
+      uses: actions/upload-artifact@v4
+      with:
+        name: maccatalyst-artifacts
+        path: |
+          **/bin/Release/net9.0-maccatalyst/**/*.app
+          !**/obj/**
