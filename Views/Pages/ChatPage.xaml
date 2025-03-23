@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:NexusChat.Core.ViewModels"
+             xmlns:models="clr-namespace:NexusChat.Core.Models"
+             xmlns:controls="clr-namespace:NexusChat.Views.Controls"
+             xmlns:converters="clr-namespace:NexusChat.Views.Converters"
+             x:Class="NexusChat.Views.Pages.ChatPage"
+             Title="{Binding CurrentConversation.Title}">
+
+    <ContentPage.Resources>
+        <ResourceDictionary>
+            <converters:BoolToColorConverter x:Key="BoolToColorConverter" />
+            <converters:BoolToAlignmentConverter x:Key="BoolToAlignmentConverter" />
+            <converters:DateTimeToTimeStringConverter x:Key="DateTimeToTimeStringConverter" />
+            <converters:NotNullConverter x:Key="NotNullConverter" />
+        </ResourceDictionary>
+    </ContentPage.Resources>
+
+    <Grid RowDefinitions="*, Auto" 
+          RowSpacing="0"
+          BackgroundColor="{AppThemeBinding Light={StaticResource Gray100}, Dark={StaticResource Gray900}}">
+
+        <!-- Chat Header Info (Optional) -->
+        <Grid Grid.Row="0" RowDefinitions="Auto, *">
+            <Border Grid.Row="0" 
+                    BackgroundColor="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray800}}"
+                    StrokeThickness="0"
+                    Padding="10"
+                    IsVisible="{Binding CurrentConversation, Converter={StaticResource NotNullConverter}}">
+                <VerticalStackLayout Spacing="2">
+                    <Label Text="{Binding CurrentConversation.ModelName}" 
+                           FontSize="14"
+                           TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray400}}"
+                           HorizontalOptions="Center"/>
+                    <Label Text="{Binding CurrentConversation.TotalTokensUsed, StringFormat='Tokens used: {0}'}"
+                           FontSize="12"
+                           TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray500}}"
+                           HorizontalOptions="Center"/>
+                </VerticalStackLayout>
+            </Border>
+            
+            <!-- Messages List -->
+            <RefreshView Grid.Row="1" 
+                         Command="{Binding RefreshCommand}" 
+                         IsRefreshing="{Binding IsBusy}">
+                <ScrollView x:Name="MessageScrollView">
+                    <CollectionView ItemsSource="{Binding Messages}"
+                                    ItemsUpdatingScrollMode="KeepLastItemInView"
+                                    Margin="8">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate>
+                                <controls:MessageBubble Message="{Binding}" />
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                        <CollectionView.EmptyView>
+                            <VerticalStackLayout HorizontalOptions="Center" 
+                                                VerticalOptions="Center"
+                                                Spacing="10">
+                                <Label Text="No messages yet" 
+                                       FontSize="16"
+                                       TextColor="{StaticResource Gray500}"
+                                       HorizontalOptions="Center"/>
+                                <Label Text="Start a conversation by typing a message below"
+                                       FontSize="14"
+                                       TextColor="{StaticResource Gray400}"
+                                       HorizontalOptions="Center"/>
+                            </VerticalStackLayout>
+                        </CollectionView.EmptyView>
+                    </CollectionView>
+                </ScrollView>
+            </RefreshView>
+            
+            <!-- AI Thinking Indicator -->
+            <Grid Grid.Row="1" IsVisible="{Binding IsBusy}">
+                <VerticalStackLayout VerticalOptions="End" 
+                                     HorizontalOptions="Start"
+                                     Margin="20,0,0,20"
+                                     Spacing="8">
+                    <Frame BackgroundColor="{StaticResource Primary}"
+                           CornerRadius="12"
+                           Padding="15,10"
+                           HasShadow="False"
+                           WidthRequest="100">
+                        <HorizontalStackLayout Spacing="5">
+                            <ActivityIndicator IsRunning="True"
+                                              WidthRequest="16"
+                                              HeightRequest="16"
+                                              Color="{StaticResource White}"/>
+                            <Label Text="Thinking..."
+                                   TextColor="{StaticResource White}"
+                                   FontSize="14"/>
+                        </HorizontalStackLayout>
+                    </Frame>
+                </VerticalStackLayout>
+            </Grid>
+        </Grid>
+
+        <!-- Input Area -->
+        <Grid Grid.Row="1" 
+              ColumnDefinitions="*, Auto"
+              Padding="12,8"
+              BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource Gray800}}">
+            
+            <Frame Grid.Column="0"
+                   BorderColor="{StaticResource Gray300}"
+                   BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource Gray700}}"
+                   CornerRadius="20"
+                   Padding="15,0"
+                   HasShadow="False">
+                <Entry Text="{Binding MessageText, Mode=TwoWay}"
+                       Placeholder="Type your message..."
+                       ReturnCommand="{Binding SendMessageCommand}"
+                       IsEnabled="{Binding IsNotBusy}"
+                       BackgroundColor="Transparent"
+                       VerticalOptions="Center" />
+            </Frame>
+
+            <Button Grid.Column="1"
+                    Command="{Binding SendMessageCommand}"
+                    IsEnabled="{Binding CanSendMessage}"
+                    Text="&#xf1d8;"
+                    FontFamily="FontAwesome-Solid"
+                    CornerRadius="20"
+                    WidthRequest="46"
+                    HeightRequest="46"
+                    Margin="8,0,0,0"
+                    HorizontalOptions="Center" />
+        </Grid>
+    </Grid>
+</ContentPage>
