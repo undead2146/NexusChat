@@ -2,49 +2,74 @@
 <ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="NexusChat.Views.Controls.Accessibilities">
-    
-    <VerticalStackLayout Spacing="15">
-        <Label Text="ACCESSIBILITY" Style="{StaticResource HeaderLabelStyle}" Margin="0,20,0,0" />
-        
-        <!-- Accessibility Examples -->
-        <Frame>
-            <VerticalStackLayout Spacing="15">
-                <Label Text="Accessibility Features" Style="{StaticResource SubHeaderLabelStyle}" />
-                
-                <VerticalStackLayout Spacing="10">
-                    <Label Text="Semantic Properties" FontSize="16" FontFamily="OpenSansSemiBold" />
-                    
-                    <Button Text="Send Message" 
-                            SemanticProperties.Description="Sends the current message to the AI"
-                            SemanticProperties.Hint="Double tap to send your message"
-                            ToolTipProperties.Text="Send the message to the AI" />
-                            
-                    <Label Text="This example shows semantic properties that improve screen reader support"
-                           SemanticProperties.Description="Explanation of semantic properties for accessibility"
-                           SemanticProperties.HeadingLevel="Level2" />
-                </VerticalStackLayout>
-                
-                <VerticalStackLayout Spacing="10">
-                    <Label Text="Text Scaling" FontSize="16" FontFamily="OpenSansSemiBold" />
-                    
-                    <Frame Padding="10" BackgroundColor="{AppThemeBinding Light=#f8f9fa, Dark=#343a40}">
-                        <VerticalStackLayout>
-                            <Label Text="Font scaling is supported" FontAttributes="Bold" />
-                            <Label Text="Text should properly scale with system font size settings to improve readability for users with visual impairments."
-                                   FontSize="14" />
+    <ScrollView>
+        <VerticalStackLayout Spacing="20" Padding="10">
+            <Frame BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}"
+                   Padding="20" 
+                   CornerRadius="10"
+                   BorderColor="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray600}}">
+                <VerticalStackLayout Spacing="15">
+                    <Label Text="Accessibility Features"
+                           Style="{StaticResource SubheaderLabelStyle}"
+                           TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}" />
+
+                    <!-- Text Size -->
+                    <Frame BackgroundColor="{AppThemeBinding Light={StaticResource Background}, Dark={StaticResource BackgroundDark}}"
+                           Padding="15"
+                           BorderColor="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray600}}">
+                        <VerticalStackLayout Spacing="15">
+                            <Label Text="Text Size"
+                                   FontFamily="OpenSansSemiBold"
+                                   TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}" />
+                            <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="Auto,*" RowSpacing="15" ColumnSpacing="15">
+                                <Label Grid.Row="0" Grid.Column="0" Text="A" FontSize="14"
+                                       TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}" />
+                                <Slider Grid.Row="0" Grid.Column="1" Value="50" Maximum="100" />
+                                <Label Grid.Row="1" Grid.Column="0" Text="A" FontSize="24"
+                                       TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}" />
+                            </Grid>
+                        </VerticalStackLayout>
+                    </Frame>
+
+                    <!-- Color Contrast -->
+                    <Frame BackgroundColor="{AppThemeBinding Light={StaticResource Background}, Dark={StaticResource BackgroundDark}}"
+                           Padding="15"
+                           BorderColor="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray600}}">
+                        <VerticalStackLayout Spacing="15">
+                            <Label Text="Color Contrast"
+                                   FontFamily="OpenSansSemiBold"
+                                   TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}" />
+                            <VerticalStackLayout Spacing="10">
+                                <Label Text="Normal contrast text"
+                                       TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}" />
+                                <Label Text="High contrast text"
+                                       FontAttributes="Bold"
+                                       TextColor="{AppThemeBinding Light=Black, Dark=White}" />
+                                <Label Text="Low contrast text - avoid this"
+                                       TextColor="{AppThemeBinding Light=#AAAAAA, Dark=#666666}" />
+                            </VerticalStackLayout>
+                        </VerticalStackLayout>
+                    </Frame>
+
+                    <!-- Semantic Properties -->
+                    <Frame BackgroundColor="{AppThemeBinding Light={StaticResource Background}, Dark={StaticResource BackgroundDark}}"
+                           Padding="15"
+                           BorderColor="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray600}}">
+                        <VerticalStackLayout Spacing="15">
+                            <Label Text="Semantic Properties"
+                                   FontFamily="OpenSansSemiBold"
+                                   TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}" />
+                            <Button Text="Click Me"
+                                    Style="{StaticResource PrimaryButtonStyle}"
+                                    SemanticProperties.Description="Example button with accessibility description"
+                                    SemanticProperties.Hint="This button has a description for screen readers" />
+                            <Label Text="Elements with semantic properties help screen readers provide better descriptions"
+                                   TextColor="{AppThemeBinding Light={StaticResource SecondaryTextColor}, Dark={StaticResource SecondaryTextColorDark}}"
+                                   FontSize="12" />
                         </VerticalStackLayout>
                     </Frame>
                 </VerticalStackLayout>
-            </VerticalStackLayout>
-        </Frame>
-        
-        <!-- Component Information -->
-        <Frame BackgroundColor="{AppThemeBinding Light={StaticResource Info}, Dark=#164754}">
-            <VerticalStackLayout>
-                <Label Text="UI Component Library" FontAttributes="Bold" TextColor="White" />
-                <Label Text="This page showcases the NexusChat UI components and styling. Components follow the MVVM pattern and support light/dark themes." 
-                       TextColor="White" />
-            </VerticalStackLayout>
-        </Frame>
-    </VerticalStackLayout>
+            </Frame>
+        </VerticalStackLayout>
+    </ScrollView>
 </ContentView>

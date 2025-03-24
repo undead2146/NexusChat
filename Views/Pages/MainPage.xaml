@@ -2,7 +2,24 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="NexusChat.Views.Pages.MainPage"
-             BackgroundColor="{AppThemeBinding Light={StaticResource Background}, Dark={StaticResource Background}}">
+             BackgroundColor="{AppThemeBinding Light={StaticResource Background}, Dark={StaticResource BackgroundDark}}">
+
+    <!-- Import any needed resources here -->
+    <ContentPage.Resources>
+        <ResourceDictionary>
+            <!-- Consistent style for icons -->
+            <Style x:Key="MainPageIcon" TargetType="Label">
+                <Setter Property="FontFamily" Value="FontAwesome-Solid" />
+                <Setter Property="FontSize" Value="24" />
+                <Setter Property="FontAutoScalingEnabled" Value="False" />
+                <Setter Property="HorizontalOptions" Value="Center" />
+                <Setter Property="VerticalOptions" Value="Center" />
+                <Setter Property="HorizontalTextAlignment" Value="Center" />
+                <Setter Property="VerticalTextAlignment" Value="Center" />
+                <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+            </Style>
+        </ResourceDictionary>
+    </ContentPage.Resources>
 
     <Grid RowDefinitions="Auto,*,Auto" Padding="0" RowSpacing="0">
 
@@ -16,7 +33,7 @@
                         <Image Grid.RowSpan="2" Source="dotnet_bot.png" Aspect="AspectFill"
                                Opacity="0.15" HorizontalOptions="Fill" VerticalOptions="Fill" />
                         
-                        <BoxView Grid.RowSpan="2" BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Primary}}"
+                        <BoxView Grid.RowSpan="2" BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
                                  Opacity="0.5" />
                         
                         <VerticalStackLayout Padding="20" Spacing="15">
@@ -29,7 +46,7 @@
                             <Button x:Name="StartNewChatButton"
                                     Text="Start a New Chat" 
                                     BackgroundColor="White" 
-                                    TextColor="{StaticResource Primary}"
+                                    TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
                                     FontAttributes="Bold"
                                     CornerRadius="20" 
                                     Margin="0,10,0,0"
@@ -38,15 +55,21 @@
                     </Grid>
                 </Frame>
 
-                <!-- Quick Access Tabs -->
-                <Label Text="Quick Access" Style="{StaticResource HeaderLabelStyle}" Margin="0,10,0,5" />
+                <!-- Quick Access Section -->
+                <Label Text="Quick Access"
+                       FontFamily="OpenSansBold"
+                       FontSize="20"
+                       TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}"
+                       Margin="0,0,0,10" />
+
                 <Grid ColumnDefinitions="*,*,*" ColumnSpacing="15">
                     <!-- Chats Tab -->
-                    <Frame x:Name="ChatsFrame" CornerRadius="8" Padding="15" HasShadow="True" Grid.Column="0">
+                    <Frame x:Name="ChatsFrame" CornerRadius="8" Padding="15" HasShadow="True" Grid.Column="0"
+                           BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}">
                         <VerticalStackLayout HorizontalOptions="Center" Spacing="5">
-                            <Label Text="&#xf4ad;" Style="{StaticResource AppThemeBindingFontAwesome}" 
-                                   FontSize="32" HorizontalOptions="Center" />
+                            <Label Text="&#xf4ad;" Style="{StaticResource MainPageIcon}" />
                             <Label Text="Chats" FontFamily="OpenSansSemiBold" 
+                                   TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}"
                                    HorizontalOptions="Center" FontSize="14" />
                         </VerticalStackLayout>
                         <Frame.GestureRecognizers>
@@ -55,11 +78,12 @@
                     </Frame>
                     
                     <!-- Models Tab -->
-                    <Frame x:Name="ModelsFrame" CornerRadius="8" Padding="15" HasShadow="True" Grid.Column="1">
+                    <Frame x:Name="ModelsFrame" CornerRadius="8" Padding="15" HasShadow="True" Grid.Column="1"
+                           BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}">
                         <VerticalStackLayout HorizontalOptions="Center" Spacing="5">
-                            <Label Text="&#xf085;" Style="{StaticResource AppThemeBindingFontAwesome}" 
-                                   FontSize="32" HorizontalOptions="Center" />
+                            <Label Text="&#xf085;" Style="{StaticResource MainPageIcon}" />
                             <Label Text="Models" FontFamily="OpenSansSemiBold" 
+                                   TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}"
                                    HorizontalOptions="Center" FontSize="14" />
                         </VerticalStackLayout>
                         <Frame.GestureRecognizers>
@@ -68,11 +92,12 @@
                     </Frame>
                     
                     <!-- Settings Tab -->
-                    <Frame x:Name="SettingsFrame" CornerRadius="8" Padding="15" HasShadow="True" Grid.Column="2">
+                    <Frame x:Name="SettingsFrame" CornerRadius="8" Padding="15" HasShadow="True" Grid.Column="2"
+                           BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}">
                         <VerticalStackLayout HorizontalOptions="Center" Spacing="5">
-                            <Label Text="&#xf013;" Style="{StaticResource AppThemeBindingFontAwesome}" 
-                                   FontSize="32" HorizontalOptions="Center" />
+                            <Label Text="&#xf013;" Style="{StaticResource MainPageIcon}" />
                             <Label Text="Settings" FontFamily="OpenSansSemiBold" 
+                                   TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}"
                                    HorizontalOptions="Center" FontSize="14" />
                         </VerticalStackLayout>
                         <Frame.GestureRecognizers>
@@ -81,23 +106,30 @@
                     </Frame>
                 </Grid>
 
-                <!-- Development Features -->
-                <Label Text="Development Features" Style="{StaticResource HeaderLabelStyle}" Margin="0,20,0,5" />
-                <Frame Padding="20" HasShadow="True">
+                <!-- Development Features Section -->
+                <Label Text="Development Features"
+                       FontFamily="OpenSansBold"
+                       FontSize="20"
+                       TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}"
+                       Margin="0,20,0,10" />
+
+                <Frame Padding="20" HasShadow="True" 
+                       BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}">
                     <VerticalStackLayout Spacing="15">
                         <Label Text="These features are available for testing and demonstration purposes." 
-                               TextColor="{StaticResource SecondaryTextColor}" />
+                               TextColor="{AppThemeBinding Light={StaticResource SecondaryTextColor}, Dark={StaticResource SecondaryTextColorDark}}" />
                         
                         <!-- Counter Button -->
                         <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="15">
                             <Label Grid.Column="0" Text="&#xf201;" 
-                                   Style="{StaticResource AppThemeBindingFontAwesome}" 
-                                   FontSize="24" VerticalOptions="Center" />
+                                   Style="{StaticResource MainPageIcon}" 
+                                   VerticalOptions="Center" />
                             
                             <VerticalStackLayout Grid.Column="1">
-                                <Label Text="Counter Demo" FontFamily="OpenSansSemiBold" FontSize="16" />
+                                <Label Text="Counter Demo" FontFamily="OpenSansSemiBold" FontSize="16" 
+                                       TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}" />
                                 <Label Text="Simple button click counter example" 
-                                       TextColor="{StaticResource SecondaryTextColor}" FontSize="12" />
+                                       TextColor="{AppThemeBinding Light={StaticResource SecondaryTextColor}, Dark={StaticResource SecondaryTextColorDark}}" FontSize="12" />
                             </VerticalStackLayout>
                             
                             <Button x:Name="CounterBtn" Grid.Column="2" 
@@ -112,13 +144,14 @@
                         <!-- Theme Testing - Updated to include icons -->
                         <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="15">
                             <Label Grid.Column="0" Text="&#xf042;" 
-                                   Style="{StaticResource AppThemeBindingFontAwesome}" 
-                                   FontSize="24" VerticalOptions="Center" />
+                                   Style="{StaticResource MainPageIcon}" 
+                                   VerticalOptions="Center" />
                             
                             <VerticalStackLayout Grid.Column="1">
-                                <Label Text="Theme &amp; Icon Testing" FontFamily="OpenSansSemiBold" FontSize="16" />
+                                <Label Text="Theme &amp; Icon Testing" FontFamily="OpenSansSemiBold" FontSize="16" 
+                                       TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}" />
                                 <Label Text="View theme components and icons reference" 
-                                       TextColor="{StaticResource SecondaryTextColor}" FontSize="12" />
+                                       TextColor="{AppThemeBinding Light={StaticResource SecondaryTextColor}, Dark={StaticResource SecondaryTextColorDark}}" FontSize="12" />
                             </VerticalStackLayout>
                             
                             <Button Grid.Column="2" 
@@ -134,13 +167,14 @@
                         <!-- NEW: Model Test Button -->
                         <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="15">
                             <Label Grid.Column="0" Text="&#xf0ae;" 
-                                   Style="{StaticResource AppThemeBindingFontAwesome}" 
-                                   FontSize="24" VerticalOptions="Center" />
+                                   Style="{StaticResource MainPageIcon}" 
+                                   VerticalOptions="Center" />
                             
                             <VerticalStackLayout Grid.Column="1">
-                                <Label Text="Data Model Testing" FontFamily="OpenSansSemiBold" FontSize="16" />
+                                <Label Text="Data Model Testing" FontFamily="OpenSansSemiBold" FontSize="16" 
+                                       TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}" />
                                 <Label Text="Run tests for data models and validate functionality" 
-                                       TextColor="{StaticResource SecondaryTextColor}" FontSize="12" />
+                                       TextColor="{AppThemeBinding Light={StaticResource SecondaryTextColor}, Dark={StaticResource SecondaryTextColorDark}}" FontSize="12" />
                             </VerticalStackLayout>
                             
                             <Button Grid.Column="2" 
@@ -158,13 +192,14 @@
                         <!-- Database Viewer Button -->
                         <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="15">
                             <Label Grid.Column="0" Text="&#xf1c0;" 
-                                   Style="{StaticResource AppThemeBindingFontAwesome}" 
-                                   FontSize="24" VerticalOptions="Center" />
+                                   Style="{StaticResource MainPageIcon}" 
+                                   VerticalOptions="Center" />
                             
                             <VerticalStackLayout Grid.Column="1">
-                                <Label Text="Database Viewer" FontFamily="OpenSansSemiBold" FontSize="16" />
+                                <Label Text="Database Viewer" FontFamily="OpenSansSemiBold" FontSize="16" 
+                                       TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}" />
                                 <Label Text="View and explore database tables and records" 
-                                       TextColor="{StaticResource SecondaryTextColor}" FontSize="12" />
+                                       TextColor="{AppThemeBinding Light={StaticResource SecondaryTextColor}, Dark={StaticResource SecondaryTextColorDark}}" FontSize="12" />
                             </VerticalStackLayout>
                             
                             <Button Grid.Column="2" 
@@ -181,23 +216,25 @@
                 <!-- Version Info -->
                 <Label Text="NexusChat v1.0.0-dev" 
                        HorizontalOptions="Center"
-                       TextColor="{StaticResource SecondaryTextColor}" 
+                       TextColor="{AppThemeBinding Light={StaticResource SecondaryTextColor}, Dark={StaticResource SecondaryTextColorDark}}" 
                        FontSize="12" Margin="0,10,0,20" />
             </VerticalStackLayout>
         </ScrollView>
         
         <!-- Footer -->
-        <Grid Grid.Row="2" ColumnDefinitions="*,*,*" BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceBackground}, Dark={StaticResource CardBackground}}" 
+        <Grid Grid.Row="2" ColumnDefinitions="*,*,*" 
+              BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}" 
               HeightRequest="60" Padding="0">
               
             <Frame Grid.Column="0" BorderColor="Transparent" BackgroundColor="Transparent" 
                    Padding="0" Margin="15,5" CornerRadius="10" HasShadow="False" HorizontalOptions="Center">
                 <Grid WidthRequest="60">
-                    <BoxView CornerRadius="10" BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Primary}}" 
+                    <BoxView CornerRadius="10" 
+                             BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" 
                              Opacity="0.1" />
-                    <Label Text="&#xf015;" Style="{StaticResource AppThemeBindingFontAwesome}" 
-                           FontSize="20" TextColor="{StaticResource Primary}" 
-                           VerticalOptions="Center" HorizontalOptions="Center" />
+                    <Label Text="&#xf015;" 
+                           Style="{StaticResource MainPageIcon}"
+                           FontSize="20" />
                 </Grid>
                 <Frame.GestureRecognizers>
                     <TapGestureRecognizer x:Name="HomeButton" />
@@ -210,9 +247,13 @@
                     <BoxView CornerRadius="10" BackgroundColor="{StaticResource Gray200}" 
                              Opacity="0.1" />
                     <VerticalStackLayout HorizontalOptions="Center" VerticalOptions="Center" Spacing="2">
-                        <Label Text="&#xf304;" Style="{StaticResource AppThemeBindingFontAwesome}" 
-                               FontSize="18" TextColor="{StaticResource SecondaryTextColor}" />
-                        <Label Text="Coming Soon" FontSize="8" TextColor="{StaticResource SecondaryTextColor}"
+                        <Label Text="&#xf304;" 
+                               FontFamily="FontAwesome-Solid"
+                               FontSize="18" 
+                               FontAutoScalingEnabled="False"
+                               TextColor="{AppThemeBinding Light={StaticResource SecondaryTextColor}, Dark={StaticResource SecondaryTextColorDark}}" />
+                        <Label Text="Coming Soon" FontSize="8" 
+                               TextColor="{AppThemeBinding Light={StaticResource SecondaryTextColor}, Dark={StaticResource SecondaryTextColorDark}}"
                                HorizontalOptions="Center" />
                     </VerticalStackLayout>
                 </Grid>
@@ -227,9 +268,13 @@
                     <BoxView CornerRadius="10" BackgroundColor="{StaticResource Gray200}" 
                              Opacity="0.1" />
                     <VerticalStackLayout HorizontalOptions="Center" VerticalOptions="Center" Spacing="2">
-                        <Label Text="&#xf007;" Style="{StaticResource AppThemeBindingFontAwesome}" 
-                               FontSize="18" TextColor="{StaticResource SecondaryTextColor}" />
-                        <Label Text="Coming Soon" FontSize="8" TextColor="{StaticResource SecondaryTextColor}"
+                        <Label Text="&#xf007;" 
+                               FontFamily="FontAwesome-Solid"
+                               FontSize="18" 
+                               FontAutoScalingEnabled="False"
+                               TextColor="{AppThemeBinding Light={StaticResource SecondaryTextColor}, Dark={StaticResource SecondaryTextColorDark}}" />
+                        <Label Text="Coming Soon" FontSize="8" 
+                               TextColor="{AppThemeBinding Light={StaticResource SecondaryTextColor}, Dark={StaticResource SecondaryTextColorDark}}"
                                HorizontalOptions="Center" />
                     </VerticalStackLayout>
                 </Grid>

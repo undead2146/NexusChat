@@ -2,46 +2,85 @@
 <ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="NexusChat.Views.Controls.Typography">
-    
-    <VerticalStackLayout Spacing="15">
-        <Label Text="TYPOGRAPHY" Style="{StaticResource HeaderLabelStyle}" Margin="0,20,0,0" />
-        
-        <!-- Typography Showcase -->
-        <Frame>
-            <VerticalStackLayout Spacing="15">
-                <Label Text="Font Family" Style="{StaticResource SubHeaderLabelStyle}" />
-                
-                <Grid RowDefinitions="Auto,Auto,Auto,Auto" ColumnDefinitions="Auto,*" RowSpacing="15" ColumnSpacing="15">
-                    <Label Text="Regular" VerticalOptions="Center" />
-                    <Label Grid.Column="1" Text="The quick brown fox jumps over the lazy dog" FontFamily="OpenSansRegular" />
-                    
-                    <Label Grid.Row="1" Text="SemiBold" VerticalOptions="Center" />
-                    <Label Grid.Row="1" Grid.Column="1" Text="The quick brown fox jumps over the lazy dog" FontFamily="OpenSansSemiBold" />
-                    
-                    <Label Grid.Row="2" Text="Bold" VerticalOptions="Center" />
-                    <Label Grid.Row="2" Grid.Column="1" Text="The quick brown fox jumps over the lazy dog" FontFamily="OpenSansBold" />
-                    
-                    <Label Grid.Row="3" Text="FontAwesome" VerticalOptions="Center" />
-                    <Label Grid.Row="3" Grid.Column="1" Text="&#xf007; &#xf0e0; &#xf075; &#xf013; &#xf019; &#xf067; &#xf068;" 
-                           FontFamily="FontAwesome-Solid" />
-                </Grid>
-            </VerticalStackLayout>
-        </Frame>
+    <ScrollView>
+        <VerticalStackLayout Spacing="20" Padding="10">
+            <!-- Text Styles Section -->
+            <Frame BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}"
+                   Padding="20" 
+                   CornerRadius="10"
+                   BorderColor="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray600}}">
+                <VerticalStackLayout Spacing="15">
+                    <Label Text="Text Styles"
+                           Style="{StaticResource SubheaderLabelStyle}"
+                           TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}" />
 
-        <!-- Text Styles -->
-        <Frame>
-            <VerticalStackLayout Spacing="15">
-                <Label Text="Text Styles" Style="{StaticResource SubHeaderLabelStyle}" />
-                
-                <VerticalStackLayout Spacing="10">
-                    <Label Text="Display Title" FontSize="32" FontFamily="OpenSansBold" />
-                    <Label Text="Page Title" FontSize="28" FontFamily="OpenSansBold" />
-                    <Label Text="Section Header" Style="{StaticResource HeaderLabelStyle}" />
-                    <Label Text="Subheader" Style="{StaticResource SubHeaderLabelStyle}" />
-                    <Label Text="Body Text" />
-                    <Label Text="Small Text" FontSize="12" TextColor="{StaticResource SecondaryTextColor}" />
+                    <!-- Display styles -->
+                    <Frame BackgroundColor="{AppThemeBinding Light={StaticResource Background}, Dark={StaticResource BackgroundDark}}"
+                           Padding="15"
+                           BorderColor="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray600}}">
+                        <VerticalStackLayout Spacing="20">
+                            <Label Text="Display Large"
+                                   FontFamily="OpenSansBold"
+                                   FontSize="32"
+                                   TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}" />
+
+                            <Label Text="Display Medium"
+                                   FontFamily="OpenSansBold"
+                                   FontSize="28"
+                                   TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}" />
+
+                            <Label Text="Display Small"
+                                   FontFamily="OpenSansBold"
+                                   FontSize="24"
+                                   TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}" />
+                        </VerticalStackLayout>
+                    </Frame>
+
+                    <!-- Heading styles -->
+                    <Frame BackgroundColor="{AppThemeBinding Light={StaticResource Background}, Dark={StaticResource BackgroundDark}}"
+                           Padding="15"
+                           BorderColor="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray600}}">
+                        <VerticalStackLayout Spacing="20">
+                            <Label Text="Heading 1"
+                                   FontFamily="OpenSansBold"
+                                   FontSize="20"
+                                   TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}" />
+
+                            <Label Text="Heading 2"
+                                   FontFamily="OpenSansSemiBold"
+                                   FontSize="18"
+                                   TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}" />
+
+                            <Label Text="Heading 3"
+                                   FontFamily="OpenSansSemiBold"
+                                   FontSize="16"
+                                   TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}" />
+                        </VerticalStackLayout>
+                    </Frame>
+
+                    <!-- Body styles -->
+                    <Frame BackgroundColor="{AppThemeBinding Light={StaticResource Background}, Dark={StaticResource BackgroundDark}}"
+                           Padding="15"
+                           BorderColor="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray600}}">
+                        <VerticalStackLayout Spacing="20">
+                            <Label Text="Body Large"
+                                   FontFamily="OpenSansRegular"
+                                   FontSize="16"
+                                   TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}" />
+
+                            <Label Text="Body Medium"
+                                   FontFamily="OpenSansRegular"
+                                   FontSize="14"
+                                   TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}" />
+
+                            <Label Text="Body Small"
+                                   FontFamily="OpenSansRegular"
+                                   FontSize="12"
+                                   TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}" />
+                        </VerticalStackLayout>
+                    </Frame>
                 </VerticalStackLayout>
-            </VerticalStackLayout>
-        </Frame>
-    </VerticalStackLayout>
+            </Frame>
+        </VerticalStackLayout>
+    </ScrollView>
 </ContentView>

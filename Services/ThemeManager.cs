@@ -44,59 +44,53 @@ namespace NexusChat
         /// Sets theme by name: "Light", "Dark", or "System"
         /// </summary>
         public static void SetThemeByName(string themeName) {
-            // EMERGENCY FIX: Simple implementation to prevent freezes
-            try
+            if (_isChangingTheme)
             {
-                // Skip if already changing theme
-                if (_isChangingTheme)
-                {
-                    Debug.WriteLine("Theme change already in progress");
-                    return;
-                }
-                
-                _isChangingTheme = true;
-                
-                // First, just set the App.Current.UserAppTheme property - very lightweight
-                if (themeName == "System")
-                {
-                    if (Application.Current != null)
-                        Application.Current.UserAppTheme = AppTheme.Unspecified;
-                }
-                else
-                {
-                    if (Application.Current != null)
-                        Application.Current.UserAppTheme = themeName == "Dark" ? AppTheme.Dark : AppTheme.Light;
-                }
-                
-                // Save the preference setting
-                Preferences.Default.Set(THEME_PREFERENCE_KEY, themeName);
-                
-                // Trigger the event with a delay
-                string actualTheme = themeName == "System" 
-                    ? (Application.Current?.PlatformAppTheme == AppTheme.Dark ? "Dark" : "Light") 
-                    : themeName;
-                
-                // Simple notification without heavy resource operations
-                MainThread.BeginInvokeOnMainThread(async () => {
-                    try
-                    {
-                        ThemeChanged?.Invoke(null, actualTheme == "Dark");
-                        
-                        // Short delay to ensure UI can respond
-                        await Task.Delay(200);
-                        _isChangingTheme = false;
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"Error in theme change notification: {ex.Message}");
-                        _isChangingTheme = false;
-                    }
-                });
+                Debug.WriteLine("Theme change already in progress");
+                return;
             }
-            catch (Exception ex)
+            
+            lock (_themeLock)
             {
-                Debug.WriteLine($"Error setting theme: {ex.Message}");
-                _isChangingTheme = false;
+                try
+                {
+                    _isChangingTheme = true;
+                    Debug.WriteLine($"Changing theme to: {themeName}");
+
+                    // Apply the theme setting
+                    if (Application.Current != null)
+                    {
+                        // Set user theme preference
+                        Application.Current.UserAppTheme = themeName switch
+                        {
+                            "Dark" => AppTheme.Dark,
+                            "Light" => AppTheme.Light,
+                            _ => AppTheme.Unspecified // System
+                        };
+
+                        // Save preference
+                        Preferences.Default.Set(THEME_PREFERENCE_KEY, themeName);
+                        
+                        // Determine actual theme for event
+                        bool isDark = themeName == "Dark" || 
+                            (themeName == "System" && Application.Current.PlatformAppTheme == AppTheme.Dark);
+
+                        // Notify subscribers 
+                        MainThread.BeginInvokeOnMainThread(() => {
+                            ThemeChanged?.Invoke(null, isDark);
+                            
+                            // Refresh visible UI
+                            ForceUIRefresh();
+                            
+                            _isChangingTheme = false;
+                        });
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Error setting theme: {ex.Message}");
+                    _isChangingTheme = false;
+                }
             }
         }
 
@@ -426,63 +420,78 @@ namespace NexusChat
         /// </summary>
         private static void ForceUIRefresh()
         {
-            // Queue this after the theme change has been applied
-            MainThread.BeginInvokeOnMainThread(async () => {
-                try
-                {
-                    // Short delay to ensure theme is applied before refresh
-                    await Task.Delay(10);
-                    
-                    // Try to refresh the current page if available
-                    if (Application.Current?.MainPage != null)
+            try
+            {
+                // Always run on main thread
+                MainThread.BeginInvokeOnMainThread(async () => {
+                    try
                     {
-                        // Force layout update on the main page
-                        Application.Current.MainPage.ForceLayout();
+                        // Allow a brief moment for resources to update
+                        await Task.Delay(50);
                         
-                        // Try to refresh all pages in a Shell application
-                        if (Application.Current.MainPage is Shell shell)
+                        // Get current page to refresh
+                        var mainPage = Application.Current?.MainPage;
+                        if (mainPage == null) return;
+            
+                        Debug.WriteLine("ThemeManager: Refreshing UI for theme change");
+                        
+                        // Refresh Shell and all visible pages
+                        if (mainPage is Shell shell)
                         {
-                            // Correctly handle Shell hierarchy
+                            Debug.WriteLine("Refreshing Shell and current page");
+                            shell.ForceLayout();
+                            
+                            // Force layout update for current page
+                            if (shell.CurrentPage != null)
+                            {
+                                shell.CurrentPage.ForceLayout();
+                            }
+                            
+                            // Get all currently in-memory pages
                             foreach (var item in shell.Items)
                             {
-                                // For Shell content that directly holds a page
-                                if (item.CurrentItem?.CurrentItem?.Content is Page directPage)
-                                {
-                                    directPage.ForceLayout();
-                                }
-                                
-                                // Or it might have sections
-                                if (item is ShellItem shellItem)
-                                {
-                                    foreach (var section in shellItem.Items)
+                                try {
+                                    if (item.CurrentItem?.CurrentItem?.Content is Page page)
                                     {
-                                        if (section is ShellSection shellSection)
-                                        {
-                                            // Get current content
-                                            var currentContent = shellSection.CurrentItem;
-                                            if (currentContent?.Content is Page contentPage)
-                                            {
-                                                contentPage.ForceLayout();
-                                            }
-                                        }
+                                        page.ForceLayout();
                                     }
+                                } catch (Exception ex) {
+                                    Debug.WriteLine($"Error refreshing Shell item: {ex.Message}");
                                 }
                             }
                         }
-                        
-                        // Try to update visual state if we have a navigation page
-                        if (Application.Current.MainPage is NavigationPage navPage && 
-                            navPage.CurrentPage != null)
+                        else if (mainPage is NavigationPage navPage)
                         {
-                            navPage.CurrentPage.ForceLayout();
+                            // Refresh NavigationPage and its stack
+                            navPage.ForceLayout();
+                            if (navPage.CurrentPage != null)
+                            {
+                                navPage.CurrentPage.ForceLayout();
+                            }
+                            
+                            // Force refresh of navigation bar
+                            navPage.BarBackgroundColor = navPage.BarBackgroundColor;
                         }
+                        else
+                        {
+                            // Direct refresh of main page
+                            mainPage.ForceLayout();
+                        }
+                        
+                        // Fire events again after UI refresh to ensure components update
+                        await Task.Delay(100);
+                        ThemeChanged?.Invoke(null, IsDarkTheme);
                     }
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"Error in UI refresh: {ex.Message}");
-                }
-            });
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Error in ThemeManager.ForceUIRefresh: {ex.Message}");
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error refreshing UI: {ex.Message}");
+            }
         }
 
         /// <summary>
@@ -528,9 +537,98 @@ namespace NexusChat
         /// </summary>
         public static void Initialize() 
         {
-            string themeName = Preferences.Default.Get(THEME_PREFERENCE_KEY, "System");
-            Debug.WriteLine($"Initializing theme system with {themeName}");
-            SetThemeByName(themeName);
+            try 
+            {
+                // Make sure all required resources exist
+                EnsureRequiredResourcesExist();
+                
+                // Get saved theme preference
+                string themeName = Preferences.Default.Get(THEME_PREFERENCE_KEY, "System");
+                Debug.WriteLine($"Initializing theme system with {themeName}");
+                
+                // Apply the theme
+                SetThemeByName(themeName);
+                
+                // Verify all theme resources for dark/light mode
+                MainThread.BeginInvokeOnMainThread(() => {
+                    VerifyThemeResources();
+                });
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error initializing theme: {ex.Message}");
+            }
+        }
+        
+        /// <summary>
+        /// Ensures all required theme resources exist
+        /// </summary>
+        private static void EnsureRequiredResourcesExist()
+        {
+            if (Application.Current?.Resources == null) return;
+            
+            // Light theme resources
+            EnsureResource("Primary", Colors.Purple);
+            EnsureResource("Secondary", Colors.LavenderBlush);
+            EnsureResource("Tertiary", Colors.MidnightBlue);
+            EnsureResource("Background", Colors.White);
+            EnsureResource("CardBackground", Colors.WhiteSmoke);
+            EnsureResource("SurfaceBackground", Colors.White);
+            EnsureResource("PrimaryTextColor", Colors.Black);
+            EnsureResource("SecondaryTextColor", Colors.DarkGray);
+            
+            // Dark theme resources
+            EnsureResource("PrimaryDark", Color.FromArgb("#9982EA"));
+            EnsureResource("SecondaryDark", Color.FromArgb("#625B71"));
+            EnsureResource("TertiaryDark", Color.FromArgb("#A09FFF"));
+            EnsureResource("BackgroundDark", Color.FromArgb("#121212"));
+            EnsureResource("CardBackgroundDark", Color.FromArgb("#1E1E1E"));
+            EnsureResource("SurfaceBackgroundDark", Color.FromArgb("#1E1E1E"));
+            EnsureResource("PrimaryTextColorDark", Colors.White);
+            EnsureResource("SecondaryTextColorDark", Color.FromArgb("#B3B3B3"));
+            
+            // Common values
+            EnsureResource("MessageBubbleWidth", 280.0);
+        }
+        
+        /// <summary>
+        /// Ensures a resource exists, adding it if missing
+        /// </summary>
+        private static void EnsureResource(string key, object defaultValue)
+        {
+            var resources = Application.Current?.Resources;
+            if (resources != null && !resources.ContainsKey(key))
+            {
+                resources[key] = defaultValue;
+                Debug.WriteLine($"Added missing resource: {key}");
+            }
+        }
+        
+        /// <summary>
+        /// Verify all theme resources are correctly defined
+        /// </summary>
+        private static void VerifyThemeResources()
+        {
+            var resources = Application.Current?.Resources;
+            if (resources == null) return;
+            
+            // Essential color pairs to verify
+            var colorPairs = new Dictionary<string, string>()
+            {
+                { "Primary", "PrimaryDark" },
+                { "Background", "BackgroundDark" },
+                { "CardBackground", "CardBackgroundDark" },
+                { "PrimaryTextColor", "PrimaryTextColorDark" },
+                { "SecondaryTextColor", "SecondaryTextColorDark" }
+            };
+            
+            foreach (var pair in colorPairs)
+            {
+                if (!resources.ContainsKey(pair.Key) || !resources.ContainsKey(pair.Value))
+                {
+                    Debug.WriteLine($"Warning: Theme pair missing - {pair.Key} / {pair.Value}");
+                }
+            }
         }
     }
 }

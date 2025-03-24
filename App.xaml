@@ -1,47 +1,28 @@
 ﻿<?xml version="1.0" encoding="UTF-8"?>
 <Application xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             xmlns:local="clr-namespace:NexusChat"
-             xmlns:converters="clr-namespace:NexusChat.Views.Converters"
-             xmlns:styles="clr-namespace:NexusChat.Resources.Styles"
-             x:Class="NexusChat.App">
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:local="clr-namespace:NexusChat"
+    xmlns:converters="clr-namespace:NexusChat.Views.Converters"
+    xmlns:uistyles="clr-namespace:NexusChat.Resources.Styles.UI"
+    x:Class="NexusChat.App">
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <!-- Core resource files - order matters -->
                 <ResourceDictionary Source="Resources/Styles/Colors.xaml" />
                 <ResourceDictionary Source="Resources/Styles/Styles.xaml" />
-                <!-- Add our message bubble styles -->
-                <styles:MessageBubbleStyles />
+                <uistyles:MessageBubbleStyles />
             </ResourceDictionary.MergedDictionaries>
-            
-            <!-- Fix for FontAwesome icons -->
-            <Style x:Key="AppThemeBindingFontAwesome" TargetType="Label">
-                <Setter Property="FontFamily" Value="FontAwesome-Solid" />
-                <Setter Property="HorizontalOptions" Value="Center" />
-                <Setter Property="VerticalOptions" Value="Center" />
-                <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Black}, Dark={StaticResource White}}" />
-            </Style>
-            
-            <!-- Simple style for FontAwesome icons -->
-            <Style x:Key="FontAwesome" TargetType="Label">
-                <Setter Property="FontFamily" Value="FontAwesome-Solid" />
-                <Setter Property="HorizontalOptions" Value="Center" />
-                <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Black}, Dark={StaticResource White}}" />
-            </Style>
-            
+
+
+
             <!-- Converters -->
-            <converters:BoolToColorConverter x:Key="BoolToColorConverter" />
             <converters:BoolToStringConverter x:Key="BoolToStringConverter" />
             <converters:InvertedBoolConverter x:Key="InvertedBoolConverter" />
             <converters:TextToWidthConverter x:Key="TextToWidthConverter" />
-            
-            <!-- Common app color values -->
-            <Color x:Key="Success">#28a745</Color>
-            <Color x:Key="Error">#dc3545</Color>
-            <Color x:Key="Warning">#ffc107</Color>
-            <Color x:Key="Info">#17a2b8</Color>
-            <Color x:Key="SeparatorColor">#dee2e6</Color>
+            <converters:NotNullConverter x:Key="NotNullConverter" />
+            <converters:ComponentToIconConverter x:Key="ComponentToIconConverter" />
+            <converters:BoolToColorConverter x:Key="BoolToColorConverter" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

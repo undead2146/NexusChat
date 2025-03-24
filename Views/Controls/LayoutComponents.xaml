@@ -2,112 +2,90 @@
 <ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="NexusChat.Views.Controls.LayoutComponents">
-    
-    <VerticalStackLayout Spacing="15">
-        <Label Text="LAYOUT COMPONENTS" Style="{StaticResource HeaderLabelStyle}" Margin="0,20,0,0" />
-        
-        <!-- Cards & Panels -->
-        <Frame>
-            <VerticalStackLayout Spacing="15">
-                <Label Text="Cards &amp; Panels" Style="{StaticResource SubHeaderLabelStyle}" />
-                
-                <!-- Basic Card -->
-                <Frame Padding="0" Margin="0">
-                    <VerticalStackLayout>
-                        <Rectangle HeightRequest="150" Fill="{StaticResource Primary}" />
-                        <VerticalStackLayout Padding="15" Spacing="10">
-                            <Label Text="Basic Card with Image" FontAttributes="Bold" FontSize="18" />
-                            <Label Text="This card demonstrates a common pattern with an image at the top and content below" TextColor="{StaticResource SecondaryTextColor}" />
-                            <Button Text="View Details" HorizontalOptions="Start" Margin="0,10,0,0" />
-                        </VerticalStackLayout>
-                    </VerticalStackLayout>
-                </Frame>
-                
-                <!-- Expandable Panel -->
-                <Frame Padding="15" Margin="0">
-                    <VerticalStackLayout Spacing="10">
-                        <Grid ColumnDefinitions="*,Auto">
-                            <Label Text="Expandable Panel" FontAttributes="Bold" VerticalOptions="Center" />
-                            <Button Grid.Column="1" Text="&#xf078;" Style="{StaticResource IconButton}" BackgroundColor="Transparent"
-                                    TextColor="{StaticResource PrimaryTextColor}" WidthRequest="30" HeightRequest="30" Padding="0"
-                                    ToolTipProperties.Text="Expand/Collapse" />
-                        </Grid>
-                        
-                        <BoxView HeightRequest="1" Color="{StaticResource SeparatorColor}" HorizontalOptions="Fill" />
-                        
-                        <Label Text="This is the content of the expandable panel. It can contain any kind of content including text, images, or other controls." />
-                    </VerticalStackLayout>
-                </Frame>
-            </VerticalStackLayout>
-        </Frame>
+    <ScrollView>
+        <VerticalStackLayout Spacing="20" Padding="10">
+            <Frame BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}"
+                   Padding="20" 
+                   CornerRadius="10"
+                   BorderColor="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray600}}">
+                <VerticalStackLayout Spacing="15">
+                    <Label Text="Layout Components"
+                           Style="{StaticResource SubheaderLabelStyle}"
+                           TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}" />
 
-        <!-- Lists and Collections -->
-        <Frame>
-            <VerticalStackLayout Spacing="15">
-                <Label Text="Lists and Collections" Style="{StaticResource SubHeaderLabelStyle}" />
-                
-                <!-- Simple List -->
-                <VerticalStackLayout Spacing="1">
-                    <Label Text="Simple List" FontSize="16" FontFamily="OpenSansSemiBold" Margin="0,0,0,5" />
-                    
-                    <Grid ColumnDefinitions="*,Auto" Padding="10" BackgroundColor="{AppThemeBinding Light=#f8f9fa, Dark=#2b3035}">
-                        <Label Text="User Profile" VerticalOptions="Center" />
-                        <Label Grid.Column="1" Text="&#xf054;" FontFamily="FontAwesome-Solid" FontSize="14" VerticalOptions="Center" />
-                    </Grid>
-                    
-                    <Grid ColumnDefinitions="*,Auto" Padding="10" BackgroundColor="{AppThemeBinding Light=White, Dark=#343a40}">
-                        <Label Text="Notifications" VerticalOptions="Center" />
-                        <Label Grid.Column="1" Text="&#xf054;" FontFamily="FontAwesome-Solid" FontSize="14" VerticalOptions="Center" />
-                    </Grid>
-                    
-                    <Grid ColumnDefinitions="*,Auto" Padding="10" BackgroundColor="{AppThemeBinding Light=#f8f9fa, Dark=#2b3035}">
-                        <Label Text="Privacy Settings" VerticalOptions="Center" />
-                        <Label Grid.Column="1" Text="&#xf054;" FontFamily="FontAwesome-Solid" FontSize="14" VerticalOptions="Center" />
-                    </Grid>
-                    
-                    <Grid ColumnDefinitions="*,Auto" Padding="10" BackgroundColor="{AppThemeBinding Light=White, Dark=#343a40}">
-                        <Label Text="Help &amp; Support" VerticalOptions="Center" />
-                        <Label Grid.Column="1" Text="&#xf054;" FontFamily="FontAwesome-Solid" FontSize="14" VerticalOptions="Center" />
-                    </Grid>
-                </VerticalStackLayout>
-                
-                <!-- Rich List -->
-                <VerticalStackLayout Spacing="10">
-                    <Label Text="Rich List" FontSize="16" FontFamily="OpenSansSemiBold" Margin="0,10,0,5" />
-                    
-                    <Frame Padding="10" Margin="0">
-                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="15">
-                            <Border StrokeShape="RoundRectangle 25" BackgroundColor="{StaticResource Primary}" WidthRequest="50" HeightRequest="50">
-                                <Label Text="&#xf007;" FontFamily="FontAwesome-Solid" TextColor="White" FontSize="20"
-                                       HorizontalOptions="Center" VerticalOptions="Center" />
-                            </Border>
-                            
-                            <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="3">
-                                <Label Text="John Smith" FontAttributes="Bold" />
-                                <Label Text="Online" TextColor="{StaticResource Success}" FontSize="12" />
-                            </VerticalStackLayout>
-                            
-                            <Button Grid.Column="2" Text="&#xf1d8;" Style="{StaticResource IconButton}" VerticalOptions="Center" />
-                        </Grid>
+                    <!-- Grids -->
+                    <Frame BackgroundColor="{AppThemeBinding Light={StaticResource Background}, Dark={StaticResource BackgroundDark}}"
+                           Padding="15"
+                           BorderColor="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray600}}">
+                        <VerticalStackLayout Spacing="15">
+                            <Label Text="Grid Layout"
+                                   FontFamily="OpenSansSemiBold"
+                                   TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}" />
+                            <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,*" Padding="5" RowSpacing="10" ColumnSpacing="10">
+                                <Frame Grid.Row="0" Grid.Column="0" 
+                                       BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                       Padding="10" CornerRadius="5" BorderColor="Transparent">
+                                    <Label Text="Cell 1" 
+                                           TextColor="White" 
+                                           HorizontalOptions="Center" />
+                                </Frame>
+                                <Frame Grid.Row="0" Grid.Column="1" 
+                                       BackgroundColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource SecondaryDark}}"
+                                       Padding="10" CornerRadius="5" BorderColor="Transparent">
+                                    <Label Text="Cell 2" 
+                                           TextColor="{AppThemeBinding Light=Black, Dark=White}" 
+                                           HorizontalOptions="Center" />
+                                </Frame>
+                                <Frame Grid.Row="1" Grid.Column="0" 
+                                       BackgroundColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource SecondaryDark}}"
+                                       Padding="10" CornerRadius="5" BorderColor="Transparent">
+                                    <Label Text="Cell 3" 
+                                           TextColor="{AppThemeBinding Light=Black, Dark=White}" 
+                                           HorizontalOptions="Center" />
+                                </Frame>
+                                <Frame Grid.Row="1" Grid.Column="1" 
+                                       BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                       Padding="10" CornerRadius="5" BorderColor="Transparent">
+                                    <Label Text="Cell 4" 
+                                           TextColor="White" 
+                                           HorizontalOptions="Center" />
+                                </Frame>
+                            </Grid>
+                        </VerticalStackLayout>
                     </Frame>
-                    
-                    <Frame Padding="10" Margin="0">
-                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="15">
-                            <Border StrokeShape="RoundRectangle 25" BackgroundColor="{StaticResource Info}" WidthRequest="50" HeightRequest="50">
-                                <Label Text="&#xf007;" FontFamily="FontAwesome-Solid" TextColor="White" FontSize="20"
-                                       HorizontalOptions="Center" VerticalOptions="Center" />
-                            </Border>
-                            
-                            <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="3">
-                                <Label Text="Jane Doe" FontAttributes="Bold" />
-                                <Label Text="Last seen yesterday" TextColor="{StaticResource SecondaryTextColor}" FontSize="12" />
-                            </VerticalStackLayout>
-                            
-                            <Button Grid.Column="2" Text="&#xf1d8;" Style="{StaticResource IconButton}" VerticalOptions="Center" />
-                        </Grid>
+
+                    <!-- Flex Layout -->
+                    <Frame BackgroundColor="{AppThemeBinding Light={StaticResource Background}, Dark={StaticResource BackgroundDark}}"
+                           Padding="15"
+                           BorderColor="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray600}}">
+                        <VerticalStackLayout Spacing="15">
+                            <Label Text="Flex Layout"
+                                   FontFamily="OpenSansSemiBold"
+                                   TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}" />
+                            <FlexLayout Wrap="Wrap" JustifyContent="SpaceAround" AlignItems="Center">
+                                <Frame BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                       Padding="15" Margin="5" WidthRequest="100" HeightRequest="40"
+                                       BorderColor="Transparent">
+                                    <Label Text="Item 1" TextColor="White" 
+                                           HorizontalOptions="Center" VerticalOptions="Center" />
+                                </Frame>
+                                <Frame BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                       Padding="15" Margin="5" WidthRequest="100" HeightRequest="40"
+                                       BorderColor="Transparent">
+                                    <Label Text="Item 2" TextColor="White" 
+                                           HorizontalOptions="Center" VerticalOptions="Center" />
+                                </Frame>
+                                <Frame BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                       Padding="15" Margin="5" WidthRequest="100" HeightRequest="40"
+                                       BorderColor="Transparent">
+                                    <Label Text="Item 3" TextColor="White" 
+                                           HorizontalOptions="Center" VerticalOptions="Center" />
+                                </Frame>
+                            </FlexLayout>
+                        </VerticalStackLayout>
                     </Frame>
                 </VerticalStackLayout>
-            </VerticalStackLayout>
-        </Frame>
-    </VerticalStackLayout>
+            </Frame>
+        </VerticalStackLayout>
+    </ScrollView>
 </ContentView>

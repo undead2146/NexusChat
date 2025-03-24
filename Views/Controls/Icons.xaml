@@ -1,71 +1,118 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             xmlns:viewmodels="clr-namespace:NexusChat.Core.ViewModels.DevTools"
-             x:Class="NexusChat.Views.Controls.Icons"
-             x:DataType="viewmodels:ThemesPageViewModel">
-    
-    <VerticalStackLayout Spacing="20">
-        <Label Text="FONT AWESOME ICONS" Style="{StaticResource HeaderLabelStyle}" Margin="0,20,0,0" />
-        
-        <!-- Status message -->
-        <Label Text="{Binding IconStatusMessage}"
-               FontSize="14"
-               TextColor="{StaticResource SecondaryTextColor}"
-               HorizontalOptions="Center" />
-        
-        <!-- Icon grid -->
-        <Frame Padding="15" Margin="0,10">
-            <CollectionView ItemsSource="{Binding Icons}"
-                           SelectionMode="None">
-                <CollectionView.ItemsLayout>
-                    <GridItemsLayout Orientation="Vertical" 
-                                    Span="3" 
-                                    HorizontalItemSpacing="10" 
-                                    VerticalItemSpacing="20" />
-                </CollectionView.ItemsLayout>
-                <CollectionView.ItemTemplate>
-                    <DataTemplate x:DataType="viewmodels:IconItem">
-                        <Frame Padding="10" 
-                               CornerRadius="8" 
-                               HasShadow="True"
-                               WidthRequest="100"
-                               HeightRequest="100">
-                            <VerticalStackLayout HorizontalOptions="Center" 
-                                               VerticalOptions="Center" 
-                                               Spacing="10">
-                                <Label Text="{Binding Code}" 
-                                       FontFamily="FontAwesome-Solid" 
-                                       FontSize="36" 
-                                       HorizontalOptions="Center" />
-                                <Label Text="{Binding Name}" 
-                                       FontSize="12" 
-                                       HorizontalOptions="Center" />
-                                <VerticalStackLayout.GestureRecognizers>
-                                    <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:ThemesPageViewModel}}, Path=CopyIconCommand}" 
-                                                          CommandParameter="{Binding Code}" />
-                                </VerticalStackLayout.GestureRecognizers>
-                            </VerticalStackLayout>
-                        </Frame>
-                    </DataTemplate>
-                </CollectionView.ItemTemplate>
-            </CollectionView>
-        </Frame>
-        
-        <!-- Font debug info -->
-        <Frame BorderColor="Gray" Margin="0,10,0,20" Padding="15">
-            <VerticalStackLayout Spacing="10">
-                <Label Text="Font Debugging Information:" FontAttributes="Bold" />
-                <Label Text="{Binding FontDebugInfo}" />
-                
-                <!-- Test font display -->
-                <Label Text="Font Tests:" FontAttributes="Bold" Margin="0,10,0,0" />
-                <StackLayout Orientation="Horizontal" Spacing="10">
-                    <Label Text="&#xf005;" FontFamily="FontAwesome-Solid" FontSize="24" />
-                    <Label Text="Regular" FontFamily="OpenSansRegular" FontSize="18" />
-                    <Label Text="Bold" FontFamily="OpenSansBold" FontSize="18" />
-                </StackLayout>
-            </VerticalStackLayout>
-        </Frame>
-    </VerticalStackLayout>
+             x:Class="NexusChat.Views.Controls.Icons">
+    <ScrollView>
+        <VerticalStackLayout Spacing="20" Padding="10">
+            <Frame BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}"
+                   Padding="20" 
+                   CornerRadius="10"
+                   BorderColor="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray600}}">
+                <VerticalStackLayout Spacing="15">
+                    <Label Text="Icons"
+                           Style="{StaticResource SubheaderLabelStyle}"
+                           TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}" />
+                    
+                    <!-- Icon Groups -->
+                    <Frame BackgroundColor="{AppThemeBinding Light={StaticResource Background}, Dark={StaticResource BackgroundDark}}"
+                           Padding="15"
+                           BorderColor="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray600}}">
+                        <VerticalStackLayout Spacing="15">
+                            <Label Text="Common Icons"
+                                   FontFamily="OpenSansSemiBold"
+                                   TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}" />
+                            
+                            <Grid ColumnDefinitions="*,*,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto" ColumnSpacing="10" RowSpacing="20">
+                                <!-- Row 1 -->
+                                <VerticalStackLayout Grid.Row="0" Grid.Column="0" HorizontalOptions="Center">
+                                    <Label Text="&#xf015;" 
+                                           FontFamily="FontAwesome-Solid"
+                                           FontSize="24"
+                                           TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                           FontAutoScalingEnabled="False"
+                                           HorizontalOptions="Center" />
+                                    <Label Text="Home"
+                                           TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}"
+                                           HorizontalOptions="Center"
+                                           FontSize="12" />
+                                </VerticalStackLayout>
+                                
+                                <VerticalStackLayout Grid.Row="0" Grid.Column="1" HorizontalOptions="Center">
+                                    <Label Text="&#xf0e0;" 
+                                           FontFamily="FontAwesome-Solid"
+                                           FontSize="24"
+                                           TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                           FontAutoScalingEnabled="False"
+                                           HorizontalOptions="Center" />
+                                    <Label Text="Mail"
+                                           TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}"
+                                           HorizontalOptions="Center"
+                                           FontSize="12" />
+                                </VerticalStackLayout>
+                                
+                                <VerticalStackLayout Grid.Row="0" Grid.Column="2" HorizontalOptions="Center">
+                                    <Label Text="&#xf007;" 
+                                           FontFamily="FontAwesome-Solid"
+                                           FontSize="24"
+                                           TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                           FontAutoScalingEnabled="False"
+                                           HorizontalOptions="Center" />
+                                    <Label Text="User"
+                                           TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}"
+                                           HorizontalOptions="Center"
+                                           FontSize="12" />
+                                </VerticalStackLayout>
+
+                                <!-- Row 2 -->
+                                <VerticalStackLayout Grid.Row="1" Grid.Column="0" HorizontalOptions="Center">
+                                    <Label Text="&#xf013;" 
+                                           FontFamily="FontAwesome-Solid"
+                                           FontSize="24"
+                                           TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                           FontAutoScalingEnabled="False"
+                                           HorizontalOptions="Center" />
+                                    <Label Text="Settings"
+                                           TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}"
+                                           HorizontalOptions="Center"
+                                           FontSize="12" />
+                                </VerticalStackLayout>
+
+                                <VerticalStackLayout Grid.Row="1" Grid.Column="1" HorizontalOptions="Center">
+                                    <Label Text="&#xf004;" 
+                                           FontFamily="FontAwesome-Solid"
+                                           FontSize="24"
+                                           TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                           FontAutoScalingEnabled="False"
+                                           HorizontalOptions="Center" />
+                                    <Label Text="Heart"
+                                           TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}"
+                                           HorizontalOptions="Center"
+                                           FontSize="12" />
+                                </VerticalStackLayout>
+
+                                <VerticalStackLayout Grid.Row="1" Grid.Column="2" HorizontalOptions="Center">
+                                    <Label Text="&#xf002;" 
+                                           FontFamily="FontAwesome-Solid"
+                                           FontSize="24"
+                                           TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                           FontAutoScalingEnabled="False"
+                                           HorizontalOptions="Center" />
+                                    <Label Text="Search"
+                                           TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}"
+                                           HorizontalOptions="Center"
+                                           FontSize="12" />
+                                </VerticalStackLayout>
+                            </Grid>
+                        </VerticalStackLayout>
+                    </Frame>
+                    
+                    <!-- Copy Status -->
+                    <Label Text="{Binding IconStatusMessage}"
+                           TextColor="{AppThemeBinding Light={StaticResource SecondaryTextColor}, Dark={StaticResource SecondaryTextColorDark}}"
+                           HorizontalOptions="Center"
+                           FontSize="12" />
+                </VerticalStackLayout>
+            </Frame>
+        </VerticalStackLayout>
+    </ScrollView>
 </ContentView>

@@ -224,24 +224,21 @@ namespace NexusChat.Core.ViewModels.DevTools
         /// </summary>
         public void ToggleTheme()
         {
-            // EMERGENCY FIX: Just set properties, don't trigger theme change yet
-            IsDarkTheme = !IsDarkTheme;
-            UpdateThemeText();
-            
-            // Use a delay to let the UI update first
-            MainThread.BeginInvokeOnMainThread(async () =>
+            try
             {
-                try
-                {
-                    await Task.Delay(100);
-                    // Now actually change the theme
-                    ThemeManager.SetTheme(IsDarkTheme);
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"Error in delayed theme toggle: {ex.Message}");
-                }
-            });
+                // Directly use ThemeManager to change the theme
+                // This will affect the entire application, not just the current page
+                bool newTheme = !IsDarkTheme; 
+                ThemeManager.SetTheme(newTheme);
+                
+                // Local UI will be updated via ThemeChanged event that we're subscribed to
+                // No need to manually set IsDarkTheme here as the event handler will do it
+                Debug.WriteLine($"Theme toggled to {(newTheme ? "Dark" : "Light")} mode");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error toggling theme: {ex.Message}");
+            }
         }
         
         /// <summary>
