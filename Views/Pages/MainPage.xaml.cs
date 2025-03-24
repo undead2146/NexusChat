@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.Input;
 using NexusChat.Views.Pages;
 using NexusChat.Views.Pages.DevTools;
 using System.Diagnostics;
+using NexusChat.Services;
 
 namespace NexusChat.Views.Pages
 {
@@ -12,11 +13,13 @@ namespace NexusChat.Views.Pages
     {
         private MainPageViewModel _viewModel;
         private bool _handlersInitialized = false;
+        private readonly NavigationService _navigationService;
 
-        public MainPage()
+        public MainPage(NavigationService navigationService)
         {
             InitializeComponent();
-            _viewModel = new MainPageViewModel(Navigation);
+            _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
+            _viewModel = new MainPageViewModel(navigationService);
             BindingContext = _viewModel;
         }
 

@@ -5,6 +5,7 @@ using NexusChat.Core.ViewModels;
 using NexusChat.Resources.Styles;
 using NexusChat.Data.Context;
 using NexusChat.Services;
+using NexusChat.Services.Interfaces; 
 using System;
 using System.Diagnostics;
 using System.Threading.Tasks;
@@ -14,18 +15,18 @@ namespace NexusChat
 {
     public partial class App : Application
     {
-        public App()
+        public App(IServiceProvider serviceProvider)
         {
             try
             {
                 // First initialize the XAML resources
                 InitializeComponent();
                 
-                // Register styles immediately - these are needed for AppShell
+                // Register message bubble styles
                 RegisterMessageBubbleStyles();
                 
                 // Create and set the Shell - MUST be done before any initialization
-                MainPage = new AppShell();
+                MainPage = serviceProvider.GetRequiredService<AppShell>();
                 
                 // Initialize theme system
                 ThemeManager.Initialize();
@@ -35,7 +36,7 @@ namespace NexusChat
                 {
                     try
                     {
-                        await InitializeServicesAsync();
+                        await InitializeServicesAsync(serviceProvider);
                     }
                     catch (Exception ex)
                     {
@@ -51,30 +52,27 @@ namespace NexusChat
                 // Emergency fallback - ensure MainPage is set
                 if (MainPage == null)
                 {
-                    MainPage = new AppShell();
+                    MainPage = serviceProvider.GetRequiredService<AppShell>();
                 }
             }
         }
 
-        private async Task InitializeServicesAsync()
+        private async Task InitializeServicesAsync(IServiceProvider serviceProvider)
         {
             try
             {
                 // Add a delay to ensure the app is fully initialized
                 await Task.Delay(100);
                 
-                // Get the startup initializer from the service provider
-                var initializer = Handler?.MauiContext?.Services.GetService<IStartupInitializer>();
+                // Get all startup initializers from the service provider
+                var initializers = serviceProvider.GetServices<IStartupInitializer>();
                 
-                if (initializer != null)
+                foreach (var initializer in initializers)
                 {
                     await initializer.InitializeAsync();
-                    Debug.WriteLine("App startup initialization completed successfully");
                 }
-                else
-                {
-                    Debug.WriteLine("IStartupInitializer was not found in the service provider");
-                }
+                
+                Debug.WriteLine("App startup initialization completed successfully");
             }
             catch (Exception ex)
             {
@@ -110,7 +108,6 @@ namespace NexusChat
                     style.Setters.Add(new Setter { Property = Frame.HasShadowProperty, Value = false });
                     
                     Resources.Add("MessageBubbleUserFrame", style);
-                    Debug.WriteLine("Registered MessageBubbleUserFrame style globally");
                 }
 
                 // Add AI bubble style
@@ -128,7 +125,6 @@ namespace NexusChat
                     style.Setters.Add(new Setter { Property = Frame.HasShadowProperty, Value = false });
                     
                     Resources.Add("MessageBubbleAIFrame", style);
-                    Debug.WriteLine("Registered MessageBubbleAIFrame style globally");
                 }
             }
             catch (Exception ex)

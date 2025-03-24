@@ -1,13 +1,14 @@
 using System;
 using System.Collections.ObjectModel;
-using System.Diagnostics; // Add this for Debug class
+using System.Diagnostics;
 using System.Threading.Tasks;
 using System.Windows.Input;
-using CommunityToolkit.Maui.Alerts; // Add this for Toast class
-using CommunityToolkit.Maui.Core; // Add this for Toast dependencies
+using CommunityToolkit.Maui.Alerts;
+using CommunityToolkit.Maui.Core;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Maui.Controls;
+using NexusChat.Services; // Add this missing using directive for ThemeManager
 
 namespace NexusChat.Core.ViewModels.DevTools
 {
@@ -500,7 +501,7 @@ namespace NexusChat.Core.ViewModels.DevTools
             {
                 // Get the actual current theme
                 var userTheme = Application.Current.UserAppTheme;
-                var requestedTheme = Application.Current.RequestedTheme;
+                var requestedTheme = Application.Current.RequestedTheme; 
                 
                 // Check if system theme is in use
                 _useSystemTheme = userTheme == AppTheme.Unspecified;

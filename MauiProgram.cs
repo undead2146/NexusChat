@@ -8,7 +8,7 @@ using NexusChat.Core.ViewModels;
 using NexusChat.Data.Repositories;
 using NexusChat.Services.Interfaces;
 using NexusChat.Services.AIProviders;
-using NexusChat.Views.Controls;
+using NexusChat.Services;
 
 namespace NexusChat;
 
@@ -27,11 +27,8 @@ public static class MauiProgram
                 fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemiBold");
                 fonts.AddFont("OpenSans-Bold.ttf", "OpenSansBold");
                 
-                // Add FontAwesome font - make sure the filename matches exactly what's in your Resources/Fonts folder
+                // Add FontAwesome font
                 fonts.AddFont("FontAwesome-Solid.otf", "FontAwesome-Solid");
-                // If you're using other FontAwesome styles, add them too:
-                // fonts.AddFont("FontAwesome-Regular.otf", "FontAwesome-Regular");
-                // fonts.AddFont("FontAwesome-Brands.otf", "FontAwesome-Brands");
             });
 
         // Register services
@@ -46,8 +43,13 @@ public static class MauiProgram
     
     private static void RegisterServices(IServiceCollection services)
     {
-        // Register database service
+        // Register core services
+        services.AddSingleton<NavigationService>();
         services.AddSingleton<DatabaseService>();
+        services.AddSingleton<IAIService, DummyAIService>();
+        
+        // Register startup initializers
+        services.AddSingleton<IStartupInitializer, DatabaseInitializer>();
         
         // Register repositories
         services.AddTransient<IUserRepository, UserRepository>();
@@ -56,19 +58,18 @@ public static class MauiProgram
         
         // Register ViewModels
         services.AddTransient<MainPageViewModel>();
-        services.AddTransient<ChatViewModel>();  // Add ChatViewModel registration
+        services.AddTransient<ChatViewModel>();
         services.AddTransient<ThemesPageViewModel>();
         services.AddTransient<ModelTestingViewModel>();
         services.AddTransient<DatabaseViewerViewModel>();
         
         // Register Pages
+        services.AddTransient<App>();
+        services.AddTransient<AppShell>();
         services.AddTransient<MainPage>();
-        services.AddTransient<ChatPage>();  // Add ChatPage registration
+        services.AddTransient<ChatPage>();
         services.AddTransient<ThemesPage>();
         services.AddTransient<ModelTestingPage>();
         services.AddTransient<DatabaseViewerPage>();
-        
-        // Register Services
-        services.AddSingleton<IAIService, DummyAIService>();
     }
 }

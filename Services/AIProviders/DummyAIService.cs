@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using NexusChat.Services.Interfaces;
@@ -6,102 +8,181 @@ using NexusChat.Services.Interfaces;
 namespace NexusChat.Services.AIProviders
 {
     /// <summary>
-    /// Dummy implementation of IAIService for testing
+    /// A dummy AI service implementation for development and testing
     /// </summary>
     public class DummyAIService : IAIService
     {
-        private static readonly string[] _responseTemplates = new[]
+        // Pre-defined responses for different types of queries
+        private readonly Dictionary<string, string> _responseTemplates = new Dictionary<string, string>
         {
-            "I understand what you're asking about {0}. Let me help with that.",
-            "That's an interesting question about {0}. Here's what I know.",
-            "When it comes to {0}, there are several things to consider.",
-            "I'd be happy to discuss {0} with you. Here's my perspective.",
-            "Thanks for asking about {0}. Here's some information that might help."
+            ["default"] = "I'm a dummy AI model for testing. Your message was: \"{0}\"",
+            ["greeting"] = "Hello! I'm a test AI assistant. How can I help you today?",
+            ["question"] = "That's an interesting question about {0}. As a test AI, I would normally provide comprehensive information on this topic.",
+            ["code"] = "Here's a simple example of {0} code:\n\n```\n// Sample code\nfunction helloWorld() {{\n  console.log(\"Hello, world!\");\n}}\n```\n\nThis is just a placeholder since I'm a test AI.",
+            ["explanation"] = "I would explain {0} in detail if I were a real AI model. This is just a placeholder response for development purposes.",
+            ["list"] = "Here are some key points about {0}:\n\n1. First important point\n2. Second important point\n3. Third important point\n\nThis is a test response format.",
+            ["error"] = "I'm sorry, but I encountered an error processing your request about {0}. Please try again or rephrase your question."
         };
         
-        private static readonly Random _random = new Random();
-        
-        /// <summary>
-        /// Gets the name of the current AI model
-        /// </summary>
-        public string ModelName { get; } = "Dummy AI Model";
-        
-        /// <summary>
-        /// Gets the provider name
-        /// </summary>
-        public string ProviderName { get; } = "NexusChat";
-        
-        /// <summary>
-        /// Sends a message to the dummy AI service and gets a response
-        /// </summary>
-        /// <param name="message">The message to send</param>
-        /// <param name="cancellationToken">Optional cancellation token</param>
-        /// <returns>The AI's response text</returns>
-        public async Task<string> SendMessageAsync(string message, CancellationToken cancellationToken = default)
+        // Random phrases to make responses more varied
+        private readonly string[] _fillerPhrases = new string[]
         {
-            // Extract topic from message for more realistic responses
-            string topic = ExtractTopic(message);
+            "As a test AI, ",
+            "For demonstration purposes, ",
+            "If I were a real AI model, ",
+            "In a production environment, ",
+            "To simulate a response, "
+        };
+
+        private readonly Random _random = new Random();
+        
+        /// <summary>
+        /// Gets the name of the AI model
+        /// </summary>
+        public string ModelName => "Dummy Model v1.0";
+        
+        /// <summary>
+        /// Gets the name of the provider
+        /// </summary>
+        public string ProviderName => "NexusChat Development";
+        
+        /// <summary>
+        /// Sends a message to the dummy AI service and gets a simulated response
+        /// </summary>
+        public async Task<string> SendMessageAsync(string prompt, CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrWhiteSpace(prompt))
+                return "You didn't provide any input. How can I help you?";
             
-            // Get random response template
-            string template = _responseTemplates[_random.Next(_responseTemplates.Length)];
-            
-            // Build basic response
-            string response = string.Format(template, topic);
-            
-            // Add some additional content based on message length
-            if (message.Length > 20)
+            try
             {
-                response += "\n\nI notice you provided quite a bit of detail in your question. " +
-                          "That's helpful for providing a more specific response. " +
-                          "Let me elaborate further on this topic.";
+                Debug.WriteLine($"DummyAIService: Processing message: {prompt}");
+                
+                // Simulate thinking time
+                int thinkingTime = _random.Next(500, 2000);
+                await Task.Delay(thinkingTime, cancellationToken);
+                
+                // Check for cancellation
+                cancellationToken.ThrowIfCancellationRequested();
+                
+                // Generate response
+                string response = GenerateResponse(prompt);
+                
+                // Simulate typing time (longer for longer responses)
+                int typingTime = Math.Min(response.Length * 10, 3000);
+                await Task.Delay(typingTime, cancellationToken);
+                
+                return response;
             }
-            
-            if (message.Contains("?"))
+            catch (OperationCanceledException)
             {
-                response += "\n\nTo directly answer your question: yes, that's generally correct, " +
-                          "though there are some nuances to consider depending on the specific context.";
+                Debug.WriteLine("DummyAIService: Operation was canceled");
+                throw;
             }
-            
-            // Add a standard closing
-            response += "\n\nIs there anything specific about this topic you'd like me to explain in more detail?";
-            
-            // Simulate network delay
-            await Task.Delay(_random.Next(500, 2000), cancellationToken);
-            
-            return response;
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"DummyAIService error: {ex.Message}");
+                return $"Sorry, I encountered an error: {ex.Message}";
+            }
         }
         
-        private string ExtractTopic(string message)
+        /// <summary>
+        /// Gets information about the model's capabilities
+        /// </summary>
+        public Task<ModelCapabilities> GetCapabilitiesAsync()
         {
-            // Very basic topic extraction - in a real AI, this would be much more sophisticated
-            string topic = message;
-            
-            // Try to extract a key phrase
-            if (message.Contains("about "))
+            return Task.FromResult(new ModelCapabilities
             {
-                int index = message.IndexOf("about ");
-                if (index >= 0 && index + 6 < message.Length)
-                {
-                    string afterAbout = message.Substring(index + 6);
-                    int endIndex = afterAbout.IndexOf('.');
-                    if (endIndex > 0)
-                    {
-                        topic = afterAbout.Substring(0, endIndex);
-                    }
-                    else
-                    {
-                        topic = afterAbout;
-                    }
-                }
+                MaxTokens = 2048,
+                SupportsImageGeneration = false,
+                SupportsCodeCompletion = true,
+                SupportsFunctionCalling = false,
+                DefaultTemperature = 0.7f
+            });
+        }
+        
+        /// <summary>
+        /// Estimates the number of tokens in the given text
+        /// </summary>
+        public int EstimateTokens(string text)
+        {
+            if (string.IsNullOrEmpty(text))
+                return 0;
+                
+            // Very simple estimate: ~4 characters per token
+            return (text.Length + 3) / 4;
+        }
+        
+        /// <summary>
+        /// Generates a response based on the input prompt
+        /// </summary>
+        private string GenerateResponse(string prompt)
+        {
+            string lowerPrompt = prompt.ToLower();
+            string responseTemplate;
+            string keyTopic = ExtractTopic(prompt);
+            
+            // Select response template based on input
+            if (lowerPrompt.Contains("hello") || lowerPrompt.Contains("hi ") || lowerPrompt.Contains("hey"))
+            {
+                responseTemplate = _responseTemplates["greeting"];
+                return responseTemplate;
+            }
+            else if (lowerPrompt.Contains("?"))
+            {
+                responseTemplate = _responseTemplates["question"];
+                return string.Format(responseTemplate, keyTopic);
+            }
+            else if (lowerPrompt.Contains("code") || lowerPrompt.Contains("program") || lowerPrompt.Contains("function"))
+            {
+                responseTemplate = _responseTemplates["code"];
+                return string.Format(responseTemplate, keyTopic);
+            }
+            else if (lowerPrompt.Contains("explain") || lowerPrompt.Contains("what is") || lowerPrompt.Contains("how does"))
+            {
+                responseTemplate = _responseTemplates["explanation"];
+                return string.Format(responseTemplate, keyTopic);
+            }
+            else if (lowerPrompt.Contains("list") || lowerPrompt.Contains("what are") || lowerPrompt.Contains("benefits"))
+            {
+                responseTemplate = _responseTemplates["list"];
+                return string.Format(responseTemplate, keyTopic);
+            }
+            else
+            {
+                // Add variety with a random filler phrase
+                string fillerPhrase = _fillerPhrases[_random.Next(_fillerPhrases.Length)];
+                responseTemplate = fillerPhrase + _responseTemplates["default"];
+                return string.Format(responseTemplate, prompt);
+            }
+        }
+        
+        /// <summary>
+        /// Extracts a key topic from the prompt
+        /// </summary>
+        private string ExtractTopic(string prompt)
+        {
+            // Simple extraction of a potential topic
+            string[] words = prompt.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            
+            // If prompt is very short, just return it
+            if (words.Length <= 3)
+                return prompt;
+                
+            // Find nouns (simplistic approach: longer words that aren't stopwords)
+            HashSet<string> stopwords = new HashSet<string>(new[] 
+            { 
+                "the", "a", "an", "and", "or", "but", "if", "of", "to", "in", "is", "it", "that", "for", "on", "with", "as", "this", "by" 
+            });
+            
+            foreach (string word in words)
+            {
+                if (word.Length > 4 && !stopwords.Contains(word.ToLower()))
+                    return word;
             }
             
-            // Limit length
-            if (topic.Length > 30)
-            {
-                topic = topic.Substring(0, 27) + "...";
-            }
-            
-            return topic;
+            // Fallback to using the first few words
+            return string.Join(" ", words.Length > 5 ? words[..5] : words);
         }
     }
 }
