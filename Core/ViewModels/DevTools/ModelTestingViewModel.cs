@@ -10,6 +10,8 @@ using NexusChat.Core.Models;
 using NexusChat.Data.Context;
 using NexusChat.Helpers;
 using System.Collections.ObjectModel;
+using Microsoft.Maui.Controls;
+using System.Threading;
 
 namespace NexusChat.Core.ViewModels.DevTools
 {
@@ -27,17 +29,28 @@ namespace NexusChat.Core.ViewModels.DevTools
         [ObservableProperty]
         private string _logOutput = "Welcome to Model Testing\nUse the buttons below to generate test data.";
 
+        // Database statistics properties - shows current counts in database
         [ObservableProperty]
-        private int _userCount;
+        private int _dbUserCount;
 
         [ObservableProperty]
-        private int _conversationCount;
+        private int _dbConversationCount;
 
         [ObservableProperty]
-        private int _messageCount;
+        private int _dbMessageCount;
+
+        // Generation count properties - for user input on how many to generate
+        [ObservableProperty]
+        private int _generateUserCount = 5;
 
         [ObservableProperty]
-        private List<string> _generationResults = new List<string>();
+        private int _generateConversationCount = 10;
+
+        [ObservableProperty]
+        private int _generateMessageCount = 20;
+
+        [ObservableProperty]
+        private ObservableCollection<string> _generationResults = new ObservableCollection<string>();
 
         [ObservableProperty]
         private ObservableCollection<AIModel> _availableModels;
@@ -131,29 +144,53 @@ namespace NexusChat.Core.ViewModels.DevTools
             if (IsBusy) return;
             
             IsBusy = true;
-            LogMessage("Generating random users...");
+            LogMessage($"Generating {GenerateUserCount} random users...");
             
             try
             {
                 await _databaseService.Initialize();
                 
-                // Create fake data generator
-                var faker = new Faker<User>()
-                    .RuleFor(u => u.Username, f => CleanUsername(f.Internet.UserName()))
-                    .RuleFor(u => u.PasswordHash, f => BCrypt.Net.BCrypt.HashPassword("password123"))
-                    .RuleFor(u => u.DisplayName, f => f.Name.FullName())
-                    .RuleFor(u => u.Email, f => f.Internet.Email())
-                    .RuleFor(u => u.DateCreated, f => f.Date.Past(1))
-                    .RuleFor(u => u.LastLogin, f => f.Date.Recent())
-                    .RuleFor(u => u.PreferredTheme, f => f.Random.ArrayElement(new[] { "Light", "Dark", "System" }))
-                    .RuleFor(u => u.IsEmailVerified, f => f.Random.Bool(0.7f))
-                    .RuleFor(u => u.IsActive, f => f.Random.Bool(0.9f));
+                // Ensure GenerateUserCount is within reasonable limits
+                int usersToGenerate = Math.Clamp(GenerateUserCount, 1, 100);
                 
-                // Generate 10 users
-                var users = faker.Generate(10);
+                // Perform CPU-intensive tasks on a background thread
+                var users = await Task.Run(() => 
+                {
+                    // Create fake data generator with simpler password hashing
+                    var faker = new Faker<User>()
+                        .RuleFor(u => u.Username, f => CleanUsername(f.Internet.UserName()))
+                        // Use a simple hash for testing - BCrypt is too slow for testing purposes
+                        .RuleFor(u => u.PasswordHash, f => $"TEST_HASH_{Guid.NewGuid()}")
+                        .RuleFor(u => u.DisplayName, f => f.Name.FullName())
+                        .RuleFor(u => u.Email, f => f.Internet.Email())
+                        .RuleFor(u => u.DateCreated, f => f.Date.Past(1))
+                        .RuleFor(u => u.LastLogin, f => f.Date.Recent())
+                        .RuleFor(u => u.PreferredTheme, f => f.Random.ArrayElement(new[] { "Light", "Dark", "System" }))
+                        .RuleFor(u => u.IsEmailVerified, f => f.Random.Bool(0.7f))
+                        .RuleFor(u => u.IsActive, f => f.Random.Bool(0.9f));
+                    
+                    // Generate users
+                    return faker.Generate(usersToGenerate);
+                });
                 
                 // Save to database
                 await _databaseService.Database.InsertAllAsync(users);
+                
+                await MainThread.InvokeOnMainThreadAsync(() => 
+                {
+                    GenerationResults.Clear();
+                    GenerationResults.Add($"Successfully generated {users.Count} users.");
+                    
+                    foreach (var user in users.Take(Math.Min(5, users.Count)))
+                    {
+                        GenerationResults.Add($"- {user.Username} ({user.Email})");
+                    }
+                    
+                    if (users.Count > 5)
+                    {
+                        GenerationResults.Add($"...and {users.Count - 5} more");
+                    }
+                });
                 
                 LogMessage($"Successfully generated {users.Count} users.");
                 await RefreshCounts();
@@ -161,7 +198,13 @@ namespace NexusChat.Core.ViewModels.DevTools
             catch (Exception ex)
             {
                 LogMessage($"Error generating users: {ex.Message}");
-                Debug.WriteLine($"Error: {ex}");
+                Debug.WriteLine($"Error in GenerateRandomUsers: {ex}");
+                
+                await MainThread.InvokeOnMainThreadAsync(() => 
+                {
+                    GenerationResults.Clear();
+                    GenerationResults.Add($"Error generating users: {ex.Message}");
+                });
             }
             finally
             {
@@ -177,7 +220,7 @@ namespace NexusChat.Core.ViewModels.DevTools
             if (IsBusy) return;
             
             IsBusy = true;
-            LogMessage("Generating random conversations...");
+            LogMessage($"Generating {GenerateConversationCount} random conversations...");
             
             try
             {
@@ -263,11 +306,25 @@ namespace NexusChat.Core.ViewModels.DevTools
                     .RuleFor(c => c.Summary, f => f.Lorem.Paragraph())
                     .RuleFor(c => c.TotalTokensUsed, f => f.Random.Number(100, 5000));
                 
-                // Generate conversations
-                var conversations = faker.Generate(20);
+                // Use GenerateConversationCount property
+                var conversations = faker.Generate(GenerateConversationCount);
                 
                 // Save to database
                 await _databaseService.Database.InsertAllAsync(conversations);
+                
+                await MainThread.InvokeOnMainThreadAsync(() => 
+                {
+                    GenerationResults.Clear();
+                    GenerationResults.Add($"Successfully generated {conversations.Count} conversations.");
+                    foreach (var convo in conversations.Take(5))
+                    {
+                        GenerationResults.Add($"- {convo.Title} (ID: {convo.Id})");
+                    }
+                    if (conversations.Count > 5)
+                    {
+                        GenerationResults.Add($"...and {conversations.Count - 5} more");
+                    }
+                });
                 
                 LogMessage($"Successfully generated {conversations.Count} conversations.");
                 await RefreshCounts();
@@ -291,7 +348,7 @@ namespace NexusChat.Core.ViewModels.DevTools
             if (IsBusy) return;
             
             IsBusy = true;
-            LogMessage($"Generating {MessageCount} random messages...");
+            LogMessage($"Generating {GenerateMessageCount} random messages...");
             
             try
             {
@@ -314,14 +371,17 @@ namespace NexusChat.Core.ViewModels.DevTools
                 var generator = new TestDataGenerator(_databaseService);
                 int savedCount = 0;
                 
+                // Keep track of messages per conversation
+                Dictionary<int, int> messageCountByConversation = new Dictionary<int, int>();
+                
                 // Generate messages for each conversation
                 foreach (var conversation in conversations)
                 {
                     // Determine how many messages to create for this conversation
-                    int messagesToCreate = MessageCount / conversations.Count;
-                    if (messagesToCreate == 0) messagesToCreate = 1;
+                    int messagesPerConversation = GenerateMessageCount / conversations.Count;
+                    if (messagesPerConversation == 0) messagesPerConversation = 1;
                     
-                    var messages = await generator.GenerateMessagesAsync(conversation.Id, messagesToCreate);
+                    var messages = await generator.GenerateMessagesAsync(conversation.Id, messagesPerConversation);
                     savedCount += messages.Count;
                     
                     // Update conversation tokens
@@ -329,10 +389,20 @@ namespace NexusChat.Core.ViewModels.DevTools
                     conversation.TotalTokensUsed += totalTokens;
                     await _databaseService.Database.UpdateAsync(conversation);
                     
-                    await MainThread.InvokeOnMainThreadAsync(() => {
-                        GenerationResults.Add($"Created {messages.Count} messages in conversation {conversation.Id}");
-                    });
+                    // Update message counts
+                    messageCountByConversation[conversation.Id] = messages.Count;
                 }
+
+                // Update the GenerationResults on the UI thread
+                await MainThread.InvokeOnMainThreadAsync(() => 
+                {
+                    GenerationResults.Clear();
+                    foreach (var kvp in messageCountByConversation)
+                    {
+                        GenerationResults.Add($"Created {kvp.Value} messages in conversation {kvp.Key}");
+                    }
+                    GenerationResults.Add($"Total: {savedCount} messages created");
+                });
                 
                 LogMessage($"Successfully created {savedCount} messages.");
                 await RefreshCounts();
@@ -354,6 +424,7 @@ namespace NexusChat.Core.ViewModels.DevTools
         private Task ClearLog()
         {
             LogOutput = "Log cleared.";
+            GenerationResults.Clear();
             return Task.CompletedTask;
         }
 
@@ -395,9 +466,10 @@ namespace NexusChat.Core.ViewModels.DevTools
             {
                 await _databaseService.Initialize();
                 
-                UserCount = await _databaseService.Database.Table<User>().CountAsync();
-                ConversationCount = await _databaseService.Database.Table<Conversation>().CountAsync();
-                MessageCount = await _databaseService.Database.Table<Message>().CountAsync();
+                // Update database statistics (not generation counts)
+                DbUserCount = await _databaseService.Database.Table<User>().CountAsync();
+                DbConversationCount = await _databaseService.Database.Table<Conversation>().CountAsync();
+                DbMessageCount = await _databaseService.Database.Table<Message>().CountAsync();
             }
             catch (Exception ex)
             {
@@ -409,14 +481,18 @@ namespace NexusChat.Core.ViewModels.DevTools
         private string CleanUsername(string username)
         {
             if (string.IsNullOrEmpty(username))
-                return "user";
+                return "user" + new Random().Next(1000, 9999);
 
-            // Remove special characters, replace spaces with underscores
-            var cleaned = new string(username.Where(c => char.IsLetterOrDigit(c) || c == '_' || c == '.').ToArray());
+            // Replace spaces with underscores and remove special characters
+            var cleaned = new string(username.Where(c => char.IsLetterOrDigit(c) || c == '_').ToArray());
             
-            // Ensure it's not empty after cleaning
-            if (string.IsNullOrEmpty(cleaned))
-                return "user";
+            // Ensure it's not empty after cleaning and reasonable length
+            if (string.IsNullOrEmpty(cleaned) || cleaned.Length < 4)
+                return "user" + new Random().Next(1000, 9999);
+            
+            // Truncate if too long
+            if (cleaned.Length > 20)
+                cleaned = cleaned.Substring(0, 20);
             
             return cleaned;
         }

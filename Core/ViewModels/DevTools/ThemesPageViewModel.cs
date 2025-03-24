@@ -34,7 +34,7 @@ namespace NexusChat.Core.ViewModels.DevTools
         /// Gets or sets the icon text representation for the current theme
         /// </summary>
         [ObservableProperty]
-        private string _themeIconText;
+        private string _themeIconText = "\uf185"; // Sun icon for light theme by default
         
         /// <summary>
         /// Gets or sets the toggle button text for switching themes
@@ -176,9 +176,9 @@ namespace NexusChat.Core.ViewModels.DevTools
             SelectComponentCommand = new RelayCommand<string>(SelectComponent);
             CopyIconCommand = new AsyncRelayCommand<string>(CopyIconCodeAsync);
             
-            // Initialize theme state
-            _isDarkTheme = ThemeManager.IsDarkTheme;
-            _useSystemTheme = Preferences.Default.Get("theme", "System") == "System";
+            // Initialize theme state - Get actual current theme
+            _isDarkTheme = Application.Current.UserAppTheme == AppTheme.Dark;
+            _useSystemTheme = Application.Current.UserAppTheme == AppTheme.Unspecified;
             
             // Initialize text properties
             UpdateThemeText();
@@ -261,10 +261,19 @@ namespace NexusChat.Core.ViewModels.DevTools
         /// </summary>
         private void UpdateThemeText()
         {
+            // Get actual current theme
+            IsDarkTheme = Application.Current.RequestedTheme == AppTheme.Dark;
+            if (!UseSystemTheme)
+            {
+                IsDarkTheme = Application.Current.UserAppTheme == AppTheme.Dark;
+            }
+            
             CurrentThemeText = IsDarkTheme ? "Dark" : "Light";
             
             // Use direct FontAwesome characters, not HTML entities
             ThemeIconText = UseSystemTheme ? "\uf042" : (IsDarkTheme ? "\uf186" : "\uf185");
+            
+            // Fix the toggle text to match the current theme
             ThemeToggleText = IsDarkTheme ? "Switch to Light" : "Switch to Dark";
             
             var systemTheme = Application.Current.RequestedTheme == AppTheme.Dark ? "Dark" : "Light";
@@ -424,12 +433,27 @@ namespace NexusChat.Core.ViewModels.DevTools
         {
             try
             {
-                // Update theme state
-                _isDarkTheme = ThemeManager.IsDarkTheme;
+                // Get the actual current theme from the application
+                var userTheme = Application.Current.UserAppTheme;
+                var requestedTheme = Application.Current.RequestedTheme;
+                
+                // Check if system theme is in use
+                _useSystemTheme = userTheme == AppTheme.Unspecified;
+                
+                // Determine the effective theme
+                if (UseSystemTheme)
+                {
+                    _isDarkTheme = requestedTheme == AppTheme.Dark;
+                }
+                else
+                {
+                    _isDarkTheme = userTheme == AppTheme.Dark;
+                }
                 
                 // Update FontAwesome icon representing theme
                 ThemeIconText = UseSystemTheme ? "\uf042" : (IsDarkTheme ? "\uf186" : "\uf185");
                 ThemeToggleText = IsDarkTheme ? "Switch to Light" : "Switch to Dark";
+                CurrentThemeText = IsDarkTheme ? "Dark" : "Light";
                 
                 // Subscribe to theme changes
                 ThemeManager.ThemeChanged += OnThemeChanged;
@@ -474,25 +498,37 @@ namespace NexusChat.Core.ViewModels.DevTools
             
             try
             {
-                // Only read theme properties - don't change themes
-                _isDarkTheme = ThemeManager.IsDarkTheme;
-                CurrentThemeText = _isDarkTheme ? "Dark" : "Light";
+                // Get the actual current theme
+                var userTheme = Application.Current.UserAppTheme;
+                var requestedTheme = Application.Current.RequestedTheme;
                 
-                var systemTheme = Application.Current.RequestedTheme == AppTheme.Dark ? "Dark" : "Light";
-                SystemThemeText = systemTheme;
+                // Check if system theme is in use
+                _useSystemTheme = userTheme == AppTheme.Unspecified;
                 
-                // Read system theme setting from preferences without changing it
-                _useSystemTheme = Preferences.Default.Get("theme", "System") == "System";
+                // Determine the effective theme
+                if (UseSystemTheme)
+                {
+                    _isDarkTheme = requestedTheme == AppTheme.Dark;
+                }
+                else
+                {
+                    _isDarkTheme = userTheme == AppTheme.Dark;
+                }
                 
-                // Update UI without changing theme
-                ThemeIconText = UseSystemTheme ? "\uf042" : (_isDarkTheme ? "\uf186" : "\uf185");
-                ThemeToggleText = _isDarkTheme ? "Switch to Light" : "Switch to Dark";
+                // Update UI to match actual theme
+                CurrentThemeText = IsDarkTheme ? "Dark" : "Light";
+                SystemThemeText = requestedTheme == AppTheme.Dark ? "Dark" : "Light";
+                
+                ThemeIconText = UseSystemTheme ? "\uf042" : (IsDarkTheme ? "\uf186" : "\uf185");
+                ThemeToggleText = IsDarkTheme ? "Switch to Light" : "Switch to Dark";
                 
                 OnPropertyChanged(nameof(IsNotUsingSystemTheme));
                 
                 // Subscribe to theme changes but don't trigger any
                 ThemeManager.ThemeChanged -= OnThemeChanged; // Remove existing listener to prevent duplicates
                 ThemeManager.ThemeChanged += OnThemeChanged;
+                
+                Debug.WriteLine($"Theme initialized: IsDark={IsDarkTheme}, UseSystem={UseSystemTheme}, ThemeToggleText={ThemeToggleText}");
             }
             catch (Exception ex)
             {
@@ -606,6 +642,13 @@ namespace NexusChat.Core.ViewModels.DevTools
                 new IconItem { Name = "Envelope", Code = "\uf0e0", Category = "Communication" },
                 new IconItem { Name = "Pencil", Code = "\uf303", Category = "Actions" }
             };
+        }
+
+        // Update this when theme changes
+        private void UpdateThemeIcon()
+        {
+            ThemeIconText = Application.Current.RequestedTheme == AppTheme.Dark ? "\uf186" : "\uf185";
+            // f186 is moon, f185 is sun
         }
         
         #endregion

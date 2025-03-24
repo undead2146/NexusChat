@@ -34,6 +34,9 @@ namespace NexusChat.Core.ViewModels
 
         [ObservableProperty]
         private bool _themesButtonEnabled = true;
+        
+        [ObservableProperty]
+        private string _maxComboScore = "0";
 
         /// <summary>
         /// Initializes a new instance of the MainPageViewModel class
@@ -195,7 +198,6 @@ namespace NexusChat.Core.ViewModels
                 await _miniGameHelper.HandleClick();
             }
         }
-        
         #endregion
         
         #region Navigation Handlers
@@ -329,8 +331,14 @@ namespace NexusChat.Core.ViewModels
             if (_miniGameHelper == null && _counterButton != null && _mainGrid != null)
             {
                 _miniGameHelper = new MiniGameHelper(_counterButton, _mainGrid);
+                
+                // Subscribe to combo updates
+                _miniGameHelper.OnComboChanged += (maxCombo) => 
+                {
+                    MaxComboScore = maxCombo.ToString();
+                };
             }
-        }
+}
 
         /// <summary>
         /// Cleans up resources when the view disappears

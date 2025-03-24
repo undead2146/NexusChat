@@ -27,12 +27,28 @@ namespace NexusChat.Views.Pages.DevTools
         protected override async void OnAppearing()
         {
             base.OnAppearing();
-            await _viewModel.InitializeAsync();
             
-            // Initialize the data grid if needed
-            if (Content is Grid mainGrid && mainGrid.FindByName("DataGrid") is Grid dataGrid)
+            try
             {
-                _viewModel.InitializeDataGrid(dataGrid);
+                // First initialize the DataGrid in ViewModel using the direct reference
+                _viewModel.InitializeDataGrid(DataGrid);
+                
+                // Then load the data
+                await _viewModel.InitializeAsync();
+                
+                // Ensure UI state is refreshed after loading
+                if (_viewModel.HasData)
+                {
+                    Debug.WriteLine("Data is available, showing grid");
+                }
+                else
+                {
+                    Debug.WriteLine("No data available, showing empty message");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error in OnAppearing: {ex.Message}");
             }
         }
 

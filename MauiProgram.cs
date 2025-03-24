@@ -27,57 +27,48 @@ public static class MauiProgram
                 fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemiBold");
                 fonts.AddFont("OpenSans-Bold.ttf", "OpenSansBold");
                 
-                // FontAwesome fonts
-                fonts.AddFont("fa-regular-400.ttf", "FontAwesome-Regular"); 
-                fonts.AddFont("fa-solid-900.ttf", "FontAwesome-Solid");     
-                fonts.AddFont("fa-brands-400.ttf", "FontAwesome-Brands");   
+                // Add FontAwesome font - make sure the filename matches exactly what's in your Resources/Fonts folder
+                fonts.AddFont("FontAwesome-Solid.otf", "FontAwesome-Solid");
+                // If you're using other FontAwesome styles, add them too:
+                // fonts.AddFont("FontAwesome-Regular.otf", "FontAwesome-Regular");
+                // fonts.AddFont("FontAwesome-Brands.otf", "FontAwesome-Brands");
             });
 
         // Register services
-        builder.Services.AddSingleton<DatabaseService>();
-        
-        // Register the startup initializer
-        builder.Services.AddSingleton<IStartupInitializer, DatabaseInitializer>();
-        
-        // Register repositories
-        builder.Services.AddSingleton<IUserRepository, UserRepository>();
-        builder.Services.AddSingleton<IConversationRepository, ConversationRepository>();
-        builder.Services.AddSingleton<IMessageRepository, MessageRepository>();
-        
-        // Register AI services
-        builder.Services.AddSingleton<IAIService, DummyAIService>();
-        
-        // Register ViewModels
-        builder.Services.AddTransient<ChatViewModel>();
-        builder.Services.AddTransient<MainPageViewModel>();
-        builder.Services.AddTransient<ThemesPageViewModel>();
-        builder.Services.AddTransient<ModelTestingViewModel>();
-        builder.Services.AddTransient<DatabaseViewerViewModel>();
-        
-        // Register Pages
-        builder.Services.AddTransient<MainPage>();
-        builder.Services.AddTransient<ChatPage>();
-        builder.Services.AddTransient<ThemesPage>();
-        builder.Services.AddTransient<ModelTestingPage>();
-        builder.Services.AddTransient<DatabaseViewerPage>();
-        
-        // Register Theme Components
-        builder.Services.AddTransient<ColorPalette>();
-        builder.Services.AddTransient<Typography>();
-        builder.Services.AddTransient<Buttons>();
-        builder.Services.AddTransient<FunctionalColors>();
-        builder.Services.AddTransient<InputControls>();
-        builder.Services.AddTransient<ChatComponents>();
-        builder.Services.AddTransient<StatusIndicators>();
-        builder.Services.AddTransient<LayoutComponents>();
-        builder.Services.AddTransient<FormComponents>();
-        builder.Services.AddTransient<Accessibilities>();
-        builder.Services.AddTransient<Icons>(); // Add Icons control registration
+        RegisterServices(builder.Services);
         
 #if DEBUG
         builder.Logging.AddDebug();
 #endif
 
         return builder.Build();
+    }
+    
+    private static void RegisterServices(IServiceCollection services)
+    {
+        // Register database service
+        services.AddSingleton<DatabaseService>();
+        
+        // Register repositories
+        services.AddTransient<IUserRepository, UserRepository>();
+        services.AddTransient<IConversationRepository, ConversationRepository>();
+        services.AddTransient<IMessageRepository, MessageRepository>();
+        
+        // Register ViewModels
+        services.AddTransient<MainPageViewModel>();
+        services.AddTransient<ChatViewModel>();  // Add ChatViewModel registration
+        services.AddTransient<ThemesPageViewModel>();
+        services.AddTransient<ModelTestingViewModel>();
+        services.AddTransient<DatabaseViewerViewModel>();
+        
+        // Register Pages
+        services.AddTransient<MainPage>();
+        services.AddTransient<ChatPage>();  // Add ChatPage registration
+        services.AddTransient<ThemesPage>();
+        services.AddTransient<ModelTestingPage>();
+        services.AddTransient<DatabaseViewerPage>();
+        
+        // Register Services
+        services.AddSingleton<IAIService, DummyAIService>();
     }
 }

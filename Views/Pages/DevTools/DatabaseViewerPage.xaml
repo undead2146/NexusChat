@@ -2,106 +2,240 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
+             xmlns:converters="clr-namespace:NexusChat.Views.Converters"
              x:Class="NexusChat.Views.Pages.DevTools.DatabaseViewerPage"
+             BackgroundColor="{AppThemeBinding Light={StaticResource Background}, Dark={StaticResource BackgroundDark}}"
+             Shell.NavBarIsVisible="False"
              Title="Database Viewer">
-    
-    <Grid RowDefinitions="Auto,*,Auto" Padding="15">
-        <!-- Header and Controls -->
-        <Grid Grid.Row="0" RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto" Margin="0,0,0,15">
-            <Label Grid.Row="0" Grid.Column="0"
-                   Text="Database Viewer" 
-                   Style="{StaticResource HeaderLabelStyle}" />
-            
-            <Label Grid.Row="0" Grid.Column="1"
-                   Text="{Binding RecordCount}" 
+
+    <ContentPage.Resources>
+        <ResourceDictionary>
+            <converters:InvertedBoolConverter x:Key="InvertedBoolConverter" />
+        </ResourceDictionary>
+    </ContentPage.Resources>
+
+    <Grid RowDefinitions="Auto,*" RowSpacing="0">
+        <!-- Custom Header -->
+        <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto"
+              BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+              Padding="15,12">
+            <!-- Back Button - Fix Icon Font -->
+            <Button Grid.Column="0"
+                    Text="&#xf060;"
+                    FontFamily="FontAwesome-Solid"
+                    FontSize="22"
+                    Command="{Binding GoBackCommand}"
+                    BackgroundColor="Transparent"
+                    TextColor="White"
+                    BorderColor="Transparent"
+                    WidthRequest="50"
+                    HeightRequest="50"
+                    Padding="0"
+                    CornerRadius="25"
+                    HorizontalOptions="Start"
+                    VerticalOptions="Center" />
+
+            <!-- Title -->
+            <Label Grid.Column="1"
+                   Text="Database Viewer"
+                   FontFamily="OpenSansBold"
+                   TextColor="White"
+                   FontSize="20"
+                   VerticalOptions="Center"
+                   HorizontalOptions="Start" />
+                   
+            <!-- Record Count -->
+            <Label Grid.Column="2"
+                   Text="{Binding RecordCount}"
+                   TextColor="White"
                    HorizontalOptions="End"
                    VerticalOptions="Center" />
-                   
-            <HorizontalStackLayout Grid.Row="1" Grid.ColumnSpan="2" Spacing="10" Margin="0,10,0,0">
-                <Label Text="Table:" VerticalOptions="Center" />
-                <Picker ItemsSource="{Binding Tables}" 
-                        SelectedItem="{Binding SelectedTable}"
-                        WidthRequest="150"
-                        VerticalOptions="Center">
-                    <Picker.Behaviors>
-                        <toolkit:EventToCommandBehavior
-                            EventName="SelectedIndexChanged"
-                            Command="{Binding TableChangedCommand}"
-                            CommandParameter="{Binding SelectedTable}" />
-                    </Picker.Behaviors>
-                </Picker>
-                
-                <Button Text="Refresh" 
-                        Command="{Binding RefreshDataCommand}"
-                        WidthRequest="100"
-                        Margin="10,0,0,0"
-                        VerticalOptions="Center" />
-            </HorizontalStackLayout>
         </Grid>
         
-        <!-- Database Content -->
-        <Grid Grid.Row="1">
-            <!-- Remove the RefreshView which adds an extra loading indicator -->
-            <ScrollView>
-                <Grid RowDefinitions="Auto,*">
-                    <!-- Status Message -->
-                    <Label Grid.Row="0" Text="{Binding StatusMessage}" 
-                           TextColor="{StaticResource SecondaryTextColor}"
-                           Margin="0,0,0,10" />
+        <!-- Main Content -->
+        <Grid Grid.Row="1" RowDefinitions="Auto,Auto,*" Padding="15">
+            <!-- Table Selection and Controls -->
+            <Frame Grid.Row="0" 
+                   BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}"
+                   Padding="15" Margin="0,15,0,10"
+                   BorderColor="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray600}}">
+                <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="10">
+                    <Label Grid.Column="0" 
+                           Text="&#xf0ce;"
+                           FontFamily="FontAwesome-Solid"
+                           FontSize="20"
+                           TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                           VerticalOptions="Center"
+                           Margin="0,0,5,0"
+                           FontAutoScalingEnabled="False" />
                            
-                    <!-- No Data View -->
-                    <VerticalStackLayout Grid.Row="1" IsVisible="{Binding HasData, Converter={StaticResource InvertedBoolConverter}}"
-                                        VerticalOptions="Start" HorizontalOptions="Fill">
-                        <Frame BackgroundColor="{AppThemeBinding Light=#f8f9fa, Dark=#333}" 
-                                Padding="20" CornerRadius="8">
-                            <VerticalStackLayout Spacing="20">
-                                <Label Text="No data available in this table" 
-                                       HorizontalOptions="Center"
-                                       TextColor="{StaticResource SecondaryTextColor}" />
-                                
-                                <Label Text="Use the Model Testing page to generate random test data"
-                                       HorizontalOptions="Center"
-                                       TextColor="{StaticResource SecondaryTextColor}"
-                                       FontSize="Small" />
-                            </VerticalStackLayout>
-                        </Frame>
-                    </VerticalStackLayout>
+                    <Picker Grid.Column="1" 
+                            ItemsSource="{Binding Tables}" 
+                            SelectedItem="{Binding SelectedTable}"
+                            BackgroundColor="Transparent"
+                            TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}"
+                            VerticalOptions="Center">
+                        <Picker.Behaviors>
+                            <toolkit:EventToCommandBehavior
+                                EventName="SelectedIndexChanged"
+                                Command="{Binding TableChangedCommand}"
+                                CommandParameter="{Binding SelectedTable}" />
+                        </Picker.Behaviors>
+                    </Picker>
                     
-                    <!-- Data Grid -->
-                    <ScrollView Grid.Row="1" IsVisible="{Binding HasData}" Orientation="Both">
-                        <Grid x:Name="DataGrid" ColumnSpacing="1" RowSpacing="1" Padding="1" 
-                              BackgroundColor="{StaticResource Gray300}">
-                            <!-- Grid content will be generated dynamically in code -->
-                        </Grid>
-                    </ScrollView>
+                    <!-- Refresh button with circle animation -->
+                    <Frame Grid.Column="2"
+                           BackgroundColor="{AppThemeBinding Light={StaticResource Background}, Dark={StaticResource BackgroundDark}}"
+                           HeightRequest="36"
+                           WidthRequest="36"
+                           CornerRadius="18"
+                           Padding="0"
+                           HasShadow="False"
+                           BorderColor="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray600}}">
+                        <Button Text="&#xf2f1;"
+                                FontFamily="FontAwesome-Solid" 
+                                Command="{Binding RefreshDataCommand}"
+                                BackgroundColor="Transparent"
+                                TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                FontSize="16"
+                                VerticalOptions="Center"
+                                FontAutoScalingEnabled="False"
+                                WidthRequest="36"
+                                HeightRequest="36"
+                                CornerRadius="18"
+                                Padding="0"
+                                Margin="0" />
+                    </Frame>
+                            
+                    <Button Grid.Column="3"
+                            Text="&#xf1f8;"
+                            FontFamily="FontAwesome-Solid" 
+                            Command="{Binding ClearDatabaseCommand}"
+                            BackgroundColor="{AppThemeBinding Light=#f8d7da, Dark=#6e1a21}"
+                            TextColor="{AppThemeBinding Light=#721c24, Dark=#f8d7da}"
+                            BorderWidth="0"
+                            CornerRadius="18"
+                            WidthRequest="36"
+                            HeightRequest="36"
+                            Padding="0"
+                            VerticalOptions="Center"
+                            FontAutoScalingEnabled="False" />
                 </Grid>
-            </ScrollView>
+            </Frame>
             
-            <!-- Single loading indicator for all operations -->
-            <ActivityIndicator x:Name="LoadingIndicator" 
-                               IsVisible="{Binding IsBusy}" 
-                               IsRunning="{Binding IsBusy}"
-                               VerticalOptions="Center" 
-                               HorizontalOptions="Center" 
-                               HeightRequest="50" 
-                               WidthRequest="50" />
-        </Grid>
-        
-        <!-- Footer with action buttons -->
-        <Grid Grid.Row="2" ColumnDefinitions="*,*" Margin="0,15,0,0" ColumnSpacing="10">
-            <Button Grid.Column="0" 
-                    Text="Clear Database"
-                    Command="{Binding ClearDatabaseCommand}"
-                    BackgroundColor="{StaticResource Error}"
-                    TextColor="White"
-                    IsEnabled="True"
-                    HorizontalOptions="Fill" />
+            <!-- Status and Filter Row -->
+            <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="15" Margin="0,0,0,10">
+                <!-- Status Message -->
+                <Label Grid.Column="0"
+                       Text="{Binding StatusMessage}" 
+                       TextColor="{AppThemeBinding Light={StaticResource SecondaryTextColor}, Dark={StaticResource SecondaryTextColorDark}}"
+                       VerticalOptions="Center" />
+                       
+                <!-- Search Entry -->
+                <Grid Grid.Column="1" ColumnDefinitions="Auto,*" WidthRequest="200">
+                    <Label Grid.Column="0"
+                           Text="&#xf002;" 
+                           FontFamily="FontAwesome-Solid"
+                           FontSize="16"
+                           TextColor="{AppThemeBinding Light={StaticResource Gray400}, Dark={StaticResource Gray500}}"
+                           VerticalOptions="Center"
+                           Margin="0,0,5,0"
+                           FontAutoScalingEnabled="False" />
+                    <Entry Grid.Column="1"
+                           Placeholder="Search..."
+                           Text="{Binding SearchText}"
+                           BackgroundColor="Transparent"
+                           TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}"
+                           PlaceholderColor="{AppThemeBinding Light={StaticResource Gray400}, Dark={StaticResource Gray500}}" />
+                </Grid>
+            </Grid>
+            
+            <!-- Data Container -->
+            <Grid Grid.Row="2">
+                <!-- Loading Indicator -->
+                <Grid IsVisible="{Binding IsBusy}"
+                      BackgroundColor="{AppThemeBinding Light=#80FFFFFF, Dark=#80000000}">
+                    <Frame BackgroundColor="{AppThemeBinding Light={StaticResource Background}, Dark={StaticResource BackgroundDark}}"
+                           CornerRadius="10"
+                           WidthRequest="120"
+                           HeightRequest="120"
+                           HorizontalOptions="Center"
+                           VerticalOptions="Center"
+                           Padding="15"
+                           BorderColor="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray600}}">
+                        <VerticalStackLayout Spacing="10" HorizontalOptions="Center" VerticalOptions="Center">
+                            <ActivityIndicator IsRunning="True"
+                                               Color="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                               WidthRequest="40"
+                                               HeightRequest="40" />
+                            <Label Text="Loading..."
+                                   TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}"
+                                   HorizontalOptions="Center" />
+                        </VerticalStackLayout>
+                    </Frame>
+                </Grid>
+
+                <!-- No Data Message - Shown when HasData is false and NOT busy -->
+                <Frame IsVisible="{Binding HasData, Converter={StaticResource InvertedBoolConverter}}"
+                       BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}"
+                       Padding="20" 
+                       BorderColor="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray600}}"
+                       ZIndex="0">
+                    <VerticalStackLayout Spacing="15" HorizontalOptions="Center" VerticalOptions="Center">
+                        <Label Text="&#xf542;"
+                               FontFamily="FontAwesome-Solid"
+                               FontSize="32"
+                               TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                               HorizontalOptions="Center"
+                               FontAutoScalingEnabled="False" />
+                               
+                        <Label Text="No data available in this table" 
+                               FontFamily="OpenSansSemiBold"
+                               TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}"
+                               HorizontalOptions="Center" />
+                            
+                        <Label Text="Use the Model Testing page to generate random test data"
+                               TextColor="{AppThemeBinding Light={StaticResource SecondaryTextColor}, Dark={StaticResource SecondaryTextColorDark}}"
+                               HorizontalOptions="Center"
+                               FontSize="14" />
+                    </VerticalStackLayout>
+                </Frame>
+            
+                <!-- Table Container - Shown when HasData is true -->
+                <Grid IsVisible="{Binding HasData}" RowDefinitions="*, Auto" ZIndex="1">
+                    <!-- Data Table Container with improved scrolling -->
+                    <Frame Grid.Row="0"
+                           BackgroundColor="{AppThemeBinding Light={StaticResource Background}, Dark={StaticResource BackgroundDark}}"
+                           Padding="0"
+                           BorderColor="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray600}}">
+                        <ScrollView Orientation="Both" HorizontalScrollBarVisibility="Always">
+                            <Grid x:Name="DataGrid" 
+                                  StyleId="DataGrid"
+                                  Padding="1"
+                                  ColumnSpacing="1"
+                                  RowSpacing="1"
+                                  BackgroundColor="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray700}}" />
+                        </ScrollView>
+                    </Frame>
                     
-            <Button Grid.Column="1" 
-                    Text="Close"
-                    Command="{Binding GoBackCommand}"
-                    IsEnabled="{Binding IsNotBusy}"
-                    HorizontalOptions="Fill" />
+                    <!-- Record info panel -->
+                    <Frame Grid.Row="1"
+                           BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}"
+                           Padding="15" Margin="0,10,0,0"
+                           BorderColor="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray600}}">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="15">
+                            <StackLayout Grid.Column="0" Orientation="Horizontal" Spacing="15">
+                                <Label Text="{Binding RecordCount}"
+                                       TextColor="{AppThemeBinding Light={StaticResource SecondaryTextColor}, Dark={StaticResource SecondaryTextColorDark}}"
+                                       VerticalOptions="Center" />
+                                <Label Text="{Binding SelectedTable, StringFormat='Table: {0}'}"
+                                       TextColor="{AppThemeBinding Light={StaticResource SecondaryTextColor}, Dark={StaticResource SecondaryTextColorDark}}"
+                                       VerticalOptions="Center" />
+                            </StackLayout>
+                        </Grid>
+                    </Frame>
+                </Grid>
+            </Grid>
         </Grid>
     </Grid>
 </ContentPage>

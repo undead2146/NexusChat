@@ -119,7 +119,7 @@
                         <Label Text="These features are available for testing and demonstration purposes." 
                                TextColor="{AppThemeBinding Light={StaticResource SecondaryTextColor}, Dark={StaticResource SecondaryTextColorDark}}" />
                         
-                        <!-- Counter Button -->
+                        <!-- Counter Button 
                         <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="15">
                             <Label Grid.Column="0" Text="&#xf201;" 
                                    Style="{StaticResource MainPageIcon}" 
@@ -137,7 +137,47 @@
                                     Clicked="OnCounterClicked"
                                     Style="{StaticResource OutlineButton}" />
                         </Grid>
-                        
+
+                        -->
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="15">
+                            <Label Grid.Column="0" Text="&#xf201;" 
+                                Style="{StaticResource MainPageIcon}" 
+                                VerticalOptions="Center" />
+                            <VerticalStackLayout Grid.Column="1">
+                                <Label Text="Clicker Game" FontFamily="OpenSansSemiBold" FontSize="16" 
+                                    TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}" />
+                                <StackLayout Orientation="Horizontal" Spacing="5">
+                                    <Label Text="High Score:" 
+                                        TextColor="{AppThemeBinding Light={StaticResource SecondaryTextColor}, Dark={StaticResource SecondaryTextColorDark}}" 
+                                        FontSize="12" />
+                                    <Label Text="{Binding MaxComboScore}" 
+                                        TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                        FontAttributes="Bold"
+                                        FontSize="12" />
+                                </StackLayout>
+                            </VerticalStackLayout>
+
+                            <Button x:Name="CounterBtn" 
+                                    Grid.Column="2" 
+                                    Text="Play!" 
+                                    Clicked="OnCounterClicked"
+                                    HeightRequest="50"
+                                    WidthRequest="110"
+                                    Padding="5"
+                                    BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                    TextColor="White"
+                                    FontAttributes="Bold"
+                                    CornerRadius="25"
+                                    Scale="1">
+                                <Button.Shadow>
+                                    <Shadow Brush="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                            Offset="0,2"
+                                            Opacity="0.5"
+                                            Radius="4"/>
+                                </Button.Shadow>
+                            </Button>
+                        </Grid>
+
                         <BoxView HeightRequest="1" 
                                  BackgroundColor="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray600}}" />
                         

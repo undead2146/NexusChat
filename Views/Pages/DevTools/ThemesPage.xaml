@@ -46,9 +46,10 @@
                 TextColor="White"
                 FontSize="22"
                 BorderColor="Transparent"
-                WidthRequest="40"
-                HeightRequest="40"
-                CornerRadius="20"
+                WidthRequest="50"
+                HeightRequest="50"
+                Padding="0"
+                CornerRadius="25"
                 HorizontalOptions="Start"
                 VerticalOptions="Center" />
 
@@ -130,28 +131,6 @@
                     </Grid>
                 </Frame>
 
-                <!-- System Theme Option -->
-                <Frame Padding="15" CornerRadius="10" 
-                       BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}">
-                    <Grid ColumnDefinitions="*,Auto">
-                        <VerticalStackLayout Grid.Column="0" Spacing="5">
-                            <Label Text="Use System Theme" 
-                                   TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}"
-                                   FontFamily="OpenSansSemiBold" 
-                                   FontSize="16" />
-                            <Label Text="Automatically follow system light/dark preference" 
-                                   FontSize="14" 
-                                   TextColor="{AppThemeBinding Light={StaticResource SecondaryTextColor}, Dark={StaticResource SecondaryTextColorDark}}" />
-                        </VerticalStackLayout>
-                        
-                        <Switch Grid.Column="1"
-                                IsToggled="{Binding UseSystemTheme}"
-                                OnColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
-                                ThumbColor="White" 
-                                VerticalOptions="Center" />
-                    </Grid>
-                </Frame>
-                
                 <!-- Components Section -->
                 <toolkit:Expander x:Name="ComponentsExpander"
                                  IsExpanded="True"

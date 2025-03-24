@@ -8,10 +8,10 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NexusChat.Core.Models;
-
 using NexusChat.Data.Context;
 using NexusChat.Helpers;
 using SQLite;
+using Microsoft.Maui.Controls;
 
 namespace NexusChat.Core.ViewModels.DevTools
 {
@@ -56,6 +56,13 @@ namespace NexusChat.Core.ViewModels.DevTools
 
         [ObservableProperty]
         private ObservableCollection<object> _tableRecords = new ObservableCollection<object>();
+
+        // Add search functionality
+        [ObservableProperty]
+        private string _searchText;
+
+        // Add field to store all records
+        private List<Dictionary<string, object>> _allRecords = new List<Dictionary<string, object>>();
 
         /// <summary>
         /// Gets whether the ViewModel is not busy
@@ -125,7 +132,7 @@ namespace NexusChat.Core.ViewModels.DevTools
                 return;
                 
             IsBusy = true;
-            HasData = false;
+            HasData = false; // Set to false initially while loading
             StatusMessage = $"Loading {tableName} table...";
             
             try
@@ -135,45 +142,61 @@ namespace NexusChat.Core.ViewModels.DevTools
                 // Clear previous data
                 Records.Clear();
                 ColumnNames.Clear();
+                _allRecords.Clear();
                 
+                // Load table data
                 var tableData = await LoadTableData(tableName);
+                _allRecords = tableData.ToList();
                 
-                if (tableData.Count == 0)
+                if (_allRecords.Count == 0)
                 {
                     StatusMessage = $"No records found in {tableName} table.";
                     RecordCount = "Records: 0";
-                    HasData = false;
+                    HasData = false; // No data available
+                    
+                    // Make sure the data grid is cleared when empty
+                    if (_dataGridRenderer != null)
+                    {
+                        _dataGridRenderer.RebuildDataGrid();
+                    }
                     return;
                 }
                 
                 // Extract column names from first record
-                var firstRecord = tableData.First();
-                foreach (var key in firstRecord.Keys)
+                if (_allRecords.Any() && _allRecords.First().Count > 0)
                 {
-                    ColumnNames.Add(key);
+                    var firstRecord = _allRecords.First();
+                    foreach (var key in firstRecord.Keys)
+                    {
+                        ColumnNames.Add(key);
+                    }
                 }
                 
-                // Add all records
-                foreach (var record in tableData)
+                // Add all records to observable collection
+                Records.Clear();
+                foreach (var record in _allRecords)
                 {
                     Records.Add(record);
                 }
                 
-                // Update UI
+                // Update UI - important to set HasData to true AFTER adding records
                 RecordCount = $"Records: {Records.Count}";
                 StatusMessage = $"Loaded {Records.Count} records from {tableName}.";
-                HasData = Records.Count > 0;
                 
-                // Rebuild data grid
+                // Rebuild the grid BEFORE setting HasData to true
                 if (_dataGridRenderer != null)
                 {
                     _dataGridRenderer.RebuildDataGrid();
                 }
+                
+                // Set HasData after rebuilding grid to ensure UI switches at right time
+                HasData = Records.Count > 0;
             }
             catch (Exception ex)
             {
                 StatusMessage = $"Error loading table: {ex.Message}";
                 Debug.WriteLine($"Error loading table {tableName}: {ex}");
+                HasData = false;
             }
             finally
             {
@@ -360,30 +383,33 @@ namespace NexusChat.Core.ViewModels.DevTools
         {
             try
             {
-                IsLoading = true;
+                IsBusy = true;
                 
-                // Load table names
-                TableNames.Clear();
+                // Set HasData to false during initialization
+                HasData = false;
                 
-                // Add standard table names
-                TableNames.Add("Users");
-                TableNames.Add("Conversations");
-                TableNames.Add("Messages");
-                TableNames.Add("AIModels");
-                
-                // Load first table by default
-                if (TableNames.Count > 0)
+                if (Tables.Count > 0 && string.IsNullOrEmpty(SelectedTable))
                 {
-                    await LoadTableAsync(TableNames[0]);
+                    // Set default table selection if none selected
+                    SelectedTable = Tables[0];
+                    
+                    // Load the first table immediately
+                    await LoadTable(SelectedTable);
+                }
+                else if (!string.IsNullOrEmpty(SelectedTable))
+                {
+                    // If there's already a selected table, load it
+                    await LoadTable(SelectedTable);
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error initializing DatabaseViewerViewModel: {ex.Message}");
+                Debug.WriteLine($"Error in InitializeAsync: {ex.Message}");
+                StatusMessage = $"Error initializing: {ex.Message}";
             }
             finally
             {
-                IsLoading = false;
+                IsBusy = false;
             }
         }
         
@@ -498,6 +524,54 @@ namespace NexusChat.Core.ViewModels.DevTools
         partial void OnIsBusyChanged(bool value)
         {
             OnPropertyChanged(nameof(IsNotBusy));
+        }
+
+        // Update property change handler to trigger search
+        partial void OnSearchTextChanged(string value)
+        {
+            FilterRecords();
+        }
+
+        private void FilterRecords()
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(SearchText))
+                {
+                    // No filter, show all records
+                    HasData = _allRecords.Count > 0;
+                    
+                    Records.Clear();
+                    foreach (var record in _allRecords)
+                    {
+                        Records.Add(record);
+                    }
+                    RecordCount = $"Records: {Records.Count}";
+                }
+                else
+                {
+                    // Filter records that contain the search text in any field
+                    var filteredRecords = _allRecords.Where(record => 
+                        record.Values.Any(value => 
+                            value?.ToString()?.Contains(SearchText, StringComparison.OrdinalIgnoreCase) == true));
+                    
+                    Records.Clear();
+                    foreach (var record in filteredRecords)
+                    {
+                        Records.Add(record);
+                    }
+                    
+                    HasData = Records.Count > 0;
+                    RecordCount = $"Records: {Records.Count} (filtered)";
+                }
+                
+                // Rebuild data grid with filtered records
+                _dataGridRenderer?.RebuildDataGrid();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error filtering records: {ex.Message}");
+            }
         }
     }
 }

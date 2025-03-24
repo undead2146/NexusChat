@@ -30,6 +30,13 @@ public partial class ChatPage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
+        
+        // If there's an initialization method in your ViewModel
+        if (_viewModel != null)
+        {
+            await _viewModel.InitializeAsync();
+        }
+        
         await InitializeViewModelAsync();
         
         // Focus on entry field
