@@ -11,6 +11,8 @@ namespace NexusChat.Core.ViewModels
     public partial class MessageBubbleViewModel : ObservableObject
     {
         private Message _message;
+        private string _cachedStatusText;
+        private bool _cachedHasValidContent;
         
         public Message Message
         {
@@ -19,20 +21,16 @@ namespace NexusChat.Core.ViewModels
             {
                 if (SetProperty(ref _message, value))
                 {
+                    // Reset caches
+                    _cachedStatusText = null;
+                    
                     // When message changes, notify these properties
                     OnPropertyChanged(nameof(StatusText));
                     OnPropertyChanged(nameof(HasStatus));
                     OnPropertyChanged(nameof(HasValidContent));
                     
-                    if (value != null)
-                    {
-                        Debug.WriteLine($"MessageBubbleViewModel: Message set to: {value?.Content?.Substring(0, Math.Min(20, value?.Content?.Length ?? 0))}...");
-                        Debug.WriteLine($"MessageBubbleViewModel: IsAI={value?.IsAI}, Timestamp={value?.Timestamp}");
-                    }
-                    else
-                    {
-                        Debug.WriteLine("MessageBubbleViewModel: Message set to null");
-                    }
+                    // Pre-compute values to improve rendering performance
+                    _cachedHasValidContent = value != null && !string.IsNullOrWhiteSpace(value.Content);
                 }
             }
         }
@@ -44,9 +42,12 @@ namespace NexusChat.Core.ViewModels
         {
             get 
             {
-                string result = FormatStatusText();
-                Debug.WriteLine($"MessageBubbleViewModel: StatusText = {result}");
-                return result;
+                // Use cached value if available
+                if (_cachedStatusText != null)
+                    return _cachedStatusText;
+                    
+                _cachedStatusText = FormatStatusText();
+                return _cachedStatusText;
             }
         }
         
@@ -60,12 +61,7 @@ namespace NexusChat.Core.ViewModels
         /// </summary>
         public bool HasValidContent 
         {
-            get 
-            {
-                bool result = Message != null && !string.IsNullOrWhiteSpace(Message.Content);
-                Debug.WriteLine($"MessageBubbleViewModel: HasValidContent = {result}");
-                return result;
-            }
+            get => _cachedHasValidContent;
         }
         
         /// <summary>
@@ -74,7 +70,6 @@ namespace NexusChat.Core.ViewModels
         public MessageBubbleViewModel()
         {
             // Initialize with empty state
-            Debug.WriteLine("MessageBubbleViewModel: Created");
         }
 
         /// <summary>
@@ -103,8 +98,9 @@ namespace NexusChat.Core.ViewModels
         /// </summary>
         public void Cleanup()
         {
-            // Currently no resources to clean up, but method is included for consistency
-            Debug.WriteLine("MessageBubbleViewModel cleanup");
+            // Release resources
+            _message = null;
+            _cachedStatusText = null;
         }
     }
 }

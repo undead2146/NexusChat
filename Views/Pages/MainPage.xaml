@@ -188,9 +188,9 @@
                                    VerticalOptions="Center" />
                             
                             <VerticalStackLayout Grid.Column="1">
-                                <Label Text="Theme &amp; Icon Testing" FontFamily="OpenSansSemiBold" FontSize="16" 
+                                <Label Text="Theme &amp; UI components" FontFamily="OpenSansSemiBold" FontSize="16" 
                                        TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}" />
-                                <Label Text="View theme components and icons reference" 
+                                <Label Text="View theme and UI components" 
                                        TextColor="{AppThemeBinding Light={StaticResource SecondaryTextColor}, Dark={StaticResource SecondaryTextColorDark}}" FontSize="12" />
                             </VerticalStackLayout>
                             

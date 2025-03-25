@@ -85,13 +85,14 @@
                     TextColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource Secondary}}" />
         </Grid>
 
-        <!-- Messages List - EMERGENCY FIX -->
+        <!-- Messages List - Optimized for better performance -->
         <Grid Grid.Row="1">
             <ScrollView x:Name="MessageScrollView" 
                         VerticalScrollBarVisibility="Default">
                 <CollectionView x:Name="MessagesCollection"
                                 ItemsSource="{Binding Messages}"
-                                Margin="8">
+                                Margin="8"
+                                RemainingItemsThreshold="4">
                     <CollectionView.ItemsLayout>
                         <LinearItemsLayout Orientation="Vertical" ItemSpacing="4" />
                     </CollectionView.ItemsLayout>
@@ -144,13 +145,13 @@
                                Scale="1.2" />
         </Grid>
 
-        <!-- Simplified Input Area -->
+        <!-- Input Area - Optimized for responsiveness -->
         <Grid Grid.Row="2" 
               ColumnDefinitions="*,Auto"
               Padding="12,10,12,16"
               BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceBackground}, Dark={StaticResource Gray900}}">
 
-            <!-- Simple Entry -->
+            <!-- Entry field with immediate focus -->
             <Entry Grid.Column="0"
                    x:Name="MessageEntry"
                    Text="{Binding MessageText, Mode=TwoWay}" 
