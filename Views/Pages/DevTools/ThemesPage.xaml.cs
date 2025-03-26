@@ -2,7 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using NexusChat.Core.ViewModels.DevTools;
-using NexusChat.Views.Controls;
+using NexusChat.Views.Controls.Theme;
 using Microsoft.Maui.Dispatching;
 using System.Diagnostics;
 

@@ -12,19 +12,21 @@ namespace NexusChat.Views.Converters
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            if (value == null)
-                return true;
-                
-            if (value is int intValue)
-                return intValue == 0;
-                
-            if (value is string strValue)
-                return string.IsNullOrEmpty(strValue);
-                
-            if (value is bool boolValue)
-                return !boolValue;
-                
-            return false;
+            // Special case for Message types
+            if (parameter is Message paramMessage && value is Message valueMessage)
+            {
+                // Check if the typing message is the current message
+                return paramMessage.Id == valueMessage.Id;
+            }
+            
+            // If parameter is null, just check if value is not null
+            if (parameter == null)
+            {
+                return value != null;
+            }
+            
+            // Default case - parameter exists but doesn't match specific conditions
+            return true;
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)

@@ -2,7 +2,7 @@ using System;
 using Microsoft.Maui.Controls;
 using NexusChat.Core.ViewModels.DevTools;
 
-namespace NexusChat.Views.Controls
+namespace NexusChat.Views.Controls.Theme
 {
     /// <summary>
     /// Component that displays Font Awesome icons

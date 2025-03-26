@@ -1,32 +1,22 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             xmlns:vm="clr-namespace:NexusChat.Core.ViewModels"
-             xmlns:models="clr-namespace:NexusChat.Core.Models"
              xmlns:controls="clr-namespace:NexusChat.Views.Controls"
              xmlns:converters="clr-namespace:NexusChat.Views.Converters"
-             xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
+             xmlns:viewmodels="clr-namespace:NexusChat.Core.ViewModels"
+             xmlns:models="clr-namespace:NexusChat.Core.Models"
              x:Class="NexusChat.Views.Pages.ChatPage"
-             Shell.NavBarIsVisible="False"
-             BackgroundColor="{AppThemeBinding Light={StaticResource Gray100}, Dark={StaticResource Gray950}}">
+             Shell.NavBarIsVisible="False">
 
     <ContentPage.Resources>
         <ResourceDictionary>
-            <converters:StringEmptyConverter x:Key="StringEmptyConverter" FallbackValue="New Chat" />
-            <converters:NotNullConverter x:Key="NotNullConverter" />
             <converters:InvertedBoolConverter x:Key="InvertedBoolConverter" />
-
-            <Style x:Key="MessageTextStyle" TargetType="Label">
-                <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource Foreground}}" />
-                <Setter Property="LineBreakMode" Value="WordWrap" />
-            </Style>
+            <converters:StringEmptyConverter x:Key="StringEmptyConverter" FallbackValue="New Chat" />
         </ResourceDictionary>
     </ContentPage.Resources>
 
-    <Grid RowDefinitions="Auto, *, Auto" 
-          RowSpacing="0">
-
-        <!-- Simple Header Bar -->
+    <Grid RowDefinitions="Auto, *, Auto" RowSpacing="0">
+        <!-- Header Bar -->
         <Grid Grid.Row="0" 
               ColumnDefinitions="Auto,*,Auto,Auto" 
               BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceBackground}, Dark={StaticResource Gray900}}"
@@ -54,7 +44,7 @@
                    FontAttributes="Bold"
                    FontSize="16"
                    VerticalOptions="Center"
-                   HorizontalOptions="Center" />
+                   HorizontalOptions="Start" />
 
             <!-- Edit Title Button (Pencil Icon) -->
             <Button Grid.Column="2"
@@ -85,98 +75,61 @@
                     TextColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource Secondary}}" />
         </Grid>
 
-        <!-- Messages List - Optimized for better performance -->
-        <Grid Grid.Row="1">
-            <ScrollView x:Name="MessageScrollView" 
-                        VerticalScrollBarVisibility="Default">
-                <CollectionView x:Name="MessagesCollection"
-                                ItemsSource="{Binding Messages}"
-                                Margin="8"
-                                RemainingItemsThreshold="4">
-                    <CollectionView.ItemsLayout>
-                        <LinearItemsLayout Orientation="Vertical" ItemSpacing="4" />
-                    </CollectionView.ItemsLayout>
+        <!-- Message List -->
+        <ScrollView Grid.Row="1" 
+                    x:Name="MessageScrollView" 
+                    Margin="10,5"
+                    HorizontalScrollBarVisibility="Never"
+                    VerticalScrollBarVisibility="Default">
+            <CollectionView ItemsSource="{Binding Messages}"
+                          x:Name="MessageList">
+                <CollectionView.EmptyView>
+                    <StackLayout HorizontalOptions="Center" VerticalOptions="Center">
+                        <Label Text="Start a conversation!"
+                               TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}"
+                               HorizontalOptions="Center"/>
+                    </StackLayout>
+                </CollectionView.EmptyView>
+                
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="models:Message">
+                        <controls:MessageBubble Message="{Binding}" />
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+        </ScrollView>
 
-                    <CollectionView.ItemTemplate>
-                        <DataTemplate>
-                            <controls:MessageBubble Message="{Binding}" 
-                                                   HorizontalOptions="Fill" 
-                                                   Margin="0,2" />
-                        </DataTemplate>
-                    </CollectionView.ItemTemplate>
-
-                    <CollectionView.EmptyView>
-                        <Grid>
-                            <VerticalStackLayout HorizontalOptions="Center" 
-                                                 VerticalOptions="Center"
-                                                 Spacing="20"
-                                                 Padding="20">
-
-                                <Image Source="dotnet_bot.png" 
-                                       HeightRequest="120" 
-                                       Opacity="0.8"
-                                       HorizontalOptions="Center" />
-
-                                <Label Text="Start a conversation" 
-                                       FontSize="18"
-                                       FontAttributes="Bold"
-                                       TextColor="{StaticResource Gray500}"
-                                       HorizontalOptions="Center"/>
-
-                                <Label Text="Type a message below to begin chatting"
-                                       FontSize="14"
-                                       TextColor="{StaticResource Gray400}"
-                                       HorizontalTextAlignment="Center"
-                                       HorizontalOptions="Center"/>
-                            </VerticalStackLayout>
-                        </Grid>
-                    </CollectionView.EmptyView>
-                </CollectionView>
-            </ScrollView>
-
-            <!-- Simple Activity Indicator -->
-            <ActivityIndicator Grid.Row="1"
-                               IsVisible="{Binding IsAITyping}" 
-                               IsRunning="{Binding IsAITyping}"
-                               Color="{StaticResource Primary}"
-                               HorizontalOptions="Center"
-                               VerticalOptions="End"
-                               Margin="0,0,0,20"
-                               Scale="1.2" />
-        </Grid>
-
-        <!-- Input Area - Optimized for responsiveness -->
-        <Grid Grid.Row="2" 
-              ColumnDefinitions="*,Auto"
+        <!-- Input Area -->
+        <Grid Grid.Row="2"
+              ColumnDefinitions="*, Auto"
               Padding="12,10,12,16"
               BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceBackground}, Dark={StaticResource Gray900}}">
-
-            <!-- Entry field with immediate focus -->
-            <Entry Grid.Column="0"
-                   x:Name="MessageEntry"
-                   Text="{Binding MessageText, Mode=TwoWay}" 
-                   Placeholder="Type your message..."
-                   ReturnCommand="{Binding SendMessageCommand}"
-                   BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource Gray800}}"
-                   TextColor="{AppThemeBinding Light={StaticResource Black}, Dark={StaticResource White}}"
-                   PlaceholderColor="{AppThemeBinding Light={StaticResource Gray400}, Dark={StaticResource Gray400}}"
-                   IsEnabled="{Binding IsNotBusy}"
-                   VerticalOptions="Center"
-                   HeightRequest="48"
-                   Margin="0,0,8,0" />
+            
+            <!-- Text Input -->
+            <Frame Grid.Column="0"
+                   BorderColor="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray600}}"
+                   CornerRadius="20"
+                   Padding="15,0"
+                   HasShadow="False">
+                <Editor x:Name="MessageEntry"
+                        Text="{Binding MessageText}"
+                        Placeholder="Type a message..."
+                        FontSize="14"
+                        AutoSize="TextChanges"
+                        MaximumHeightRequest="100" />
+            </Frame>
 
             <!-- Send Button -->
             <Button Grid.Column="1"
-                    x:Name="SendButton"
-                    Command="{Binding SendMessageCommand}"
-                    IsEnabled="{Binding CanSendMessage}"
                     Text="&#xf1d8;"
                     FontFamily="FontAwesome-Solid"
-                    CornerRadius="24"
-                    WidthRequest="48"
-                    HeightRequest="48"
-                    Padding="0"
-                    HorizontalOptions="Center"
+                    FontSize="16"
+                    Command="{Binding SendMessageCommand}"
+                    IsEnabled="{Binding IsAITyping, Converter={StaticResource InvertedBoolConverter}}"
+                    CornerRadius="20"
+                    WidthRequest="45"
+                    HeightRequest="45"
+                    Margin="5,0,0,0" 
                     BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Primary}}"
                     TextColor="White" />
         </Grid>

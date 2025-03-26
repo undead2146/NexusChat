@@ -2,7 +2,7 @@
 <ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:controls="clr-namespace:NexusChat.Views.Controls"
-             x:Class="NexusChat.Views.Controls.ChatComponents">
+             x:Class="NexusChat.Views.Controls.Theme.ChatComponents">
     <ScrollView>
         <VerticalStackLayout Spacing="20" Padding="10">
             <Frame BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}"

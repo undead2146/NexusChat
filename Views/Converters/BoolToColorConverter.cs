@@ -6,42 +6,42 @@ using Microsoft.Maui.Graphics;
 namespace NexusChat.Views.Converters
 {
     /// <summary>
-    /// Converter that changes color based on a boolean value
+    /// Converts a bool value to a color
     /// </summary>
     public class BoolToColorConverter : IValueConverter
     {
         /// <summary>
-        /// Gets or sets the color to use when the value is true
-        /// </summary>
-        public object TrueValue { get; set; }
-        
-        /// <summary>
-        /// Gets or sets the color to use when the value is false
-        /// </summary>
-        public object FalseValue { get; set; }
-        
-        /// <summary>
-        /// Converts a boolean to a color
+        /// Converts bool to Color
         /// </summary>
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
             if (value is bool boolValue)
             {
-                // If the parameter is true, invert the logic
-                if (parameter is bool invertLogic && invertLogic)
+                // AI message (true) gets lighter background, user message (false) gets primary color
+                if (boolValue)
                 {
-                    boolValue = !boolValue;
+                    // Return light gray for AI messages
+                    if (Application.Current?.RequestedTheme == AppTheme.Dark)
+                        return Color.FromArgb("#303030");
+                    else
+                        return Color.FromArgb("#F0F0F0"); 
                 }
-                
-                return boolValue ? TrueValue : FalseValue;
+                else
+                {
+                    // Return blue for user messages
+                    if (Application.Current?.RequestedTheme == AppTheme.Dark)
+                        return Color.FromArgb("#0A84FF");
+                    else
+                        return Color.FromArgb("#007AFF");
+                }
             }
-            
-            // Default to the false value if the input isn't a boolean
-            return FalseValue;
+
+            // Default color if conversion fails
+            return Colors.Gray;
         }
-        
+
         /// <summary>
-        /// Not implemented - converting from color to boolean
+        /// Converts back from Color to bool (not implemented)
         /// </summary>
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         {

@@ -1,163 +1,190 @@
 using System;
 using System.Threading.Tasks;
-using NexusChat.Core.ViewModels;
 using Microsoft.Maui.Controls;
 using System.Diagnostics;
-using NexusChat.Views.Pages;
 using System.Threading;
+using NexusChat.Core.Models;
+using NexusChat.Core.ViewModels;
+using System.Linq;
+using System.Collections.Specialized;
 
-namespace NexusChat.Views.Pages;
-
-/// <summary>
-/// Page for chat interactions with AI
-/// </summary>
-public partial class ChatPage : ContentPage
+namespace NexusChat.Views.Pages
 {
-    private readonly ChatViewModel _viewModel;
-    private CancellationTokenSource _scrollCancellationTokenSource;
-    private bool _isScrolling = false;
-    
     /// <summary>
-    /// Initializes a new instance of ChatPage with injected ViewModel
+    /// Page for chat interactions with AI
     /// </summary>
-    public ChatPage(ChatViewModel viewModel)
+    public partial class ChatPage : ContentPage
     {
-        InitializeComponent();
-        _viewModel = viewModel;
-        BindingContext = _viewModel;
-        _scrollCancellationTokenSource = new CancellationTokenSource();
-    }
-    
-    protected override async void OnAppearing()
-    {
-        base.OnAppearing();
+        private readonly ChatViewModel _viewModel;
+        private bool _isFirstAppearance = true;
+        private bool _isScrolling = false;
         
-        // Subscribe to collection changes to scroll when new messages arrive
-        _viewModel.Messages.CollectionChanged += Messages_CollectionChanged;
-        
-        // Initialize in the background
-        await InitializeViewModelAsync();
-        
-        // Focus on entry field with slight delay to ensure UI is ready
-        await Task.Delay(100);
-        await MainThread.InvokeOnMainThreadAsync(() => MessageEntry.Focus());
-    }
-    
-    private async Task InitializeViewModelAsync()
-    {
-        try
-        {
-            // Create new cancellation token for this initialization
-            _scrollCancellationTokenSource?.Cancel();
-            _scrollCancellationTokenSource = new CancellationTokenSource();
-            
-            // Initialize the view model
-            await _viewModel.InitializeAsync();
-            
-            // Clean up the messages
-            _viewModel.CleanupEmptyMessages();
-            
-            // Scroll to bottom after loading messages with small delay to allow layout
-            await ScrollToBottomWithDebounceAsync(50, _scrollCancellationTokenSource.Token);
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"Error initializing chat page: {ex.Message}");
-            await DisplayAlert("Error", "Failed to initialize chat. Please try again.", "OK");
-        }
-    }
-
-    protected override void OnDisappearing()
-    {
-        // Cancel any pending operations
-        _scrollCancellationTokenSource?.Cancel();
-        
-        // Unsubscribe from events to prevent memory leaks
-        _viewModel.Messages.CollectionChanged -= Messages_CollectionChanged;
-        
-        // Clean up the view model
-        _viewModel?.Cleanup();
-        
-        base.OnDisappearing();
-    }
-    
-    private async void Messages_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
-    {
-        // Only handle additions
-        if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Add)
+        /// <summary>
+        /// Initializes a new instance of ChatPage with injected ViewModel
+        /// </summary>
+        public ChatPage(ChatViewModel viewModel)
         {
             try
             {
-                // Cancel any previous scroll operation
-                _scrollCancellationTokenSource?.Cancel();
-                _scrollCancellationTokenSource = new CancellationTokenSource();
-                
-                // Debounced scroll to avoid too many scroll operations
-                await ScrollToBottomWithDebounceAsync(50, _scrollCancellationTokenSource.Token);
-            }
-            catch (OperationCanceledException)
-            {
-                // This is expected when cancellation occurs
-                Debug.WriteLine("Scroll operation was cancelled");
+                InitializeComponent();
+                _viewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
+                BindingContext = _viewModel;
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error in collection changed handler: {ex.Message}");
+                Debug.WriteLine($"Error in ChatPage constructor: {ex}");
             }
         }
-    }
-    
-    private async Task ScrollToBottomWithDebounceAsync(int delayMs = 50, CancellationToken cancellationToken = default)
-    {
-        if (_isScrolling)
-            return;
         
-        _isScrolling = true;
-        
-        try
+        protected override async void OnAppearing()
         {
-            // Wait for a brief moment to allow UI to update
-            await Task.Delay(delayMs, cancellationToken);
+            try
+            {
+                base.OnAppearing();
+                
+                // Check if we already have data
+                if (_viewModel?.CurrentConversation == null)
+                {
+                    // Initialize ViewModel
+                    await _viewModel.InitializeAsync();
+                }
+                
+                // Subscribe to collection changes
+                if (_viewModel?.Messages != null)
+                {
+                    _viewModel.Messages.CollectionChanged -= Messages_CollectionChanged;
+                    _viewModel.Messages.CollectionChanged += Messages_CollectionChanged;
+                    Debug.WriteLine("Subscribed to Messages collection changes");
+                }
+                
+                if (_isFirstAppearance)
+                {
+                    // Initial scroll to bottom
+                    await Task.Delay(300);
+                    await ScrollToBottomAsync(false);
+                    _isFirstAppearance = false;
+                    
+                    // Focus on entry field
+                    await Task.Delay(100);
+                    await MainThread.InvokeOnMainThreadAsync(() => MessageEntry?.Focus());
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error in ChatPage OnAppearing: {ex}");
+            }
+        }
+        
+        protected override void OnDisappearing()
+        {
+            try
+            {
+                // Unsubscribe from events first
+                if (_viewModel?.Messages != null)
+                {
+                    _viewModel.Messages.CollectionChanged -= Messages_CollectionChanged;
+                    Debug.WriteLine("Unsubscribed from Messages collection changes");
+                }
+                
+                // Clean up viewmodel resources
+                _viewModel?.Cleanup();
+                
+                // Call base implementation
+                base.OnDisappearing();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error in ChatPage OnDisappearing: {ex}");
+                base.OnDisappearing();
+            }
+        }
+        
+        private async void Messages_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
+        {
+            try
+            {
+                // Only care about additions
+                if (e.Action != NotifyCollectionChangedAction.Add) return;
+                
+                // Get the added items
+                var newItems = e.NewItems;
+                if (newItems == null || newItems.Count == 0) return;
+
+                // If we're already scrolling, we'll wait longer to avoid overlapping scrolls
+                if (_isScrolling)
+                {
+                    Debug.WriteLine("Already scrolling - delaying this scroll operation");
+                    await Task.Delay(300);
+                }
+                else
+                {
+                    // Short delay to let UI update
+                    await Task.Delay(100);
+                }
+                
+                // Single scroll after batch of operations
+                await ScrollToBottomAsync(animate: true);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error handling collection change: {ex}");
+            }
+        }
+
+        /// <summary>
+        /// Scrolls to the bottom of the chat
+        /// </summary>
+        private async Task ScrollToBottomAsync(bool animate = true)
+        {
+            if (_isScrolling)
+            {
+                Debug.WriteLine("Scroll operation already in progress - skipping");
+                return;
+            }
             
-            // Perform scroll on UI thread
-            await MainThread.InvokeOnMainThreadAsync(async () => {
-                try
+            _isScrolling = true;
+            
+            try
+            {
+                if (MessageScrollView == null)
                 {
-                    // Check if the scroll view is available and has content to scroll
-                    if (MessageScrollView != null && MessageScrollView.ContentSize.Height > 0)
+                    Debug.WriteLine("ScrollView is null - can't scroll");
+                    return;
+                }
+                
+                // Single smooth scrolling approach with better timing
+                await MainThread.InvokeOnMainThreadAsync(async () =>
+                {
+                    try
                     {
-                        // Use animation=false for better performance
-                        await MessageScrollView.ScrollToAsync(0, MessageScrollView.ContentSize.Height, false);
+                        // Give layout time to settle before scrolling
+                        await Task.Delay(100);
+                        
+                        // Force layout to ensure accurate content size
+                        MessageScrollView.ForceLayout();
+                        
+                        // Calculate exact scroll position
+                        double y = Math.Max(0, MessageScrollView.ContentSize.Height - MessageScrollView.Height);
+                        
+                        // Single smooth scroll operation
+                        await MessageScrollView.ScrollToAsync(0, y, animate);
                     }
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"Scroll error: {ex.Message}");
-                }
-            });
-        }
-        catch (OperationCanceledException)
-        {
-            // Operation was canceled, just ignore
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"Error in ScrollToBottomWithDebounceAsync: {ex.Message}");
-        }
-        finally
-        {
-            _isScrolling = false;
-        }
-    }
-    
-    protected override void OnSizeAllocated(double width, double height)
-    {
-        base.OnSizeAllocated(width, height);
-        
-        // Try to scroll to bottom when size changes (e.g., orientation change)
-        if (width > 0 && height > 0)
-        {
-            _ = ScrollToBottomWithDebounceAsync(100);
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Error during scroll operation: {ex.Message}");
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error in ScrollToBottomAsync: {ex}");
+            }
+            finally
+            {
+                // Longer delay before allowing more scrolling to prevent bouncing
+                await Task.Delay(200);
+                _isScrolling = false;
+            }
         }
     }
 }

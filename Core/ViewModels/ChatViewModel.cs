@@ -247,124 +247,189 @@ namespace NexusChat.Core.ViewModels
         /// </summary>
         private async Task SendMessageAsync()
         {
+            // First check if we can send
             if (string.IsNullOrWhiteSpace(MessageText) || IsBusy)
                 return;
             
-            // Cancel any ongoing AI operations
-            _cancellationTokenSource?.Cancel();
-            _cancellationTokenSource = new CancellationTokenSource();
+            // Immediately grab a copy of the message text and clear the input
+            string userMessageText = MessageText?.Trim() ?? "";
+            MessageText = string.Empty;
             
-            try
+            // Generate a unique message ID
+            int messageId = (int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() % 100000); 
+            
+            // Create user message object
+            var userMessage = new Message
             {
-                // Clear the input field immediately for better UX
-                string userMessageText = MessageText?.Trim() ?? "";
-                MessageText = string.Empty;
-                
-                // Create user message
-                var userMessage = new Message
+                Id = messageId,
+                ConversationId = CurrentConversation?.Id ?? 0,
+                Content = userMessageText,
+                IsAI = false,
+                Timestamp = DateTime.Now,
+                Status = "Sent"
+            };
+            
+            // Add user message to UI collection IMMEDIATELY - don't await anything before this
+            Messages.Add(userMessage);
+            
+            // Mark busy state AFTER adding the user message for instant feedback
+            IsBusy = true;
+            
+            // NOW we can start the AI response process in the background
+            _ = Task.Run(async () => 
+            {
+                try
                 {
-                    ConversationId = CurrentConversation?.Id ?? 0,
-                    Content = userMessageText,
-                    IsAI = false,
-                    Timestamp = DateTime.Now,
-                    Status = "Sent"
-                };
-                
-                // Add message directly to collection on UI thread without waiting
-                MainThread.BeginInvokeOnMainThread(() => Messages.Add(userMessage));
-                
-                // Start AI response indicator
-                IsAITyping = true;
-                
-                // Save message to database without awaiting (fire and forget with error handling)
-                _ = Task.Run(async () => {
-                    try {
-                        if (CurrentConversation != null && CurrentConversation.Id > 0)
+                    Debug.WriteLine("Starting SendMessageAsync background task");
+                    
+                    // Do token cleanup without waiting
+                    CancelAndDisposeTokenSource();
+                    
+                    // Create a new token source
+                    _cancellationTokenSource = new CancellationTokenSource();
+                    var cancellationToken = _cancellationTokenSource.Token;
+                    
+                    // Clean up any existing typing messages before adding new ones
+                    await CleanupTypingMessagesAsync();
+                    
+                    // Set typing indicator
+                    await MainThread.InvokeOnMainThreadAsync(() => IsAITyping = true);
+                    
+                    // Create typing placeholder message with different ID
+                    var typingMessage = new Message
+                    {
+                        Id = messageId + 1, // Ensure unique ID
+                        ConversationId = CurrentConversation?.Id ?? 0,
+                        Content = "Typing...",
+                        IsAI = true,
+                        Timestamp = DateTime.Now,
+                        Status = "Typing"
+                    };
+                    
+                    // Add typing message to UI
+                    await MainThread.InvokeOnMainThreadAsync(() => Messages.Add(typingMessage));
+                    
+                    // Save user message to database without awaiting
+                    _ = Task.Run(async () => 
+                    {
+                        try 
                         {
-                            await _messageRepository.AddAsync(userMessage);
-                        }
-                    }
-                    catch (Exception ex) {
-                        Debug.WriteLine($"Error saving message: {ex.Message}");
-                    }
-                });
-                
-                // Get AI response in the current task to ensure proper cancellation support
-                string aiResponseText = await _aiService.SendMessageAsync(
-                    userMessageText, 
-                    _cancellationTokenSource.Token);
-                
-                IsAITyping = false;
-                
-                // Create AI response message
-                var aiResponse = new Message
-                {
-                    ConversationId = CurrentConversation?.Id ?? 0,
-                    Content = aiResponseText,
-                    IsAI = true,
-                    Timestamp = DateTime.Now,
-                    TokensUsed = Message.EstimateTokens(aiResponseText),
-                    Status = "Delivered"
-                };
-                
-                // Add AI message to UI immediately
-                MainThread.BeginInvokeOnMainThread(() => Messages.Add(aiResponse));
-                
-                // Update conversation and save AI message in background
-                _ = Task.Run(async () => {
-                    try {
-                        if (CurrentConversation != null && CurrentConversation.Id > 0)
-                        {
-                            var savedAiMessage = await _messageRepository.AddAsync(aiResponse);
-                            
-                            CurrentConversation.UpdatedAt = DateTime.Now;
-                            CurrentConversation.TotalTokensUsed += aiResponse.TokensUsed;
-                            
-                            // Update title if needed
-                            if (string.IsNullOrEmpty(CurrentConversation.Title) || 
-                                CurrentConversation.Title == "New Chat" ||
-                                CurrentConversation.Title == "Temporary Chat")
+                            if (CurrentConversation?.Id > 0)
                             {
-                                CurrentConversation.Title = GenerateTitle(userMessageText);
-                                MainThread.BeginInvokeOnMainThread(() => 
-                                    OnPropertyChanged(nameof(CurrentConversation)));
+                                await _messageRepository.AddAsync(userMessage);
                             }
-                            
-                            await _conversationRepository.UpdateAsync(CurrentConversation);
+                        } 
+                        catch (Exception ex) 
+                        {
+                            Debug.WriteLine($"Error saving user message: {ex.Message}");
                         }
+                    });
+                    
+                    // Get AI response with timeout protection
+                    string aiResponseText = null;
+                    try
+                    {
+                        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                        timeoutCts.CancelAfter(TimeSpan.FromSeconds(60)); // 1 minute timeout
+                        
+                        aiResponseText = await _aiService.SendMessageAsync(userMessageText, timeoutCts.Token);
                     }
-                    catch (Exception ex) {
-                        Debug.WriteLine($"Error saving AI message: {ex.Message}");
+                    catch (OperationCanceledException)
+                    {
+                        Debug.WriteLine("AI request was canceled");
+                        if (cancellationToken.IsCancellationRequested) return;
                     }
-                });
-            }
-            catch (OperationCanceledException)
-            {
-                Debug.WriteLine("AI request was canceled");
-                IsAITyping = false;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error getting AI response: {ex.Message}");
-                IsAITyping = false;
-                
-                // Add error message to UI
-                var errorMessage = new Message
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"AI response error: {ex.Message}");
+                    }
+                    
+                    // Remove typing message
+                    await MainThread.InvokeOnMainThreadAsync(() => 
+                    {
+                        CleanupTypingMessages();
+                        IsAITyping = false;
+                    });
+                    
+                    // If we have a response, show it
+                    if (!string.IsNullOrEmpty(aiResponseText))
+                    {
+                        // Create AI response message
+                        var aiResponse = new Message
+                        {
+                            Id = messageId + 2,
+                            ConversationId = CurrentConversation?.Id ?? 0,
+                            Content = aiResponseText,
+                            IsAI = true,
+                            Timestamp = DateTime.Now,
+                            TokensUsed = Message.EstimateTokens(aiResponseText),
+                            Status = "Delivered"
+                        };
+                        
+                        // Add AI message to UI
+                        await MainThread.InvokeOnMainThreadAsync(() => Messages.Add(aiResponse));
+                        
+                        // Save AI message and update conversation
+                        _ = Task.Run(async () => 
+                        {
+                            try 
+                            {
+                                if (CurrentConversation?.Id > 0)
+                                {
+                                    await _messageRepository.AddAsync(aiResponse);
+                                    
+                                    CurrentConversation.UpdatedAt = DateTime.Now;
+                                    CurrentConversation.TotalTokensUsed += aiResponse.TokensUsed;
+                                    
+                                    // Update title if needed
+                                    if (string.IsNullOrEmpty(CurrentConversation.Title) || 
+                                        CurrentConversation.Title == "New Chat" ||
+                                        CurrentConversation.Title == "Temporary Chat")
+                                    {
+                                        CurrentConversation.Title = GenerateTitle(userMessageText);
+                                        await MainThread.InvokeOnMainThreadAsync(() => 
+                                            OnPropertyChanged(nameof(CurrentConversation)));
+                                    }
+                                    
+                                    await _conversationRepository.UpdateAsync(CurrentConversation);
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                Debug.WriteLine($"Error saving AI response: {ex.Message}");
+                            }
+                        });
+                    }
+                    else
+                    {
+                        // If no response, add an error message
+                        var errorMessage = new Message
+                        {
+                            Id = messageId + 2,
+                            ConversationId = CurrentConversation?.Id ?? 0,
+                            Content = "Sorry, I couldn't generate a response. Please try again.",
+                            IsAI = true,
+                            Timestamp = DateTime.Now,
+                            Status = "Error"
+                        };
+                        
+                        await MainThread.InvokeOnMainThreadAsync(() => Messages.Add(errorMessage));
+                    }
+                }
+                catch (Exception ex)
                 {
-                    ConversationId = CurrentConversation?.Id ?? 0,
-                    Content = "Sorry, I encountered an error processing your request. Please try again.",
-                    IsAI = true,
-                    Timestamp = DateTime.Now,
-                    Status = "Error"
-                };
-                
-                MainThread.BeginInvokeOnMainThread(() => Messages.Add(errorMessage));
-            }
-            finally
-            {
-                IsBusy = false;
-                (SendMessageCommand as AsyncRelayCommand)?.NotifyCanExecuteChanged();
-            }
+                    Debug.WriteLine($"Error in async message processing: {ex}");
+                }
+                finally
+                {
+                    // Reset busy state
+                    await MainThread.InvokeOnMainThreadAsync(() => 
+                    {
+                        IsBusy = false;
+                        (SendMessageCommand as AsyncRelayCommand)?.NotifyCanExecuteChanged();
+                    });
+                }
+            });
         }
         
         /// <summary>
@@ -474,29 +539,49 @@ namespace NexusChat.Core.ViewModels
         {
             if (CurrentConversation == null)
                 return;
-                
-            bool confirm = await Shell.Current.DisplayAlert(
-                "Clear Conversation",
-                "Are you sure you want to clear all messages? This cannot be undone.",
-                "Clear",
-                "Cancel");
-                
-            if (!confirm)
-                return;
-                
+            
             try
             {
+                bool confirm = await Shell.Current.DisplayAlert(
+                    "Clear Conversation",
+                    "Are you sure you want to clear all messages? This cannot be undone.",
+                    "Clear",
+                    "Cancel");
+                    
+                if (!confirm)
+                    return;
+                
                 IsBusy = true;
                 
-                await _messageRepository.DeleteByConversationIdAsync(CurrentConversation.Id);
-                Messages.Clear();
-                
-                // Reset conversation properties
-                CurrentConversation.Title = "New Chat";
-                CurrentConversation.UpdatedAt = DateTime.Now;
-                CurrentConversation.TotalTokensUsed = 0;
-                
-                await _conversationRepository.UpdateAsync(CurrentConversation);
+                // Ensure we're on the UI thread for the UI operations
+                await MainThread.InvokeOnMainThreadAsync(async () => {
+                    try
+                    {
+                        // First, clear the collection (this updates UI immediately)
+                        Messages.Clear();
+                        
+                        // Then delete from database
+                        if (CurrentConversation.Id > 0)
+                        {
+                            await _messageRepository.DeleteByConversationIdAsync(CurrentConversation.Id);
+                            
+                            // Reset conversation properties
+                            CurrentConversation.Title = "New Chat";
+                            CurrentConversation.UpdatedAt = DateTime.Now;
+                            CurrentConversation.TotalTokensUsed = 0;
+                            
+                            await _conversationRepository.UpdateAsync(CurrentConversation);
+                        }
+                        
+                        OnPropertyChanged(nameof(CurrentConversation));
+                        Debug.WriteLine("Conversation cleared successfully");
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Error in ClearConversationAsync: {ex}");
+                        await Shell.Current.DisplayAlert("Error", "Failed to clear conversation", "OK");
+                    }
+                });
             }
             catch (Exception ex)
             {
@@ -508,16 +593,15 @@ namespace NexusChat.Core.ViewModels
                 IsBusy = false;
             }
         }
-        
+
         /// <summary>
         /// Share the conversation
         /// </summary>
         private async Task ShareConversationAsync()
         {
-            // Implementation would depend on platform-specific sharing capabilities
-            await Shell.Current.DisplayAlert("Share", "Sharing functionality not implemented", "OK");
+            await Shell.Current.DisplayAlert("Share", "Sharing not implemented yet", "OK");
         }
-        
+
         /// <summary>
         /// Delete the conversation
         /// </summary>
@@ -525,33 +609,50 @@ namespace NexusChat.Core.ViewModels
         {
             if (CurrentConversation == null)
                 return;
-                
-            bool confirm = await Shell.Current.DisplayAlert(
-                "Delete Conversation",
-                "Are you sure you want to delete this conversation? This cannot be undone.",
-                "Delete",
-                "Cancel");
-                
-            if (!confirm)
-                return;
-                
+            
             try
             {
+                bool confirm = await Shell.Current.DisplayAlert(
+                    "Delete Conversation",
+                    "Are you sure you want to delete this conversation? This cannot be undone.",
+                    "Delete",
+                    "Cancel");
+                    
+                if (!confirm)
+                    return;
+                
                 IsBusy = true;
                 
-                // Delete all messages first
-                await _messageRepository.DeleteByConversationIdAsync(CurrentConversation.Id);
+                // First delete messages
+                if (CurrentConversation.Id > 0)
+                {
+                    // Clear UI collection first for immediate feedback
+                    await MainThread.InvokeOnMainThreadAsync(() => Messages.Clear());
+                    
+                    // Delete data
+                    await _messageRepository.DeleteByConversationIdAsync(CurrentConversation.Id);
+                    await _conversationRepository.DeleteAsync(CurrentConversation.Id);
+                    
+                    Debug.WriteLine("Conversation deleted successfully");
+                }
                 
-                // Delete the conversation
-                await _conversationRepository.DeleteAsync(CurrentConversation.Id);
-                
-                // Navigate back
-                await GoBackAsync();
+                // Navigate back regardless of database operations
+                await Shell.Current.GoToAsync("..");
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error deleting conversation: {ex.Message}");
-                await Shell.Current.DisplayAlert("Error", "Failed to delete conversation", "OK");
+                
+                // Still try to navigate back even if deletion failed
+                try
+                {
+                    await Shell.Current.DisplayAlert("Error", "Failed to delete conversation", "OK");
+                    await Shell.Current.GoToAsync("..");
+                }
+                catch (Exception navEx)
+                {
+                    Debug.WriteLine($"Navigation error after deletion failure: {navEx.Message}");
+                }
             }
             finally
             {
@@ -656,11 +757,31 @@ namespace NexusChat.Core.ViewModels
         /// </summary>
         public void Cleanup()
         {
-            try 
+            Debug.WriteLine("ChatViewModel cleanup");
+            try
             {
-                _cancellationTokenSource?.Cancel();
-                _cancellationTokenSource?.Dispose();
+                // Get reference and null out field to prevent double-cleanup
+                var cts = _cancellationTokenSource;
                 _cancellationTokenSource = null;
+                
+                // Cancel any pending operations
+                if (cts != null)
+                {
+                    try
+                    {
+                        cts.Cancel();
+                        cts.Dispose();
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Error disposing CTS: {ex.Message}");
+                    }
+                }
+                
+                // Cleanup any typing messages
+                _ = MainThread.InvokeOnMainThreadAsync(() => {
+                    CleanupTypingMessages();
+                });
             }
             catch (Exception ex)
             {
@@ -751,6 +872,64 @@ namespace NexusChat.Core.ViewModels
         {
             // Force notification whenever the Messages collection changes
             OnPropertyChanged(nameof(Messages));
+        }
+
+        /// <summary>
+        /// Remove any typing indicator messages from the collection (synchronous version)
+        /// </summary>
+        private void CleanupTypingMessages()
+        {
+            try
+            {
+                var typingMessages = Messages.Where(m => m?.Status == "Typing").ToList();
+                foreach (var msg in typingMessages)
+                {
+                    Debug.WriteLine($"Removing typing message ID: {msg.Id}");
+                    Messages.Remove(msg);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error cleaning up typing messages: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Remove any typing indicator messages from the collection (async version)
+        /// </summary>
+        private async Task CleanupTypingMessagesAsync()
+        {
+            try
+            {
+                await MainThread.InvokeOnMainThreadAsync(() => {
+                    CleanupTypingMessages();
+                });
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error in CleanupTypingMessagesAsync: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Cancels and disposes the cancellation token source
+        /// </summary>
+        private void CancelAndDisposeTokenSource()
+        {
+            var cts = Interlocked.Exchange(ref _cancellationTokenSource, null);
+            if (cts != null)
+            {
+                try 
+                {
+                    cts.Cancel();
+                    // Dispose on background thread after a short delay
+                    Task.Delay(200).ContinueWith(_ => cts.Dispose());
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Error disposing cancellation token: {ex.Message}");
+                }
+            }
         }
     }
 }

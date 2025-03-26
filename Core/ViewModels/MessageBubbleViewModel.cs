@@ -10,8 +10,8 @@ namespace NexusChat.Core.ViewModels
     /// </summary>
     public partial class MessageBubbleViewModel : ObservableObject
     {
-        private Message _message;
-        private string _cachedStatusText;
+        private Message? _message;
+        private string? _cachedStatusText;
         private bool _cachedHasValidContent;
         
         public Message Message

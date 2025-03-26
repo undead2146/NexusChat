@@ -6,9 +6,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using NexusChat.Core.Models;
 using NexusChat.Data.Context;
+using NexusChat.Helpers;
 
-namespace NexusChat.Helpers
-{
+namespace NexusChat.Data.Context
+{ 
     /// <summary>
     /// Service to handle database search operations
     /// </summary>
