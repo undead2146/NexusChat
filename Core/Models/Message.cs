@@ -6,58 +6,58 @@ using System.Text.Json;
 namespace NexusChat.Core.Models
 {
     /// <summary>
-    /// Represents a message within a conversation
+    /// Represents a chat message
     /// </summary>
-    [Table("Messages")]
+    [Table("Messages")] // Note: Table name is plural "Messages", not "Message"
     public class Message
     {
         /// <summary>
-        /// Unique identifier for the message
+        /// Gets or sets the message identifier
         /// </summary>
         [PrimaryKey, AutoIncrement]
         public int Id { get; set; }
         
         /// <summary>
-        /// Conversation this message belongs to
+        /// Gets or sets the conversation identifier
         /// </summary>
         [Indexed]
         [ForeignKey(typeof(Conversation))]
         public int ConversationId { get; set; }
         
         /// <summary>
-        /// Content of the message
+        /// Gets or sets the message content
         /// </summary>
         [NotNull]
         public string Content { get; set; }
         
         /// <summary>
-        /// Whether this message is from the AI (true) or the user (false)
+        /// Gets or sets whether this message is from AI
         /// </summary>
         public bool IsAI { get; set; }
         
         /// <summary>
-        /// When the message was created
+        /// Gets or sets the message timestamp
         /// </summary>
         public DateTime Timestamp { get; set; }
         
         /// <summary>
-        /// Raw response data from AI provider (JSON)
+        /// Gets or sets the raw response data from the AI
         /// </summary>
         public string RawResponse { get; set; }
         
         /// <summary>
-        /// Number of tokens used for this message
+        /// Gets or sets the number of tokens used for this message
         /// </summary>
         public int TokensUsed { get; set; }
         
         /// <summary>
-        /// Optional message type for special messages (e.g., "system", "error", "notification")
+        /// Gets or sets the message type (text, image, etc.)
         /// </summary>
         [MaxLength(20)]
         public string MessageType { get; set; }
         
         /// <summary>
-        /// Status of the message (e.g., "sending", "delivered", "error")
+        /// Gets or sets the message status (sent, delivered, error, etc.)
         /// </summary>
         [MaxLength(20)]
         public string Status { get; set; } = "delivered";
@@ -69,7 +69,7 @@ namespace NexusChat.Core.Models
         public Conversation Conversation { get; set; }
         
         /// <summary>
-        /// Gets or sets whether this message is new and should be animated
+        /// Gets or sets if the message is new (for UI highlighting)
         /// </summary>
         [Ignore]
         public bool IsNew { get; set; }

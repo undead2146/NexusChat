@@ -90,5 +90,51 @@ namespace NexusChat.Data.Repositories
                 throw;
             }
         }
+
+        /// <summary>
+        /// Deletes a conversation by its identifier
+        /// </summary>
+        /// <param name="id">The conversation identifier</param>
+        /// <param name="cancellationToken">Optional cancellation token</param>
+        /// <returns>Number of rows affected</returns>
+        public async Task<int> DeleteAsync(int id, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                await _databaseService.Initialize(cancellationToken);
+                
+                // First check if the table exists
+                bool tableExists = await _databaseService.TableExistsAsync("Conversations");
+                if (!tableExists)
+                {
+                    Debug.WriteLine("Conversations table doesn't exist. Creating it now...");
+                    await _databaseService.Database.CreateTableAsync<Conversation>();
+                    Debug.WriteLine("Conversations table created");
+                    return 0;
+                }
+                
+                // Delete the conversation by ID
+                int rowsAffected = await _databaseService.Database.DeleteAsync<Conversation>(id);
+                Debug.WriteLine($"Deleted conversation {id}: {rowsAffected} rows affected");
+                return rowsAffected;
+            }
+            catch (SQLiteException ex)
+            {
+                Debug.WriteLine($"SQLite error in ConversationRepository.DeleteAsync: {ex.Message}");
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error in ConversationRepository.DeleteAsync: {ex.Message}");
+                return 0;
+            }
+        }
+
+        // Regular implementation to satisfy the interface
+        async Task<bool> IRepository<Conversation>.DeleteAsync(int id, CancellationToken cancellationToken)
+        {
+            int rowsAffected = await DeleteAsync(id, cancellationToken);
+            return rowsAffected > 0;
+        }
     }
 }

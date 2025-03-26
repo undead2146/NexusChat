@@ -124,14 +124,50 @@ namespace NexusChat.Data.Repositories
             try
             {
                 await _databaseService.Initialize(cancellationToken);
-                return await _databaseService.Database.ExecuteAsync(
-                    "DELETE FROM Message WHERE ConversationId = ?", 
+                
+                // First check if the Messages table exists
+                bool tableExists = await _databaseService.TableExistsAsync("Messages");
+                if (!tableExists)
+                {
+                    Debug.WriteLine("Messages table doesn't exist. Creating it now...");
+                    await _databaseService.Database.CreateTableAsync<Message>();
+                    Debug.WriteLine("Messages table created");
+                    return 0; // No messages to delete since table was just created
+                }
+                
+                // Use the correct table name 'Messages' (plural) as defined in the Message model
+                int rowsAffected = await _databaseService.Database.ExecuteAsync(
+                    "DELETE FROM Messages WHERE ConversationId = ?", 
                     conversationId);
+                    
+                Debug.WriteLine($"Deleted {rowsAffected} messages from conversation {conversationId}");
+                return rowsAffected;
+            }
+            catch (SQLiteException ex)
+            {
+                Debug.WriteLine($"SQLite error in DeleteByConversationIdAsync: {ex.Message}");
+                
+                if (ex.Message.Contains("no such table"))
+                {
+                    try
+                    {
+                        // Try to create the table if it doesn't exist
+                        await _databaseService.Database.CreateTableAsync<Message>();
+                        Debug.WriteLine("Created Messages table after error");
+                        return 0; // No messages to delete since table was just created
+                    }
+                    catch (Exception innerEx)
+                    {
+                        Debug.WriteLine($"Failed to create Messages table: {innerEx.Message}");
+                    }
+                }
+                
+                return 0; // Return 0 to indicate no rows affected due to error
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error in DeleteByConversationIdAsync: {ex.Message}");
-                throw;
+                return 0; // Return 0 to indicate no rows affected due to error
             }
         }
     }

@@ -126,7 +126,7 @@ namespace NexusChat.Core.ViewModels
             ChangeModelCommand = new AsyncRelayCommand(ChangeModelAsync);
             AttachmentCommand = new AsyncRelayCommand(ShowAttachmentOptionsAsync);
             UsePromptSuggestionCommand = new RelayCommand<string>(UsePromptSuggestion);
-            EditTitleCommand = new AsyncRelayCommand(EditConversationTitleAsync); // Add the edit title command
+            EditTitleCommand = new AsyncRelayCommand(EditConversationTitleAsync); 
             
             // Create dummy AI model for testing
             CurrentAIModel = new AIModel
@@ -136,7 +136,7 @@ namespace NexusChat.Core.ViewModels
                 ProviderName = "OpenAI",
                 IsAvailable = true,
                 MaxTokens = 4096,
-                DefaultTemperature = 0.7f  // Add F suffix to fix the float error
+                DefaultTemperature = 0.7f  
             };
             
             // Initialize cancellation token source
@@ -552,6 +552,7 @@ namespace NexusChat.Core.ViewModels
                     return;
                 
                 IsBusy = true;
+                StatusMessage = "Clearing conversation...";
                 
                 // Ensure we're on the UI thread for the UI operations
                 await MainThread.InvokeOnMainThreadAsync(async () => {
@@ -560,21 +561,41 @@ namespace NexusChat.Core.ViewModels
                         // First, clear the collection (this updates UI immediately)
                         Messages.Clear();
                         
-                        // Then delete from database
+                        // Then try to delete from database - handle errors gracefully
                         if (CurrentConversation.Id > 0)
                         {
-                            await _messageRepository.DeleteByConversationIdAsync(CurrentConversation.Id);
-                            
-                            // Reset conversation properties
-                            CurrentConversation.Title = "New Chat";
-                            CurrentConversation.UpdatedAt = DateTime.Now;
-                            CurrentConversation.TotalTokensUsed = 0;
-                            
-                            await _conversationRepository.UpdateAsync(CurrentConversation);
+                            try 
+                            {
+                                // Check if database is functioning by first ensuring it's initialized
+                                await _messageRepository.EnsureDatabaseAsync();
+                                
+                                // Try delete operation (will return row count or 0 if error/table doesn't exist)
+                                int rowsDeleted = await _messageRepository.DeleteByConversationIdAsync(CurrentConversation.Id);
+                                Debug.WriteLine($"Cleared {rowsDeleted} messages from database");
+                                
+                                // Reset conversation properties - always do this for UI consistency
+                                CurrentConversation.Title = "New Chat";
+                                CurrentConversation.UpdatedAt = DateTime.Now;
+                                CurrentConversation.TotalTokensUsed = 0;
+                                
+                                // Try to update conversation
+                                await _conversationRepository.UpdateAsync(CurrentConversation);
+                                
+                                // Notify property change regardless
+                                OnPropertyChanged(nameof(CurrentConversation));
+                                Debug.WriteLine("Conversation cleared successfully");
+                            }
+                            catch (Exception dbEx)
+                            {
+                                Debug.WriteLine($"Error in ClearConversationAsync database operations: {dbEx}");
+                                // Messages are already cleared from UI, so just show a warning
+                                await Shell.Current.DisplayAlert("Warning", 
+                                    "Messages were cleared from view but there was a problem updating the database.", 
+                                    "OK");
+                            }
                         }
                         
-                        OnPropertyChanged(nameof(CurrentConversation));
-                        Debug.WriteLine("Conversation cleared successfully");
+                        StatusMessage = "Conversation cleared";
                     }
                     catch (Exception ex)
                     {
@@ -622,36 +643,65 @@ namespace NexusChat.Core.ViewModels
                     return;
                 
                 IsBusy = true;
+                StatusMessage = "Deleting conversation...";
                 
-                // First delete messages
+                // First clear UI for immediate feedback
+                await MainThread.InvokeOnMainThreadAsync(() => Messages.Clear());
+                
+                // Then try database operations with better error handling
                 if (CurrentConversation.Id > 0)
                 {
-                    // Clear UI collection first for immediate feedback
-                    await MainThread.InvokeOnMainThreadAsync(() => Messages.Clear());
-                    
-                    // Delete data
-                    await _messageRepository.DeleteByConversationIdAsync(CurrentConversation.Id);
-                    await _conversationRepository.DeleteAsync(CurrentConversation.Id);
-                    
-                    Debug.WriteLine("Conversation deleted successfully");
+                    try
+                    {
+                        // First make sure database is properly initialized
+                        await _messageRepository.EnsureDatabaseAsync();
+                        await _conversationRepository.EnsureDatabaseAsync();
+                        
+                        // First delete all messages - returns row count or 0 if error/no table
+                        int messagesDeleted = await _messageRepository.DeleteByConversationIdAsync(CurrentConversation.Id);
+                        Debug.WriteLine($"Deleted {messagesDeleted} messages for conversation {CurrentConversation.Id}");
+                        
+                        // Even if message deletion has issues, try to delete the conversation
+                        try
+                        {
+                            // Fix the error on line 667 by explicitly casting the repository method
+                            // Use the int-returning method directly from the ConversationRepository instead of through the interface
+                            int deleteResult = await (_conversationRepository as ConversationRepository).DeleteAsync(CurrentConversation.Id);
+                            Debug.WriteLine($"Conversation delete result: {deleteResult} rows affected");
+                        }
+                        catch (Exception conEx)
+                        {
+                            Debug.WriteLine($"Error deleting conversation: {conEx.Message}");
+                            // Still proceed with navigation
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Database error: {ex.Message}");
+                        await Shell.Current.DisplayAlert("Error", 
+                            "There was a problem deleting the conversation data. The conversation will still be removed from your view.", 
+                            "OK");
+                    }
                 }
+                
+                Debug.WriteLine("Conversation deleted successfully");
                 
                 // Navigate back regardless of database operations
                 await Shell.Current.GoToAsync("..");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error deleting conversation: {ex.Message}");
+                Debug.WriteLine($"Error in delete conversation: {ex}");
                 
                 // Still try to navigate back even if deletion failed
                 try
                 {
-                    await Shell.Current.DisplayAlert("Error", "Failed to delete conversation", "OK");
+                    await Shell.Current.DisplayAlert("Error", "An unexpected error occurred.", "OK");
                     await Shell.Current.GoToAsync("..");
                 }
-                catch (Exception navEx)
+                catch
                 {
-                    Debug.WriteLine($"Navigation error after deletion failure: {navEx.Message}");
+                    Debug.WriteLine("Failed to navigate back after error");
                 }
             }
             finally
