@@ -5,8 +5,11 @@ using Microsoft.Maui.Controls;
 namespace NexusChat.Views.Converters
 {
     /// <summary>
-    /// Converts null or empty strings to a fallback value
+    /// Provides a value converter that checks if a string is null or empty.
+    /// If the string is null or empty, it returns a specified fallback value.
+    /// This is useful for displaying default text when a bound string property is not set or is empty.
     /// </summary>
+
     public class StringEmptyConverter : IValueConverter
     {
         /// <summary>

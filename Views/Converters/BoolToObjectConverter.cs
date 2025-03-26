@@ -1,3 +1,4 @@
+
 using System;
 using System.Globalization;
 using System.Diagnostics;
@@ -5,6 +6,16 @@ using Microsoft.Maui.Controls;
 
 namespace NexusChat.Views.Converters
 {
+    /// <summary>
+    /// A value converter that converts a boolean value to an object based on a comma-separated string parameter.
+    /// The parameter should contain two resource keys, the first for when the boolean value is true, and the second for when the boolean value is false.
+    /// The converter attempts to find the resource in the following order:
+    /// 1. Application.Current.Resources
+    /// 2. MainPage.Resources
+    /// 3. If MainPage is a NavigationPage, NavigationPage.CurrentPage.Resources
+    /// 4. If MainPage is a Shell, Shell.CurrentPage.Resources
+    /// If the resource is found, it is returned. Otherwise, null is returned.
+    /// </summary>
     public class BoolToObjectConverter : IValueConverter, IMarkupExtension
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)

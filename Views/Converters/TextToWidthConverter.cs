@@ -1,5 +1,24 @@
 using System.Globalization;
 
+/// <summary>
+/// Converts text length to a width value for UI elements, typically used to dynamically adjust the width of a control based on the length of the text it contains.
+/// </summary>
+/// <remarks>
+/// This converter calculates a width based on the length of the input text, a multiplier, and base width.
+/// It also enforces minimum and maximum width constraints. The multiplier can be passed as a converter parameter.
+/// </remarks>
+/// <example>
+/// Usage in XAML:
+/// <code>
+/// &lt;Label Text="{Binding MyText}"&gt;
+///     &lt;Label.Width&gt;
+///         &lt;Binding Path="MyText" Converter="{StaticResource TextToWidthConverter}" ConverterParameter="10"/&gt;
+///     &lt;/Label.Width&gt;
+/// &lt;/Label&gt;
+/// </code>
+/// In this example, the width of the Label will be dynamically adjusted based on the length of the 'MyText' property.
+/// The 'ConverterParameter' is set to "10", which will be used as the multiplier in the width calculation.
+/// </example>
 namespace NexusChat.Views.Converters
 {
     public class TextToWidthConverter : IValueConverter

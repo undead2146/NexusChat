@@ -15,14 +15,20 @@
             </ResourceDictionary.MergedDictionaries>
 
 
-
             <!-- Converters -->
-            <converters:BoolToStringConverter x:Key="BoolToStringConverter" />
-            <converters:InvertedBoolConverter x:Key="InvertedBoolConverter" />
-            <converters:TextToWidthConverter x:Key="TextToWidthConverter" />
-            <converters:NotNullConverter x:Key="NotNullConverter" />
-            <converters:ComponentToIconConverter x:Key="ComponentToIconConverter" />
+            <converters:BoolToAlignmentConverter x:Key="BoolToAlignmentConverter" />
             <converters:BoolToColorConverter x:Key="BoolToColorConverter" />
+            <converters:BoolToObjectConverter x:Key="BoolToObjectConverter" />
+            <converters:BoolToStringConverter x:Key="BoolToStringConverter" />
+            <converters:ComponentToIconConverter x:Key="ComponentToIconConverter" />
+            <converters:DateTimeToTimeStringConverter x:Key="DateTimeToTimeStringConverter" />
+            <converters:IntToBoolConverter x:Key="IntToBoolConverter" />
+            <converters:InvertedBoolConverter x:Key="InvertedBoolConverter" />
+            <converters:MessageAuthorConverter x:Key="MessageAuthorConverter" />
+            <converters:MessageIconConverter x:Key="MessageIconConverter" />
+            <converters:NotNullConverter x:Key="NotNullConverter" />
+            <converters:StringEmptyConverter x:Key="StringEmptyConverter" />
+            <converters:TextToWidthConverter x:Key="TextToWidthConverter" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

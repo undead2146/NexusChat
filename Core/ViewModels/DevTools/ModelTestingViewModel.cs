@@ -21,9 +21,12 @@ namespace NexusChat.Core.ViewModels.DevTools
     public partial class ModelTestingViewModel : ObservableObject
     {
         private readonly DatabaseService _databaseService;
-        private readonly Random _random = new Random();
+        private readonly TestDataGenerator _testDataGenerator;
+        private CancellationTokenSource _cancellationTokenSource;
 
+        // Using partial modifier for ObservableProperty to ensure property change notifications
         [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(IsNotBusy))]
         private bool _isBusy;
 
         [ObservableProperty]
@@ -41,15 +44,20 @@ namespace NexusChat.Core.ViewModels.DevTools
 
         // Generation count properties - for user input on how many to generate
         [ObservableProperty]
-        private int _generateUserCount = 5;
+        private int _generateUserCount = 2;
 
         [ObservableProperty]
-        private int _generateConversationCount = 10;
+        private int _generateConversationCount = 5;
 
         [ObservableProperty]
         private int _generateMessageCount = 20;
 
+        // Collection for displaying generated entities
         [ObservableProperty]
+        private ObservableCollection<object> _generatedEntities = new ObservableCollection<object>();
+
+        // Legacy property for backward compatibility
+        [ObservableProperty] 
         private ObservableCollection<string> _generationResults = new ObservableCollection<string>();
 
         [ObservableProperty]
@@ -59,7 +67,7 @@ namespace NexusChat.Core.ViewModels.DevTools
         private AIModel _selectedModel;
 
         [ObservableProperty]
-        private string _testPrompt;
+        private string _testPrompt = "Explain what an AI language model is in 50 words or less.";
 
         [ObservableProperty]
         private string _testResult;
@@ -71,6 +79,30 @@ namespace NexusChat.Core.ViewModels.DevTools
         /// Gets whether the ViewModel is not busy
         /// </summary>
         public bool IsNotBusy => !IsBusy;
+
+        /// <summary>
+        /// Initializes a new instance of the ModelTestingViewModel class
+        /// </summary>
+        /// <param name="databaseService">Database service for data access</param>
+        public ModelTestingViewModel(DatabaseService databaseService)
+        {
+            _databaseService = databaseService ?? throw new ArgumentNullException(nameof(databaseService));
+            _testDataGenerator = new TestDataGenerator(databaseService);
+            _availableModels = new ObservableCollection<AIModel>();
+
+            // Initialize commands
+            GenerateUsersCommand = new AsyncRelayCommand(GenerateRandomUsers, () => IsNotBusy);
+            GenerateConversationsCommand = new AsyncRelayCommand(GenerateRandomConversations, () => IsNotBusy);
+            GenerateMessagesCommand = new AsyncRelayCommand(GenerateRandomMessages, () => IsNotBusy);
+            ClearLogCommand = new AsyncRelayCommand(ClearLog);
+            GoBackCommand = new AsyncRelayCommand(GoBack);
+            TestModelCommand = new AsyncRelayCommand(TestModelAsync, CanTestModel);
+            RefreshCommand = new AsyncRelayCommand(RefreshCounts);
+            CancelGenerationCommand = new AsyncRelayCommand(CancelGeneration, () => IsBusy);
+
+            // Initialize counts
+            RefreshCounts();
+        }
 
         /// <summary>
         /// Command to generate random users
@@ -101,27 +133,16 @@ namespace NexusChat.Core.ViewModels.DevTools
         /// Command to test the selected model
         /// </summary>
         public IAsyncRelayCommand TestModelCommand { get; }
-
+        
         /// <summary>
-        /// Initializes a new instance of the ModelTestingViewModel class
+        /// Command to refresh database statistics
         /// </summary>
-        /// <param name="databaseService">Database service for data access</param>
-        public ModelTestingViewModel(DatabaseService databaseService)
-        {
-            _databaseService = databaseService ?? throw new ArgumentNullException(nameof(databaseService));
-            _availableModels = new ObservableCollection<AIModel>();
-            _testPrompt = "Explain what an AI language model is in 50 words or less.";
-
-            GenerateUsersCommand = new AsyncRelayCommand(GenerateRandomUsers);
-            GenerateConversationsCommand = new AsyncRelayCommand(GenerateRandomConversations);
-            GenerateMessagesCommand = new AsyncRelayCommand(GenerateRandomMessages);
-            ClearLogCommand = new AsyncRelayCommand(ClearLog);
-            GoBackCommand = new AsyncRelayCommand(GoBack);
-            TestModelCommand = new AsyncRelayCommand(TestModelAsync, CanTestModel);
-
-            // Initialize counts
-            RefreshCounts();
-        }
+        public IAsyncRelayCommand RefreshCommand { get; }
+        
+        /// <summary>
+        /// Command to cancel an ongoing generation process
+        /// </summary>
+        public IAsyncRelayCommand CancelGenerationCommand { get; }
 
         /// <summary>
         /// Constructor for design-time support
@@ -134,6 +155,8 @@ namespace NexusChat.Core.ViewModels.DevTools
             ClearLogCommand = new AsyncRelayCommand(() => Task.CompletedTask);
             GoBackCommand = new AsyncRelayCommand(() => Task.CompletedTask);
             TestModelCommand = new AsyncRelayCommand(() => Task.CompletedTask);
+            RefreshCommand = new AsyncRelayCommand(() => Task.CompletedTask);
+            CancelGenerationCommand = new AsyncRelayCommand(() => Task.CompletedTask);
         }
 
         /// <summary>
@@ -143,72 +166,48 @@ namespace NexusChat.Core.ViewModels.DevTools
         {
             if (IsBusy) return;
             
-            IsBusy = true;
-            LogMessage($"Generating {GenerateUserCount} random users...");
-            
             try
             {
-                await _databaseService.Initialize();
+                SetupCancellationToken();
+                IsBusy = true;
+                LogMessage($"Generating {GenerateUserCount} random users...");
                 
-                // Ensure GenerateUserCount is within reasonable limits
-                int usersToGenerate = Math.Clamp(GenerateUserCount, 1, 100);
+                // Clear previous generation display
+                await ClearGenerationDisplay();
                 
-                // Perform CPU-intensive tasks on a background thread
-                var users = await Task.Run(() => 
-                {
-                    // Create fake data generator with simpler password hashing
-                    var faker = new Faker<User>()
-                        .RuleFor(u => u.Username, f => CleanUsername(f.Internet.UserName()))
-                        // Use a simple hash for testing - BCrypt is too slow for testing purposes
-                        .RuleFor(u => u.PasswordHash, f => $"TEST_HASH_{Guid.NewGuid()}")
-                        .RuleFor(u => u.DisplayName, f => f.Name.FullName())
-                        .RuleFor(u => u.Email, f => f.Internet.Email())
-                        .RuleFor(u => u.DateCreated, f => f.Date.Past(1))
-                        .RuleFor(u => u.LastLogin, f => f.Date.Recent())
-                        .RuleFor(u => u.PreferredTheme, f => f.Random.ArrayElement(new[] { "Light", "Dark", "System" }))
-                        .RuleFor(u => u.IsEmailVerified, f => f.Random.Bool(0.7f))
-                        .RuleFor(u => u.IsActive, f => f.Random.Bool(0.9f));
-                    
-                    // Generate users
-                    return faker.Generate(usersToGenerate);
-                });
+                // Use TestDataGenerator to generate users
+                var users = await _testDataGenerator.GenerateUsersAsync(
+                    GenerateUserCount, 
+                    GeneratedEntities, 
+                    _cancellationTokenSource.Token);
                 
-                // Save to database
-                await _databaseService.Database.InsertAllAsync(users);
-                
+                // Update generation results for backward compatibility
                 await MainThread.InvokeOnMainThreadAsync(() => 
                 {
-                    GenerationResults.Clear();
                     GenerationResults.Add($"Successfully generated {users.Count} users.");
                     
-                    foreach (var user in users.Take(Math.Min(5, users.Count)))
+                    // Add indicator if more than what's shown in GeneratedEntities
+                    if (users.Count > GeneratedEntities.Count)
                     {
-                        GenerationResults.Add($"- {user.Username} ({user.Email})");
-                    }
-                    
-                    if (users.Count > 5)
-                    {
-                        GenerationResults.Add($"...and {users.Count - 5} more");
+                        GenerationResults.Add($"...and {users.Count - GeneratedEntities.Count} more");
                     }
                 });
                 
                 LogMessage($"Successfully generated {users.Count} users.");
                 await RefreshCounts();
             }
+            catch (OperationCanceledException)
+            {
+                LogMessage("User generation was canceled.");
+            }
             catch (Exception ex)
             {
                 LogMessage($"Error generating users: {ex.Message}");
                 Debug.WriteLine($"Error in GenerateRandomUsers: {ex}");
-                
-                await MainThread.InvokeOnMainThreadAsync(() => 
-                {
-                    GenerationResults.Clear();
-                    GenerationResults.Add($"Error generating users: {ex.Message}");
-                });
             }
             finally
             {
-                IsBusy = false;
+                await CleanupOperation();
             }
         }
 
@@ -219,124 +218,52 @@ namespace NexusChat.Core.ViewModels.DevTools
         {
             if (IsBusy) return;
             
-            IsBusy = true;
-            LogMessage($"Generating {GenerateConversationCount} random conversations...");
-            
             try
             {
-                await _databaseService.Initialize();
+                SetupCancellationToken();
+                IsBusy = true;
+                LogMessage($"Generating {GenerateConversationCount} random conversations...");
                 
-                // Ensure we have users first
-                var userCount = await _databaseService.Database.Table<User>().CountAsync();
+                // Clear previous generation display
+                await ClearGenerationDisplay();
                 
-                if (userCount == 0)
-                {
-                    LogMessage("No users found. Please generate users first.");
-                    IsBusy = false;
-                    return;
-                }
+                // Use TestDataGenerator to generate conversations
+                var conversations = await _testDataGenerator.GenerateConversationsAsync(
+                    GenerateConversationCount, 
+                    GeneratedEntities, 
+                    _cancellationTokenSource.Token);
                 
-                // Get all user IDs
-                var userIds = new List<int>();
-                var users = await _databaseService.Database.Table<User>().ToListAsync();
-                foreach (var user in users)
-                {
-                    userIds.Add(user.Id);
-                }
-                
-                // Create model definition
-                var model1 = new AIModel
-                {
-                    ProviderName = "OpenAI",
-                    ModelName = "GPT-4",
-                    Description = "Advanced language model for general purpose AI tasks",
-                    MaxTokens = 8192,
-                    DefaultTemperature = 0.7f,
-                    IsAvailable = true
-                };
-                
-                var model2 = new AIModel
-                {
-                    ProviderName = "Anthropic",
-                    ModelName = "Claude-3",
-                    Description = "Advanced reasoning and conversation AI model",
-                    MaxTokens = 100000,
-                    DefaultTemperature = 0.5f,
-                    IsAvailable = true
-                };
-                
-                // Save models if not exist
-                var existingModels = await _databaseService.Database.Table<AIModel>().ToListAsync();
-                if (existingModels.Count == 0)
-                {
-                    await _databaseService.Database.InsertAsync(model1);
-                    await _databaseService.Database.InsertAsync(model2);
-                    LogMessage("Created AI models.");
-                }
-                
-                // Get model IDs
-                var modelIds = new List<int>();
-                var models = await _databaseService.Database.Table<AIModel>().ToListAsync();
-                foreach (var model in models)
-                {
-                    modelIds.Add(model.Id);
-                }
-                
-                if (modelIds.Count == 0)
-                {
-                    LogMessage("No AI models found. Creating default models.");
-                    await _databaseService.Database.InsertAsync(model1);
-                    await _databaseService.Database.InsertAsync(model2);
-                    models = await _databaseService.Database.Table<AIModel>().ToListAsync();
-                    foreach (var model in models)
-                    {
-                        modelIds.Add(model.Id);
-                    }
-                }
-                
-                // Create fake data generator
-                var faker = new Faker<Conversation>()
-                    .RuleFor(c => c.UserId, f => f.PickRandom(userIds))
-                    .RuleFor(c => c.Title, f => f.Lorem.Sentence(3, 3).TrimEnd('.'))
-                    .RuleFor(c => c.ModelId, f => f.PickRandom(modelIds))
-                    .RuleFor(c => c.CreatedAt, f => f.Date.Past(1))
-                    .RuleFor(c => c.UpdatedAt, (f, c) => f.Date.Between(c.CreatedAt, DateTime.Now))
-                    .RuleFor(c => c.IsFavorite, f => f.Random.Bool(0.3f))
-                    .RuleFor(c => c.Category, f => f.Random.ArrayElement(new[] { "General", "Work", "Personal", "Creative", "Technical" }))
-                    .RuleFor(c => c.Summary, f => f.Lorem.Paragraph())
-                    .RuleFor(c => c.TotalTokensUsed, f => f.Random.Number(100, 5000));
-                
-                // Use GenerateConversationCount property
-                var conversations = faker.Generate(GenerateConversationCount);
-                
-                // Save to database
-                await _databaseService.Database.InsertAllAsync(conversations);
-                
+                // Update generation results for backward compatibility
                 await MainThread.InvokeOnMainThreadAsync(() => 
                 {
-                    GenerationResults.Clear();
                     GenerationResults.Add($"Successfully generated {conversations.Count} conversations.");
-                    foreach (var convo in conversations.Take(5))
+                    
+                    if (conversations.Count > GeneratedEntities.Count)
                     {
-                        GenerationResults.Add($"- {convo.Title} (ID: {convo.Id})");
-                    }
-                    if (conversations.Count > 5)
-                    {
-                        GenerationResults.Add($"...and {conversations.Count - 5} more");
+                        GenerationResults.Add($"...and {conversations.Count - GeneratedEntities.Count} more");
                     }
                 });
                 
                 LogMessage($"Successfully generated {conversations.Count} conversations.");
                 await RefreshCounts();
             }
+            catch (OperationCanceledException)
+            {
+                LogMessage("Conversation generation was canceled.");
+            }
+            catch (InvalidOperationException ex)
+            {
+                LogMessage(ex.Message);
+                Debug.WriteLine($"Operation Error: {ex}");
+            }
             catch (Exception ex)
             {
                 LogMessage($"Error generating conversations: {ex.Message}");
-                Debug.WriteLine($"Error: {ex}");
+                Debug.WriteLine($"Error in GenerateRandomConversations: {ex}");
             }
             finally
             {
-                IsBusy = false;
+                await CleanupOperation();
             }
         }
 
@@ -347,65 +274,47 @@ namespace NexusChat.Core.ViewModels.DevTools
         {
             if (IsBusy) return;
             
-            IsBusy = true;
-            LogMessage($"Generating {GenerateMessageCount} random messages...");
-            
             try
             {
-                await _databaseService.Initialize();
+                SetupCancellationToken();
+                IsBusy = true;
+                LogMessage($"Generating {GenerateMessageCount} messages across conversations...");
                 
-                // Ensure we have conversations first
-                var convoCount = await _databaseService.Database.Table<Conversation>().CountAsync();
+                // Clear previous generation results (but not entities)
+                GenerationResults.Clear();
                 
-                if (convoCount == 0)
-                {
-                    LogMessage("No conversations found. Please generate conversations first.");
-                    IsBusy = false;
-                    return;
-                }
+                // Use TestDataGenerator to generate messages
+                var messages = await _testDataGenerator.GenerateMessagesAsync(
+                    GenerateMessageCount, 
+                    GeneratedEntities, 
+                    _cancellationTokenSource.Token);
                 
-                // Get all conversation IDs
-                var conversations = await _databaseService.Database.Table<Conversation>().ToListAsync();
+                // Get message counts per conversation for display
+                var messagesByConversation = messages.GroupBy(m => m.ConversationId)
+                    .ToDictionary(g => g.Key, g => g.Count());
                 
-                // Create test data generator
-                var generator = new TestDataGenerator(_databaseService);
-                int savedCount = 0;
-                
-                // Keep track of messages per conversation
-                Dictionary<int, int> messageCountByConversation = new Dictionary<int, int>();
-                
-                // Generate messages for each conversation
-                foreach (var conversation in conversations)
-                {
-                    // Determine how many messages to create for this conversation
-                    int messagesPerConversation = GenerateMessageCount / conversations.Count;
-                    if (messagesPerConversation == 0) messagesPerConversation = 1;
-                    
-                    var messages = await generator.GenerateMessagesAsync(conversation.Id, messagesPerConversation);
-                    savedCount += messages.Count;
-                    
-                    // Update conversation tokens
-                    int totalTokens = messages.Where(m => m.IsAI).Sum(m => m.TokensUsed);
-                    conversation.TotalTokensUsed += totalTokens;
-                    await _databaseService.Database.UpdateAsync(conversation);
-                    
-                    // Update message counts
-                    messageCountByConversation[conversation.Id] = messages.Count;
-                }
-
-                // Update the GenerationResults on the UI thread
+                // Update generation results for backward compatibility
                 await MainThread.InvokeOnMainThreadAsync(() => 
                 {
-                    GenerationResults.Clear();
-                    foreach (var kvp in messageCountByConversation)
+                    foreach (var kvp in messagesByConversation)
                     {
                         GenerationResults.Add($"Created {kvp.Value} messages in conversation {kvp.Key}");
                     }
-                    GenerationResults.Add($"Total: {savedCount} messages created");
+                    
+                    GenerationResults.Add($"Total: {messages.Count} messages created");
                 });
                 
-                LogMessage($"Successfully created {savedCount} messages.");
+                LogMessage($"Successfully created {messages.Count} messages across {messagesByConversation.Count} conversations.");
                 await RefreshCounts();
+            }
+            catch (OperationCanceledException)
+            {
+                LogMessage("Message generation was canceled.");
+            }
+            catch (InvalidOperationException ex)
+            {
+                LogMessage(ex.Message);
+                Debug.WriteLine($"Operation Error: {ex}");
             }
             catch (Exception ex)
             {
@@ -414,18 +323,31 @@ namespace NexusChat.Core.ViewModels.DevTools
             }
             finally
             {
-                IsBusy = false;
+                await CleanupOperation();
             }
         }
 
         /// <summary>
-        /// Clears the log output
+        /// Clears the log output and generated items
         /// </summary>
         private Task ClearLog()
         {
             LogOutput = "Log cleared.";
             GenerationResults.Clear();
+            GeneratedEntities.Clear();
             return Task.CompletedTask;
+        }
+        
+        /// <summary>
+        /// Clears only the generation display, not the log
+        /// </summary>
+        private async Task ClearGenerationDisplay()
+        {
+            await MainThread.InvokeOnMainThreadAsync(() => 
+            {
+                GenerationResults.Clear();
+                GeneratedEntities.Clear();
+            });
         }
 
         /// <summary>
@@ -462,6 +384,11 @@ namespace NexusChat.Core.ViewModels.DevTools
         /// </summary>
         private async Task RefreshCounts()
         {
+            if (_databaseService == null) return;
+            
+            bool wasBusy = IsBusy;
+            if (!wasBusy) IsBusy = true;
+            
             try
             {
                 await _databaseService.Initialize();
@@ -470,31 +397,41 @@ namespace NexusChat.Core.ViewModels.DevTools
                 DbUserCount = await _databaseService.Database.Table<User>().CountAsync();
                 DbConversationCount = await _databaseService.Database.Table<Conversation>().CountAsync();
                 DbMessageCount = await _databaseService.Database.Table<Message>().CountAsync();
+                
+                // Load available models from database
+                var dbModels = await _databaseService.Database.Table<AIModel>().ToListAsync();
+                
+                // Create default models if none exist
+                if (dbModels.Count == 0)
+                {
+                    dbModels = await _testDataGenerator.EnsureDefaultModelsExistAsync();
+                }
+                
+                await MainThread.InvokeOnMainThreadAsync(() => 
+                {
+                    AvailableModels.Clear();
+                    foreach (var model in dbModels)
+                    {
+                        AvailableModels.Add(model);
+                    }
+                    
+                    if (AvailableModels.Count > 0 && SelectedModel == null)
+                    {
+                        SelectedModel = AvailableModels[0];
+                    }
+                });
+                
+                LogMessage("Database statistics refreshed.");
             }
             catch (Exception ex)
             {
                 LogMessage($"Error refreshing counts: {ex.Message}");
+                Debug.WriteLine($"Error refreshing counts: {ex}");
             }
-        }
-
-        // Helper to clean usernames (replacement for the missing CleanUsername extension)
-        private string CleanUsername(string username)
-        {
-            if (string.IsNullOrEmpty(username))
-                return "user" + new Random().Next(1000, 9999);
-
-            // Replace spaces with underscores and remove special characters
-            var cleaned = new string(username.Where(c => char.IsLetterOrDigit(c) || c == '_').ToArray());
-            
-            // Ensure it's not empty after cleaning and reasonable length
-            if (string.IsNullOrEmpty(cleaned) || cleaned.Length < 4)
-                return "user" + new Random().Next(1000, 9999);
-            
-            // Truncate if too long
-            if (cleaned.Length > 20)
-                cleaned = cleaned.Substring(0, 20);
-            
-            return cleaned;
+            finally
+            {
+                if (!wasBusy) IsBusy = false;
+            }
         }
 
         /// <summary>
@@ -504,29 +441,37 @@ namespace NexusChat.Core.ViewModels.DevTools
         {
             try
             {
-                // Load available models
-                AvailableModels.Clear();
+                await _databaseService.Initialize();
                 
-                // For now add a dummy model
-                AvailableModels.Add(new AIModel
+                // Load available models, creating defaults if none exist
+                var dbModels = await _databaseService.Database.Table<AIModel>().ToListAsync();
+                
+                if (dbModels.Count == 0)
                 {
-                    Id = 1,
-                    ProviderName = "DummyProvider",
-                    ModelName = "Dummy Model v1",
-                    Description = "A test model for development purposes",
-                    MaxTokens = 2048,
-                    DefaultTemperature = 0.7f,
-                    IsAvailable = true
+                    dbModels = await _testDataGenerator.EnsureDefaultModelsExistAsync();
+                }
+                
+                await MainThread.InvokeOnMainThreadAsync(() => 
+                {
+                    AvailableModels.Clear();
+                    
+                    foreach (var model in dbModels)
+                    {
+                        AvailableModels.Add(model);
+                    }
+                    
+                    if (AvailableModels.Count > 0)
+                    {
+                        SelectedModel = AvailableModels[0];
+                    }
                 });
                 
-                if (AvailableModels.Count > 0)
-                {
-                    SelectedModel = AvailableModels[0];
-                }
+                await RefreshCounts();
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error initializing ModelTestingViewModel: {ex.Message}");
+                LogMessage($"Initialization error: {ex.Message}");
             }
         }
 
@@ -535,10 +480,14 @@ namespace NexusChat.Core.ViewModels.DevTools
         /// </summary>
         public void Cleanup()
         {
-            // Clean up any resources or event handlers
-            // Currently nothing to clean up
+            _cancellationTokenSource?.Cancel();
+            _cancellationTokenSource?.Dispose();
+            _cancellationTokenSource = null;
         }
 
+        /// <summary>
+        /// Checks if model testing can be performed
+        /// </summary>
         private bool CanTestModel()
         {
             return SelectedModel != null && 
@@ -546,6 +495,9 @@ namespace NexusChat.Core.ViewModels.DevTools
                    !IsTesting;
         }
 
+        /// <summary>
+        /// Tests the selected model
+        /// </summary>
         private async Task TestModelAsync()
         {
             if (SelectedModel == null || string.IsNullOrWhiteSpace(TestPrompt))
@@ -574,6 +526,36 @@ namespace NexusChat.Core.ViewModels.DevTools
             {
                 IsTesting = false;
             }
+        }
+        
+        /// <summary>
+        /// Sets up a new cancellation token source for a generation operation
+        /// </summary>
+        private void SetupCancellationToken()
+        {
+            _cancellationTokenSource?.Cancel();
+            _cancellationTokenSource?.Dispose();
+            _cancellationTokenSource = new CancellationTokenSource();
+        }
+        
+        /// <summary>
+        /// Cancels the current generation operation
+        /// </summary>
+        private Task CancelGeneration()
+        {
+            _cancellationTokenSource?.Cancel();
+            return Task.CompletedTask;
+        }
+        
+        /// <summary>
+        /// Cleans up after an operation completes
+        /// </summary>
+        private async Task CleanupOperation()
+        {
+            _cancellationTokenSource?.Dispose();
+            _cancellationTokenSource = null;
+            
+            await MainThread.InvokeOnMainThreadAsync(() => IsBusy = false);
         }
     }
 }

@@ -2,6 +2,8 @@ using System;
 using System.Diagnostics;
 using NexusChat.Core.ViewModels.DevTools;
 using System.Threading.Tasks;
+using NexusChat.Views.Converters;
+using Microsoft.Maui.Controls;
 
 namespace NexusChat.Views.Pages.DevTools
 {
@@ -23,11 +25,16 @@ namespace NexusChat.Views.Pages.DevTools
                 InitializeComponent();
                 _viewModel = viewModel;
                 BindingContext = _viewModel;
+
+                // Add required converters to resources
+                Resources.Add("NotNullConverter", new NotNullConverter());
+                Resources.Add("MessageIconConverter", new MessageIconConverter());
+                Resources.Add("MessageAuthorConverter", new MessageAuthorConverter());
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error initializing ModelTestingPage: {ex.Message}");
-                DisplayAlert("Initialization Error", "There was an error initializing the page. Please try again.", "OK");
+                DisplayAlert("Error", "Failed to initialize the page", "OK");
             }
         }
 
@@ -38,23 +45,8 @@ namespace NexusChat.Views.Pages.DevTools
             {
                 if (!_isInitialized)
                 {
-                    // Use a timeout to prevent hanging
-                    var initTask = _viewModel.InitializeAsync();
-                    
-                    // Add a 5-second timeout
-                    var timeoutTask = Task.Delay(5000);
-                    
-                    var completedTask = await Task.WhenAny(initTask, timeoutTask);
-                    
-                    if (completedTask == timeoutTask)
-                    {
-                        Debug.WriteLine("ViewModel initialization timed out");
-                        await DisplayAlert("Warning", "Page initialization timed out. Some features may not work properly.", "OK");
-                    }
-                    else
-                    {
-                        _isInitialized = true;
-                    }
+                    await _viewModel.InitializeAsync();
+                    _isInitialized = true;
                 }
             }
             catch (Exception ex)

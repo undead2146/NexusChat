@@ -91,6 +91,9 @@ namespace NexusChat.Core.Models
         {
             DateCreated = DateTime.UtcNow;
             IsActive = true;
+            
+            // Initialize salt to prevent null constraint violations
+            Salt = GenerateRandomSalt();
         }
 
         /// <summary>
@@ -129,16 +132,23 @@ namespace NexusChat.Core.Models
         public void SetPassword(string password)
         {
             // Generate a random salt
+            Salt = GenerateRandomSalt();
+
+            // Hash the password with the salt
+            PasswordHash = HashPassword(password, Salt);
+        }
+        
+        /// <summary>
+        /// Generates a random salt string
+        /// </summary>
+        private string GenerateRandomSalt()
+        {
             byte[] saltBytes = new byte[16];
             using (var rng = RandomNumberGenerator.Create())
             {
                 rng.GetBytes(saltBytes);
             }
-
-            Salt = Convert.ToBase64String(saltBytes);
-
-            // Hash the password with the salt
-            PasswordHash = HashPassword(password, Salt);
+            return Convert.ToBase64String(saltBytes);
         }
 
         /// <summary>
