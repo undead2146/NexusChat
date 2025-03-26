@@ -2,15 +2,13 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
-using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using NexusChat.Core.Models;
 using NexusChat.Data.Context;
 using NexusChat.Helpers;
-using SQLite;
 using Microsoft.Maui.Controls;
 
 namespace NexusChat.Core.ViewModels.DevTools
@@ -18,26 +16,47 @@ namespace NexusChat.Core.ViewModels.DevTools
     /// <summary>
     /// ViewModel for the database viewer page
     /// </summary>
-    public partial class DatabaseViewerViewModel : ObservableObject
+    public partial class DatabaseViewerViewModel : ObservableObject, IDisposable
     {
+        // Helper components
         private readonly DatabaseService _databaseService;
+        private readonly DatabaseDataProvider _dataProvider;
+        private readonly DatabaseSearchService _searchService;
+        private readonly DataObjectConverter _converter;
+        
+        // UI components
         private DataGridRenderer _dataGridRenderer;
         private Grid _dataGrid;
+        
+        // Async operation management
+        private CancellationTokenSource _cancellationTokenSource;
+        private CancellationTokenSource _searchDebounceTokenSource;
 
+        #region Observable Properties
+
+        // Pagination properties
+        [ObservableProperty]
+        private int _pageSize = 20;
+
+        [ObservableProperty]
+        private int _currentPage = 1;
+
+        [ObservableProperty]
+        private int _totalPages = 1;
+
+        [ObservableProperty]
+        private int _totalRecords = 0;
+
+        // UI State properties
         [ObservableProperty]
         private bool _isBusy;
 
         [ObservableProperty]
-        private bool _isLoading;
-
-        [ObservableProperty]
         private bool _hasData;
 
+        // Data properties
         [ObservableProperty]
         private ObservableCollection<string> _tables = new ObservableCollection<string>();
-
-        [ObservableProperty]
-        private ObservableCollection<string> _tableNames = new ObservableCollection<string>();
 
         [ObservableProperty]
         private string _selectedTable;
@@ -54,20 +73,23 @@ namespace NexusChat.Core.ViewModels.DevTools
         [ObservableProperty]
         private ObservableCollection<Dictionary<string, object>> _records = new ObservableCollection<Dictionary<string, object>>();
 
-        [ObservableProperty]
-        private ObservableCollection<object> _tableRecords = new ObservableCollection<object>();
-
-        // Add search functionality
+        // Search functionality
         [ObservableProperty]
         private string _searchText;
 
-        // Add field to store all records
-        private List<Dictionary<string, object>> _allRecords = new List<Dictionary<string, object>>();
+        #endregion
 
         /// <summary>
         /// Gets whether the ViewModel is not busy
         /// </summary>
         public bool IsNotBusy => !IsBusy;
+
+        /// <summary>
+        /// Gets whether we should show "No Data" message (only when not busy and no data)
+        /// </summary>
+        public bool HasNoDataAndNotBusy => !IsBusy && !HasData;
+
+        #region Commands
 
         /// <summary>
         /// Command to refresh the current data
@@ -90,6 +112,23 @@ namespace NexusChat.Core.ViewModels.DevTools
         public IAsyncRelayCommand ClearDatabaseCommand { get; }
 
         /// <summary>
+        /// Command to navigate to the next page
+        /// </summary>
+        public IRelayCommand NextPageCommand { get; }
+
+        /// <summary>
+        /// Command to navigate to the previous page
+        /// </summary>
+        public IRelayCommand PreviousPageCommand { get; }
+
+        /// <summary>
+        /// Command to cancel the current operation
+        /// </summary>
+        public IRelayCommand CancelOperationCommand { get; }
+
+        #endregion
+
+        /// <summary>
         /// Initializes a new instance of DatabaseViewerViewModel
         /// </summary>
         /// <param name="databaseService">Database service for data access</param>
@@ -97,10 +136,23 @@ namespace NexusChat.Core.ViewModels.DevTools
         {
             _databaseService = databaseService ?? throw new ArgumentNullException(nameof(databaseService));
             
+            // Initialize helper components
+            _converter = new DataObjectConverter();
+            _dataProvider = new DatabaseDataProvider(databaseService);
+            _searchService = new DatabaseSearchService(databaseService, _converter);
+            
+            // Initialize commands
             RefreshDataCommand = new AsyncRelayCommand(RefreshData);
             GoBackCommand = new AsyncRelayCommand(GoBack);
             TableChangedCommand = new AsyncRelayCommand<string>(LoadTable);
             ClearDatabaseCommand = new AsyncRelayCommand(ClearDatabase);
+            
+            // Changed from AsyncRelayCommand to RelayCommand with direct method calls
+            // Don't use IsNotBusy condition for IsEnabled - this makes the buttons appear disabled
+            NextPageCommand = new RelayCommand(LoadNextPage, () => CurrentPage < TotalPages);
+            PreviousPageCommand = new RelayCommand(LoadPreviousPage, () => CurrentPage > 1);
+            
+            CancelOperationCommand = new RelayCommand(CancelCurrentOperation, () => IsBusy);
             
             // Add available tables
             Tables.Add("User");
@@ -124,73 +176,60 @@ namespace NexusChat.Core.ViewModels.DevTools
         }
         
         /// <summary>
-        /// Loads data from selected table
+        /// Loads data from selected table with pagination
         /// </summary>
         private async Task LoadTable(string tableName)
         {
             if (string.IsNullOrEmpty(tableName))
                 return;
                 
+            // Reset pagination
+            CurrentPage = 1;
+            
+            // Cancel any ongoing operations
+            CancelOngoingOperations();
+            
             IsBusy = true;
-            HasData = false; // Set to false initially while loading
+            
+            // Don't set HasData to false here, so we don't flash "No data" message
+            // HasData = false;
+            
             StatusMessage = $"Loading {tableName} table...";
             
             try
             {
-                await _databaseService.Initialize();
+                // Clear previous data on UI thread
+                await MainThread.InvokeOnMainThreadAsync(() =>
+                {
+                    Records.Clear();
+                    ColumnNames.Clear();
+                });
                 
-                // Clear previous data
-                Records.Clear();
-                ColumnNames.Clear();
-                _allRecords.Clear();
+                // Get total record count first (to set up pagination)
+                TotalRecords = await _dataProvider.GetTableRecordCountAsync(tableName);
+                TotalPages = (int)Math.Ceiling(TotalRecords / (double)PageSize);
                 
-                // Load table data
-                var tableData = await LoadTableData(tableName);
-                _allRecords = tableData.ToList();
-                
-                if (_allRecords.Count == 0)
+                // If no records, show empty state
+                if (TotalRecords == 0)
                 {
                     StatusMessage = $"No records found in {tableName} table.";
                     RecordCount = "Records: 0";
-                    HasData = false; // No data available
+                    HasData = false;
                     
                     // Make sure the data grid is cleared when empty
                     if (_dataGridRenderer != null)
                     {
-                        _dataGridRenderer.RebuildDataGrid();
+                        await MainThread.InvokeOnMainThreadAsync(() => _dataGridRenderer.RebuildDataGrid());
                     }
                     return;
                 }
                 
-                // Extract column names from first record
-                if (_allRecords.Any() && _allRecords.First().Count > 0)
-                {
-                    var firstRecord = _allRecords.First();
-                    foreach (var key in firstRecord.Keys)
-                    {
-                        ColumnNames.Add(key);
-                    }
-                }
+                // Load the first page of data
+                await LoadPageData(tableName, CurrentPage);
                 
-                // Add all records to observable collection
-                Records.Clear();
-                foreach (var record in _allRecords)
-                {
-                    Records.Add(record);
-                }
-                
-                // Update UI - important to set HasData to true AFTER adding records
-                RecordCount = $"Records: {Records.Count}";
-                StatusMessage = $"Loaded {Records.Count} records from {tableName}.";
-                
-                // Rebuild the grid BEFORE setting HasData to true
-                if (_dataGridRenderer != null)
-                {
-                    _dataGridRenderer.RebuildDataGrid();
-                }
-                
-                // Set HasData after rebuilding grid to ensure UI switches at right time
-                HasData = Records.Count > 0;
+                // Update UI state
+                RecordCount = $"Records: {Records.Count} of {TotalRecords} (Page {CurrentPage}/{TotalPages})";
+                StatusMessage = $"Loaded page {CurrentPage} of {TotalPages} from {tableName}.";
             }
             catch (Exception ex)
             {
@@ -205,107 +244,246 @@ namespace NexusChat.Core.ViewModels.DevTools
         }
         
         /// <summary>
-        /// Helper method to load table data based on table name
+        /// Load a specific page of data with improved performance
         /// </summary>
-        private async Task<List<Dictionary<string, object>>> LoadTableData(string tableName)
+        private async Task LoadPageData(string tableName, int page, bool append = false)
         {
-            var result = new List<Dictionary<string, object>>();
-            
+            if (string.IsNullOrEmpty(tableName) || page < 1)
+                return;
+                
             try
             {
-                // Use SQLite-net-pcl's QueryAsync<object> for raw SQL
-                string sql = $"SELECT * FROM {tableName}";
+                // Reset cancellation token
+                _cancellationTokenSource = new CancellationTokenSource();
+                var cancellationToken = _cancellationTokenSource.Token;
                 
-                // Use proper typed approach based on table name
-                switch (tableName.ToLower())
+                // Calculate offset
+                int offset = (page - 1) * PageSize;
+                
+                StatusMessage = $"Loading page {page} of {TotalPages}...";
+                IsBusy = true;
+                
+                // Load table data in a truly background thread to prevent UI freezing
+                var pageData = await Task.Run(async () =>
                 {
-                    case "user":
-                        var users = await _databaseService.Database.Table<NexusChat.Core.Models.User>().ToListAsync();
-                        foreach (var user in users)
+                    cancellationToken.ThrowIfCancellationRequested();
+                    return await _dataProvider.LoadTableDataPagedAsync(
+                        tableName, PageSize, offset, cancellationToken, _converter);
+                }).ConfigureAwait(false); // Use ConfigureAwait(false) for better thread management
+                
+                // Extract column names if this is the first data we're loading
+                if (ColumnNames.Count == 0 && pageData.Any() && pageData.First().Count > 0)
+                {
+                    var firstRecord = pageData.First();
+                    var columns = firstRecord.Keys.ToList();
+                    
+                    await MainThread.InvokeOnMainThreadAsync(() => 
+                    {
+                        ColumnNames.Clear();
+                        foreach (var key in columns)
                         {
-                            result.Add(ObjectToDictionary(user));
+                            ColumnNames.Add(key);
                         }
-                        break;
-                    case "conversation":
-                        var conversations = await _databaseService.Database.Table<NexusChat.Core.Models.Conversation>().ToListAsync();
-                        foreach (var conversation in conversations)
-                        {
-                            result.Add(ObjectToDictionary(conversation));
-                        }
-                        break;
-                    case "message":
-                        var messages = await _databaseService.Database.Table<NexusChat.Core.Models.Message>().ToListAsync();
-                        foreach (var message in messages)
-                        {
-                            result.Add(ObjectToDictionary(message));
-                        }
-                        break;
-                    case "aimodel":
-                        var models = await _databaseService.Database.Table<NexusChat.Core.Models.AIModel>().ToListAsync();
-                        foreach (var model in models)
-                        {
-                            result.Add(ObjectToDictionary(model));
-                        }
-                        break;
-                    default:
-                        // Try to execute a raw query as a fallback
-                        try
-                        {
-                            // For generic tables, we can execute raw SQL and map manually
-                            var query = await _databaseService.Database.QueryAsync<Dictionary<string, object>>(sql);
-                            if (query != null)
-                            {
-                                result.AddRange(query);
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            Debug.WriteLine($"Fallback generic query failed: {ex.Message}");
-                        }
-                        break;
+                    });
                 }
+                
+                // Add records to observable collection on the UI thread
+                await MainThread.InvokeOnMainThreadAsync(() => 
+                {
+                    // Clear if this is a new page or replace if we're filtering
+                    if (!append)
+                    {
+                        Records.Clear();
+                    }
+                });
+
+                // Add records in batches to prevent UI freezing
+                const int batchSize = 20;
+                for (int i = 0; i < pageData.Count; i += batchSize)
+                {
+                    // Get a batch of records
+                    var batch = pageData.Skip(i).Take(batchSize).ToList();
+                    
+                    // Add the batch to the records collection on the UI thread
+                    await MainThread.InvokeOnMainThreadAsync(() => 
+                    {
+                        foreach (var record in batch)
+                        {
+                            Records.Add(record);
+                        }
+                    });
+                    
+                    // Allow UI to update
+                    await Task.Delay(1);
+                }
+                
+                // Update UI state
+                await MainThread.InvokeOnMainThreadAsync(() => 
+                {
+                    HasData = Records.Count > 0;
+                    RecordCount = append 
+                        ? $"Records: {Records.Count} of {TotalRecords} (Pages 1-{page}/{TotalPages})"
+                        : $"Records: {Records.Count} of {TotalRecords} (Page {page}/{TotalPages})";
+                    
+                    // Rebuild the grid
+                    _dataGridRenderer?.RebuildDataGrid();
+                });
+                
+                StatusMessage = append 
+                    ? $"Loaded records 1-{Records.Count} of {TotalRecords}"
+                    : $"Loaded page {page} of {TotalPages} from {tableName}.";
+            }
+            catch (OperationCanceledException)
+            {
+                // Operation was cancelled, which is expected during fast navigation
+                Debug.WriteLine("Loading operation was cancelled");
+                StatusMessage = "Operation canceled.";
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error in LoadTableData: {ex.Message}");
+                StatusMessage = $"Error loading page {page}: {ex.Message}";
+                Debug.WriteLine($"Error loading page {page}: {ex}");
             }
-            
-            return result;
+            finally
+            {
+                await MainThread.InvokeOnMainThreadAsync(() => IsBusy = false);
+                
+                // Force command availability update
+                await MainThread.InvokeOnMainThreadAsync(() => 
+                {
+                    (NextPageCommand as RelayCommand)?.NotifyCanExecuteChanged();
+                    (PreviousPageCommand as RelayCommand)?.NotifyCanExecuteChanged();
+                });
+            }
         }
         
         /// <summary>
-        /// Converts an object to a dictionary of property names and values
+        /// Searches for data in the current table
         /// </summary>
-        private Dictionary<string, object> ObjectToDictionary(object obj)
+        private async Task PerformSearch(string searchText)
         {
-            var dict = new Dictionary<string, object>();
+            if (string.IsNullOrEmpty(SelectedTable) || string.IsNullOrWhiteSpace(searchText))
+                return;
             
-            if (obj == null) return dict;
-            
-            // Use reflection to get properties and values
-            foreach (var prop in obj.GetType().GetProperties())
+            try
             {
-                try
+                IsBusy = true;
+                CancelOngoingOperations();
+                
+                StatusMessage = $"Searching for '{searchText}'...";
+                
+                // Reset to first page for search
+                CurrentPage = 1;
+                
+                // Get search results with improved performance
+                _cancellationTokenSource = new CancellationTokenSource();
+                var token = _cancellationTokenSource.Token;
+                
+                var searchResults = await Task.Run(async () =>
                 {
-                    var value = prop.GetValue(obj);
-                    dict[prop.Name] = value;
-                }
-                catch
+                    token.ThrowIfCancellationRequested();
+                    return await _searchService.SearchTableAsync(
+                        SelectedTable, searchText, PageSize, token);
+                }, token);
+
+                // Clear existing records on UI thread
+                await MainThread.InvokeOnMainThreadAsync(() =>
                 {
-                    // If we can't get a property value, store null
-                    dict[prop.Name] = null;
+                    Records.Clear();
+                });
+
+                // Add records in batches to prevent UI freezing
+                const int batchSize = 20;
+                for (int i = 0; i < searchResults.Count; i += batchSize)
+                {
+                    // Get a batch of records
+                    var batch = searchResults.Skip(i).Take(batchSize).ToList();
+                    
+                    // Add the batch to the records collection on the UI thread
+                    await MainThread.InvokeOnMainThreadAsync(() => 
+                    {
+                        foreach (var record in batch)
+                        {
+                            Records.Add(record);
+                        }
+                    });
+                    
+                    // Allow UI to update
+                    await Task.Delay(1);
                 }
+                
+                // Update UI state
+                await MainThread.InvokeOnMainThreadAsync(() =>
+                {
+                    HasData = Records.Count > 0;
+                    RecordCount = $"Records: {Records.Count} (search results)";
+                    
+                    // Rebuild grid
+                    _dataGridRenderer?.RebuildDataGrid();
+                });
+                
+                StatusMessage = $"Found {Records.Count} records matching '{searchText}'.";
             }
-            
-            return dict;
+            catch (OperationCanceledException)
+            {
+                // Search was cancelled
+                StatusMessage = "Search canceled.";
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = $"Error during search: {ex.Message}";
+                Debug.WriteLine($"Search error: {ex}");
+            }
+            finally
+            {
+                IsBusy = false;
+            }
         }
+        
+        #region Navigation Commands
+        
+        /// <summary>
+        /// Move to the next page - changed to use non-async pattern to avoid UI freezing
+        /// </summary>
+        private void LoadNextPage()
+        {
+            if (CurrentPage >= TotalPages)
+                return;
+                
+            CurrentPage++;
+            
+            // Start task without awaiting to avoid UI freeze
+            Task.Run(() => LoadPageData(SelectedTable, CurrentPage));
+        }
+        
+        /// <summary>
+        /// Move to the previous page - changed to use non-async pattern to avoid UI freezing
+        /// </summary>
+        private void LoadPreviousPage()
+        {
+            if (CurrentPage <= 1)
+                return;
+                
+            CurrentPage--;
+            
+            // Start task without awaiting to avoid UI freeze
+            Task.Run(() => LoadPageData(SelectedTable, CurrentPage));
+        }
+        
+        #endregion
+        
+        #region Command Handlers
         
         /// <summary>
         /// Refreshes the data for the current table
         /// </summary>
         private async Task RefreshData()
         {
-            await LoadTable(SelectedTable);
+            // Reset to first page and reload on background thread to prevent UI freezing
+            CurrentPage = 1;
+            
+            // Use Task.Run to ensure this runs on a background thread
+            await Task.Run(() => LoadTable(SelectedTable));
         }
         
         /// <summary>
@@ -314,6 +492,14 @@ namespace NexusChat.Core.ViewModels.DevTools
         private async Task GoBack()
         {
             await Shell.Current.GoToAsync("..");
+        }
+        
+        /// <summary>
+        /// Cancels the current operation
+        /// </summary>
+        private void CancelCurrentOperation()
+        {
+            CancelOngoingOperations();
         }
         
         /// <summary>
@@ -336,32 +522,24 @@ namespace NexusChat.Core.ViewModels.DevTools
             
             try
             {
-                // Drop tables
-                await _databaseService.Initialize();
-                await _databaseService.Database.DropTableAsync<NexusChat.Core.Models.Message>();
-                await _databaseService.Database.DropTableAsync<NexusChat.Core.Models.Conversation>();
-                await _databaseService.Database.DropTableAsync<NexusChat.Core.Models.User>();
-                await _databaseService.Database.DropTableAsync<NexusChat.Core.Models.AIModel>();
+                // Use background thread to avoid UI freeze
+                await Task.Run(async () => await _dataProvider.ClearDatabaseAsync());
                 
-                // Re-create tables
-                await _databaseService.Database.CreateTablesAsync(SQLite.CreateFlags.None,
-                    typeof(NexusChat.Core.Models.User),
-                    typeof(NexusChat.Core.Models.Conversation),
-                    typeof(NexusChat.Core.Models.Message),
-                    typeof(NexusChat.Core.Models.AIModel));
-                
-                // Clear local data
-                Records.Clear();
-                HasData = false;
-                RecordCount = "Records: 0";
-                StatusMessage = "Database cleared successfully.";
-                
-                // Rebuild UI
-                if (_dataGridRenderer != null)
+                // Update UI state
+                await MainThread.InvokeOnMainThreadAsync(() =>
                 {
-                    _dataGridRenderer.RebuildDataGrid();
-                }
+                    Records.Clear();
+                    HasData = false;
+                    TotalRecords = 0;
+                    TotalPages = 1;
+                    CurrentPage = 1;
+                    RecordCount = "Records: 0";
+                    
+                    // Rebuild UI
+                    _dataGridRenderer?.RebuildDataGrid();
+                });
                 
+                StatusMessage = "Database cleared successfully.";
                 await Application.Current.MainPage.DisplayAlert("Success", "Database cleared successfully.", "OK");
             }
             catch (Exception ex)
@@ -375,6 +553,8 @@ namespace NexusChat.Core.ViewModels.DevTools
                 IsBusy = false;
             }
         }
+        
+        #endregion
         
         /// <summary>
         /// Initialize the ViewModel
@@ -414,164 +594,146 @@ namespace NexusChat.Core.ViewModels.DevTools
         }
         
         /// <summary>
+        /// Cancels any ongoing database operations
+        /// </summary>
+        private void CancelOngoingOperations()
+        {
+            try
+            {
+                _cancellationTokenSource?.Cancel();
+                _cancellationTokenSource?.Dispose();
+                _cancellationTokenSource = new CancellationTokenSource();
+                
+                _searchDebounceTokenSource?.Cancel();
+                _searchDebounceTokenSource?.Dispose();
+                _searchDebounceTokenSource = null;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error cancelling operations: {ex.Message}");
+            }
+        }
+        
+        /// <summary>
         /// Clean up any resources used by the ViewModel
         /// </summary>
         public void Cleanup()
         {
-            // Clean up any resources or event handlers
-            // Currently nothing to clean up
+            CancelOngoingOperations();
         }
         
-        private async Task LoadTableAsync(string tableName)
+        /// <summary>
+        /// Clean up any resources used by the ViewModel
+        /// </summary>
+        public void Dispose()
         {
-            if (string.IsNullOrEmpty(tableName))
-                return;
-                
-            try
+            _cancellationTokenSource?.Dispose();
+            _searchDebounceTokenSource?.Dispose();
+            
+            // Dispose data provider (which contains the database lock)
+            if (_dataProvider is IDisposable disposable)
             {
-                IsLoading = true;
-                SelectedTable = tableName;
-                
-                // Clear existing records
-                TableRecords.Clear();
-                
-                // Simulate loading records
-                await Task.Delay(500);
-                
-                // For now, just add some dummy data based on the table name
-                switch (tableName)
-                {
-                    case "Users":
-                        // Add dummy user data
-                        for (int i = 1; i <= 5; i++)
-                        {
-                            TableRecords.Add(new User
-                            {
-                                Id = i,
-                                Username = $"user{i}",
-                                DisplayName = $"User {i}",
-                                Email = $"user{i}@example.com"
-                            });
-                        }
-                        break;
-                        
-                    case "Conversations":
-                        // Add dummy conversation data
-                        for (int i = 1; i <= 3; i++)
-                        {
-                            TableRecords.Add(new Conversation
-                            {
-                                Id = i,
-                                UserId = 1,
-                                Title = $"Conversation {i}",
-                                CreatedAt = DateTime.Now.AddDays(-i)
-                            });
-                        }
-                        break;
-                        
-                    case "Messages":
-                        // Add dummy message data
-                        for (int i = 1; i <= 8; i++)
-                        {
-                            TableRecords.Add(new Message
-                            {
-                                Id = i,
-                                ConversationId = (i % 3) + 1,
-                                Content = $"This is message {i}",
-                                IsAI = i % 2 == 0,
-                                Timestamp = DateTime.Now.AddMinutes(-i * 5)
-                            });
-                        }
-                        break;
-                        
-                    case "AIModels":
-                        // Add dummy AI model data
-                        TableRecords.Add(new AIModel
-                        {
-                            Id = 1,
-                            ProviderName = "OpenAI",
-                            ModelName = "GPT-4",
-                            MaxTokens = 8192
-                        });
-                        TableRecords.Add(new AIModel
-                        {
-                            Id = 2,
-                            ProviderName = "Anthropic",
-                            ModelName = "Claude",
-                            MaxTokens = 100000
-                        });
-                        break;
-                }
-                
-                RecordCount = TableRecords.Count.ToString();
+                disposable.Dispose();
             }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error loading table {tableName}: {ex.Message}");
-            }
-            finally
-            {
-                IsLoading = false;
-            }
+            
+            GC.SuppressFinalize(this);
         }
         
-        private async Task RefreshDataAsync()
-        {
-            await LoadTableAsync(SelectedTable);
-        }
+        #region Property Change Handlers
         
-        // Make sure IsBusy changes notify IsNotBusy changes
+        // Make sure IsBusy changes notify IsNotBusy changes and command availability
         partial void OnIsBusyChanged(bool value)
         {
             OnPropertyChanged(nameof(IsNotBusy));
+            OnPropertyChanged(nameof(HasNoDataAndNotBusy));
+            
+            // Also update command availability
+            (NextPageCommand as RelayCommand)?.NotifyCanExecuteChanged();
+            (PreviousPageCommand as RelayCommand)?.NotifyCanExecuteChanged();
+            (CancelOperationCommand as RelayCommand)?.NotifyCanExecuteChanged();
         }
 
-        // Update property change handler to trigger search
+        // Add debounced search functionality with improved throttling
         partial void OnSearchTextChanged(string value)
         {
-            FilterRecords();
+            // Cancel any previous search operation
+            _searchDebounceTokenSource?.Cancel();
+            _searchDebounceTokenSource?.Dispose();
+            _searchDebounceTokenSource = new CancellationTokenSource();
+            
+            // If search text is empty, reload first page
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                // Schedule reload without awaiting to avoid UI freeze
+                Task.Run(() => LoadTable(SelectedTable));
+                return;
+            }
+            
+            // For short search terms, wait longer to avoid too many searches
+            int delayMs = value.Length < 3 ? 700 : 500;
+            
+            // Schedule search with delay to debounce input - run in background
+            Task.Delay(delayMs, _searchDebounceTokenSource.Token)
+                .ContinueWith(t => 
+                {
+                    if (t.IsCompletedSuccessfully)
+                    {
+                        // Execute search in background without awaiting
+                        Task.Run(() => PerformSearch(value));
+                    }
+                }, TaskContinuationOptions.OnlyOnRanToCompletion);
+        }
+        
+        // Update pagination properties when page size changes
+        partial void OnPageSizeChanged(int value)
+        {
+            if (value <= 0)
+            {
+                PageSize = 100; // Reset to default if invalid
+                return;
+            }
+            
+            // Recalculate total pages
+            if (TotalRecords > 0)
+            {
+                TotalPages = (int)Math.Ceiling(TotalRecords / (double)PageSize);
+                
+                // Ensure current page is still valid
+                if (CurrentPage > TotalPages)
+                {
+                    CurrentPage = TotalPages;
+                }
+                   
+                // Reload data if we have a selected table
+                if (!string.IsNullOrEmpty(SelectedTable))
+                {
+                    // Force reload with the new page size - run on a background thread
+                    Task.Run(() => LoadPageData(SelectedTable, CurrentPage));
+                }
+            }
         }
 
-        private void FilterRecords()
+        // Add property change handlers for CurrentPage and TotalPages
+        partial void OnCurrentPageChanged(int value)
         {
-            try
-            {
-                if (string.IsNullOrWhiteSpace(SearchText))
-                {
-                    // No filter, show all records
-                    HasData = _allRecords.Count > 0;
-                    
-                    Records.Clear();
-                    foreach (var record in _allRecords)
-                    {
-                        Records.Add(record);
-                    }
-                    RecordCount = $"Records: {Records.Count}";
-                }
-                else
-                {
-                    // Filter records that contain the search text in any field
-                    var filteredRecords = _allRecords.Where(record => 
-                        record.Values.Any(value => 
-                            value?.ToString()?.Contains(SearchText, StringComparison.OrdinalIgnoreCase) == true));
-                    
-                    Records.Clear();
-                    foreach (var record in filteredRecords)
-                    {
-                        Records.Add(record);
-                    }
-                    
-                    HasData = Records.Count > 0;
-                    RecordCount = $"Records: {Records.Count} (filtered)";
-                }
-                
-                // Rebuild data grid with filtered records
-                _dataGridRenderer?.RebuildDataGrid();
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error filtering records: {ex.Message}");
-            }
+            // Update command availability when current page changes
+            (NextPageCommand as RelayCommand)?.NotifyCanExecuteChanged();
+            (PreviousPageCommand as RelayCommand)?.NotifyCanExecuteChanged();
         }
+
+        partial void OnTotalPagesChanged(int value)
+        {
+            // Update command availability when total pages changes
+            (NextPageCommand as RelayCommand)?.NotifyCanExecuteChanged();
+            (PreviousPageCommand as RelayCommand)?.NotifyCanExecuteChanged();
+        }
+        
+        // Make sure HasData changes notify HasNoDataAndNotBusy
+        partial void OnHasDataChanged(bool value)
+        {
+            OnPropertyChanged(nameof(HasNoDataAndNotBusy));
+        }
+        
+        #endregion
     }
 }

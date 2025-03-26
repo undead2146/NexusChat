@@ -1,214 +1,178 @@
 using Microsoft.Maui.Controls;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.Maui.Graphics;
 
 namespace NexusChat.Helpers
 {
     /// <summary>
-    /// Helper class for rendering database data in a Grid with proper theme support
+    /// Helper class for rendering data in a grid format
     /// </summary>
     public class DataGridRenderer
     {
         private readonly Grid _grid;
-        private readonly IEnumerable<Dictionary<string, object>> _data;
-        private readonly IEnumerable<string> _columns;
-        private const int MaxDisplayLength = 150;
-        private const int MinColumnWidth = 120;
+        private readonly ObservableCollection<Dictionary<string, object>> _data;
+        private readonly ObservableCollection<string> _columns;
+        private const int MaxVisibleRows = 100; // Limit visible rows to improve performance
 
-        /// <summary>
-        /// Creates a new DataGridRenderer
-        /// </summary>
-        public DataGridRenderer(Grid grid, IEnumerable<Dictionary<string, object>> data, IEnumerable<string> columns)
+        public DataGridRenderer(Grid grid, ObservableCollection<Dictionary<string, object>> data, ObservableCollection<string> columns)
         {
             _grid = grid ?? throw new ArgumentNullException(nameof(grid));
-            _data = data ?? new List<Dictionary<string, object>>();
-            _columns = columns ?? new List<string>();
+            _data = data ?? throw new ArgumentNullException(nameof(data));
+            _columns = columns ?? throw new ArgumentNullException(nameof(columns));
         }
 
         /// <summary>
-        /// Rebuilds the data grid with current data
+        /// Rebuilds the grid with improved performance
         /// </summary>
         public void RebuildDataGrid()
         {
             try
             {
-                // Clear existing grid
+                if (_grid == null) return;
+
+                // Clear existing content
                 _grid.Children.Clear();
-                _grid.ColumnDefinitions.Clear();
                 _grid.RowDefinitions.Clear();
+                _grid.ColumnDefinitions.Clear();
 
-                // If no data, nothing to render
-                if (!_columns.Any())
-                {
-                    return;
-                }
+                // If no columns or data, just return
+                if (_columns.Count == 0 || _data.Count == 0) return;
 
-                // Create column definitions
+                // Create the header row and column definitions
+                _grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                
+                // Add column definitions
                 int columnIndex = 0;
                 foreach (var column in _columns)
                 {
-                    // Fix: Remove MinimumWidth property and use Width with a fixed value
-                    _grid.ColumnDefinitions.Add(new ColumnDefinition
-                    {
-                        Width = new GridLength(MinColumnWidth, GridUnitType.Absolute)
-                    });
+                    // Make ID columns narrower, content columns wider
+                    GridLength colWidth = column.EndsWith("Id") || column == "Id" 
+                        ? new GridLength(80) 
+                        : (column == "Content" || column == "RawResponse" || column == "Description" || column == "Summary")
+                            ? new GridLength(300)
+                            : new GridLength(150);
+                            
+                    _grid.ColumnDefinitions.Add(new ColumnDefinition { Width = colWidth });
 
                     // Add header cell
-                    var headerFrame = CreateCell(column, true, columnIndex, 0);
-                    Grid.SetColumn(headerFrame, columnIndex);
-                    Grid.SetRow(headerFrame, 0);
-                    _grid.Children.Add(headerFrame);
+                    var headerFrame = new Frame
+                    {
+                        BackgroundColor = Color.FromArgb("#007BFF"),
+                        Padding = new Thickness(5),
+                        Margin = new Thickness(0),
+                        HasShadow = false,
+                        BorderColor = Color.FromArgb("#FFFFFF")
+                    };
+
+                    var headerLabel = new Label
+                    {
+                        Text = column,
+                        TextColor = Colors.White,
+                        FontAttributes = FontAttributes.Bold,
+                        FontSize = 14,
+                        LineBreakMode = LineBreakMode.TailTruncation
+                    };
+
+                    headerFrame.Content = headerLabel;
+                    _grid.Add(headerFrame, columnIndex, 0);
 
                     columnIndex++;
                 }
 
-                // Add header row definition
-                _grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-
-                // Create data rows
-                int rowIndex = 1;
-                foreach (var row in _data)
+                // Limit the number of rows to display for better performance
+                int rowsToDisplay = Math.Min(_data.Count, MaxVisibleRows);
+                
+                // Add data rows - with performance optimizations
+                for (int rowIndex = 0; rowIndex < rowsToDisplay; rowIndex++)
                 {
+                    // Add row definition
                     _grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-
-                    // Create cells for each column
-                    columnIndex = 0;
-                    foreach (var column in _columns)
+                    
+                    // Get the data for this row
+                    var rowData = _data[rowIndex];
+                    
+                    // Add cells
+                    for (int colIndex = 0; colIndex < _columns.Count; colIndex++)
                     {
-                        object cellValue = row.TryGetValue(column, out var value) ? value : null;
-                        string cellText = FormatCellValue(cellValue);
+                        var column = _columns[colIndex];
 
-                        var cellFrame = CreateCell(cellText, false, columnIndex, rowIndex);
-                        Grid.SetColumn(cellFrame, columnIndex);
-                        Grid.SetRow(cellFrame, rowIndex);
-                        _grid.Children.Add(cellFrame);
+                        // Create the cell frame
+                        var cellFrame = new Frame
+                        {
+                            BackgroundColor = rowIndex % 2 == 0 
+                                ? Color.FromArgb("#FFFFFF") 
+                                : Color.FromArgb("#F8F9FA"),
+                            Padding = new Thickness(5),
+                            Margin = new Thickness(0),
+                            HasShadow = false,
+                            BorderColor = Color.FromArgb("#DEE2E6")
+                        };
 
-                        columnIndex++;
+                        // Create cell content
+                        object cellValue = rowData.ContainsKey(column) ? rowData[column] : null;
+                        string cellText = cellValue?.ToString() ?? "";
+                        
+                        // Truncate very long text for performance
+                        if (cellText.Length > 500)
+                        {
+                            cellText = cellText.Substring(0, 500) + "...";
+                        }
+
+                        var cellLabel = new Label
+                        {
+                            Text = cellText,
+                            TextColor = Color.FromArgb("#212529"),
+                            FontSize = 13,
+                            LineBreakMode = LineBreakMode.WordWrap,
+                            MaxLines = 2, // Limit lines for better performance
+                        };
+
+                        cellFrame.Content = cellLabel;
+                        _grid.Add(cellFrame, colIndex, rowIndex + 1); // +1 to account for header row
                     }
-                    rowIndex++;
+                }
+                
+                // If we limited the number of rows, add a note at the bottom
+                if (rowsToDisplay < _data.Count)
+                {
+                    // Add a row for the note
+                    _grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                    
+                    // Create a frame for the note
+                    var noteFrame = new Frame
+                    {
+                        BackgroundColor = Color.FromArgb("#FFF3CD"),
+                        Padding = new Thickness(10),
+                        Margin = new Thickness(0),
+                        HasShadow = false,
+                        BorderColor = Color.FromArgb("#FFEEBA")
+                    };
+                    
+                    // Create note label
+                    var noteLabel = new Label
+                    {
+                        Text = $"Showing {rowsToDisplay} of {_data.Count} records. Use paging controls to see more.",
+                        TextColor = Color.FromArgb("#856404"),
+                        FontSize = 14,
+                        HorizontalOptions = LayoutOptions.Center
+                    };
+                    
+                    noteFrame.Content = noteLabel;
+                    
+                    // Add the note - span across all columns
+                    Grid.SetColumnSpan(noteFrame, _columns.Count);
+                    _grid.Add(noteFrame, 0, rowsToDisplay + 1); // +1 for header row
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error in RebuildDataGrid: {ex.Message}");
+                Debug.WriteLine($"Error rebuilding data grid: {ex.Message}");
             }
-        }
-
-        /// <summary>
-        /// Creates a cell for the data grid
-        /// </summary>
-        private Frame CreateCell(string text, bool isHeader, int column, int row)
-        {
-            // Fix: Use ResourceDictionary properly
-            var resourceDict = Application.Current.Resources;
-            
-            var headerColor = Application.Current.RequestedTheme == AppTheme.Dark ? 
-                resourceDict["PrimaryDark"] : resourceDict["Primary"];
-                
-            var evenRowColor = Application.Current.RequestedTheme == AppTheme.Dark ? 
-                resourceDict["CardBackgroundDark"] : resourceDict["CardBackground"];
-                
-            var oddRowColor = Application.Current.RequestedTheme == AppTheme.Dark ? 
-                resourceDict["BackgroundDark"] : resourceDict["Background"];
-            
-            var headerBorderColor = Application.Current.RequestedTheme == AppTheme.Dark ? 
-                resourceDict["Gray600"] : resourceDict["Gray400"];
-                
-            var dataBorderColor = Application.Current.RequestedTheme == AppTheme.Dark ? 
-                resourceDict["Gray600"] : (row % 2 == 0 ? resourceDict["Gray300"] : resourceDict["Gray200"]);
-            
-            var frame = new Frame
-            {
-                Padding = new Thickness(10, 5),
-                BorderColor = isHeader ? (Color)headerBorderColor : (Color)dataBorderColor,
-                CornerRadius = 0,
-                HasShadow = false,
-                BackgroundColor = isHeader ? 
-                    (Color)headerColor : 
-                    (row % 2 == 0 ? (Color)evenRowColor : (Color)oddRowColor),
-                Margin = 0
-            };
-
-            var stackLayout = new VerticalStackLayout
-            {
-                Spacing = 0,
-                HorizontalOptions = LayoutOptions.Fill
-            };
-
-            var textColor = isHeader ? 
-                Colors.White : 
-                (Application.Current.RequestedTheme == AppTheme.Dark ? 
-                    (Color)resourceDict["PrimaryTextColorDark"] : 
-                    (Color)resourceDict["PrimaryTextColor"]);
-
-            var label = new Label
-            {
-                Text = text,
-                FontAttributes = isHeader ? FontAttributes.Bold : FontAttributes.None,
-                TextColor = textColor,
-                LineBreakMode = LineBreakMode.TailTruncation, // Fixed to TailTruncation instead of TailAndTruncation
-                MaxLines = 3
-            };
-
-            stackLayout.Children.Add(label);
-
-            // If content is longer than threshold, add an expand button
-            if (text != null && text.Length > MaxDisplayLength)
-            {
-                var buttonColor = (Color)resourceDict["Secondary"];
-                var buttonTextColor = Application.Current.RequestedTheme == AppTheme.Dark ? 
-                    Colors.White : Colors.Black;
-                    
-                var expandButton = new Button
-                {
-                    Text = "View Full",
-                    BackgroundColor = buttonColor,
-                    TextColor = buttonTextColor,
-                    FontSize = 10,
-                    Padding = new Thickness(5),
-                    HeightRequest = 25,
-                    HorizontalOptions = LayoutOptions.Start,
-                    Margin = new Thickness(0, 5, 0, 0)
-                };
-
-                expandButton.Clicked += (s, e) => ShowFullTextPopup(text, column.ToString());
-                stackLayout.Children.Add(expandButton);
-            }
-
-            frame.Content = stackLayout;
-            return frame;
-        }
-
-        /// <summary>
-        /// Shows a popup with the full text content
-        /// </summary>
-        private async void ShowFullTextPopup(string text, string columnName)
-        {
-            // Create a popup to display the full text
-            await Application.Current.MainPage.DisplayAlert(
-                $"Full Content - Column {columnName}",
-                text,
-                "Close");
-        }
-
-        /// <summary>
-        /// Formats cell value for display
-        /// </summary>
-        private string FormatCellValue(object value)
-        {
-            if (value == null)
-                return "[NULL]";
-
-            if (value is DateTime dateTime)
-                return dateTime.ToString("yyyy-MM-dd HH:mm:ss");
-
-            if (value is bool boolean)
-                return boolean ? "True" : "False";
-
-            return value.ToString();
         }
     }
 }

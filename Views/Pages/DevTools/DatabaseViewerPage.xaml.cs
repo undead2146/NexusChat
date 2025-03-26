@@ -55,7 +55,16 @@ namespace NexusChat.Views.Pages.DevTools
         protected override void OnDisappearing()
         {
             base.OnDisappearing();
-            _viewModel.Cleanup();
+            
+            // Make sure to clean up resources when the page is no longer displayed
+            if (_viewModel is IDisposable disposableViewModel)
+            {
+                disposableViewModel.Dispose();
+            }
+            else
+            {
+                _viewModel.Cleanup();
+            }
         }
     }
 }

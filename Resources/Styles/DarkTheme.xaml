@@ -154,6 +154,16 @@
         <Setter Property="TextColor" Value="#FFFFFF" />
     </Style>
     
+    <!-- Add specific style for status messages -->
+    <Style x:Key="StatusMessageStyle" TargetType="Label">
+        <Setter Property="TextColor" Value="{StaticResource SecondaryTextColor}" />
+        <Setter Property="FontFamily" Value="OpenSansRegular" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="LineBreakMode" Value="NoWrap" />
+        <Setter Property="MaxLines" Value="1" />
+        <Setter Property="VerticalOptions" Value="Center" />
+    </Style>
+    
     <Style TargetType="CollectionView" ApplyToDerivedTypes="False">
         <Setter Property="BackgroundColor" Value="Transparent" />
     </Style>
