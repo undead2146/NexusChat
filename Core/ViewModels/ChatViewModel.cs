@@ -47,6 +47,16 @@ namespace NexusChat.Core.ViewModels
         [ObservableProperty] 
         private string _statusMessage;
         
+        // Pagination properties
+        [ObservableProperty]
+        private bool _isLoadingMore;
+        
+        [ObservableProperty]
+        private bool _canLoadMore = true;
+        
+        private int _pageSize = 5;
+        private int _currentOffset = 0;
+        
         /// <summary>
         /// Gets if the ViewModel is not busy
         /// </summary>
@@ -56,6 +66,11 @@ namespace NexusChat.Core.ViewModels
         /// Gets if the user can send a message
         /// </summary>
         public bool CanSendMessage => !string.IsNullOrWhiteSpace(MessageText) && !IsBusy;
+
+        /// <summary>
+        /// Gets whether the load more button should be shown (available and not currently loading)
+        /// </summary>
+        public bool ShowLoadMoreButton => CanLoadMore && !IsLoadingMore;
 
         #region Commands
         /// <summary>
@@ -107,6 +122,11 @@ namespace NexusChat.Core.ViewModels
         /// Command to edit the conversation title
         /// </summary>
         public IAsyncRelayCommand EditTitleCommand { get; }
+        
+        /// <summary>
+        /// Command to load more messages
+        /// </summary>
+        public IAsyncRelayCommand LoadMoreMessagesCommand { get; }
         #endregion
 
         /// <summary>
@@ -128,6 +148,7 @@ namespace NexusChat.Core.ViewModels
             AttachmentCommand = new AsyncRelayCommand(ShowAttachmentOptionsAsync);
             UsePromptSuggestionCommand = new RelayCommand<string>(UsePromptSuggestion);
             EditTitleCommand = new AsyncRelayCommand(EditConversationTitleAsync); 
+            LoadMoreMessagesCommand = new AsyncRelayCommand(LoadMoreMessagesAsync, () => CanLoadMore && !IsLoadingMore);
             
             // Create dummy AI model for testing
             CurrentAIModel = new AIModel
@@ -162,8 +183,15 @@ namespace NexusChat.Core.ViewModels
                     CurrentConversation = await _chatService.LoadOrCreateConversationAsync(conversationId, CurrentAIModel?.Id ?? 1);
                 }
                 
-                // Load messages for the conversation asynchronously
-                await RefreshMessagesAsync();
+                // Reset pagination state
+                _currentOffset = 0;
+                
+                // Explicitly set to true initially so button is clickable
+                CanLoadMore = true;
+                OnPropertyChanged(nameof(ShowLoadMoreButton));
+                
+                // Load initial set of messages asynchronously
+                await LoadInitialMessagesAsync();
                 
                 // Generate title if it's still the default - look at first user message
                 await EnsureConversationHasTitleAsync();
@@ -180,138 +208,146 @@ namespace NexusChat.Core.ViewModels
         }
         
         /// <summary>
-        /// Send a message to the AI
+        /// Loads the initial set of messages (most recent ones)
         /// </summary>
-        private async Task SendMessageAsync()
+        private async Task LoadInitialMessagesAsync()
         {
-            // First check if we can send
-            if (string.IsNullOrWhiteSpace(MessageText) || IsBusy)
-                return;
-            
-            // Grab message text and clear input field for immediate feedback
-            string userMessageText = MessageText?.Trim() ?? "";
-            MessageText = string.Empty;
-            
-            // Create user message
-            var userMessage = MessageOperations.CreateUserMessage(
-                userMessageText, 
-                CurrentConversation?.Id ?? 0);
-            
-            // Add user message to UI collection immediately
-            Messages.Add(userMessage);
-            
-            // Mark busy state AFTER adding the user message
-            IsBusy = true;
-            
-            // Start AI response process in the background
-            _ = Task.Run(async () => 
+            try
             {
+                if (CurrentConversation?.Id <= 0) return;
+                
+                // Set loading flag to avoid double-loading
+                IsLoadingMore = true;
+                
                 try
                 {
-                    // Set up cancellation
-                    CancelAndDisposeTokenSource();
-                    _cancellationTokenSource = new CancellationTokenSource();
-                    var cancellationToken = _cancellationTokenSource.Token;
+                    // Get message count first to know if more can be loaded
+                    int totalMessageCount = await _chatService.GetMessageCountAsync(CurrentConversation.Id);
                     
-                    // Clean up any existing typing indicators
-                    await MessageOperations.CleanupTypingMessagesAsync(Messages);
+                    // Load initial set of messages from the end of the list
+                    var initialMessages = await _chatService.GetMessageAsync(
+                        CurrentConversation.Id, 
+                        _pageSize,
+                        Math.Max(0, totalMessageCount - _pageSize)); // Offset from end
                     
-                    // Set typing indicator
-                    await MainThread.InvokeOnMainThreadAsync(() => IsAITyping = true);
-                    
-                    // Add typing indicator message
-                    var typingMessage = MessageOperations.CreateTypingMessage(
-                        CurrentConversation?.Id ?? 0,
-                        userMessage.Id);
-                    
-                    await MainThread.InvokeOnMainThreadAsync(() => Messages.Add(typingMessage));
-                    
-                    // Save user message to database (fire and forget)
-                    _ = Task.Run(async () => 
+                    // Update UI on main thread
+                    await MainThread.InvokeOnMainThreadAsync(() => 
                     {
-                        if (CurrentConversation?.Id > 0)
+                        Messages.Clear();
+                        foreach (var message in initialMessages)
                         {
-                            await _chatService.SaveMessageAsync(userMessage);
+                            Messages.Add(message);
                         }
                     });
                     
-                    // Get AI response
-                    string aiResponseText = await _chatService.GetAIResponseAsync(
-                        userMessageText, 
-                        cancellationToken);
+                    // Update pagination state
+                    _currentOffset = Math.Max(0, totalMessageCount - initialMessages.Count);
+                    CanLoadMore = _currentOffset > 0;
                     
-                    // Remove typing indicator
-                    await MainThread.InvokeOnMainThreadAsync(() => 
+                    // Only notify command can execute changed if it exists
+                    if (LoadMoreMessagesCommand is AsyncRelayCommand cmd)
                     {
-                        MessageOperations.CleanupTypingMessages(Messages);
-                        IsAITyping = false;
-                    });
+                        cmd.NotifyCanExecuteChanged();
+
+                    }
                     
-                    if (!string.IsNullOrEmpty(aiResponseText))
+                    Debug.WriteLine($"Loaded {initialMessages.Count} initial messages. More available? {CanLoadMore}, offset={_currentOffset}");
+                    
+                    // Update status message to inform the user if there are more messages
+                    if (CanLoadMore)
                     {
-                        // Create and add AI message
-                        var aiResponse = MessageOperations.CreateAIMessage(
-                            aiResponseText,
-                            CurrentConversation?.Id ?? 0,
-                            userMessage.Id);
-                        
-                        await MainThread.InvokeOnMainThreadAsync(() => Messages.Add(aiResponse));
-                        
-                        // Save AI message and update conversation (fire and forget)
-                        _ = Task.Run(async () => 
-                        {
-                            try 
-                            {
-                                if (CurrentConversation?.Id > 0)
-                                {
-                                    await _chatService.SaveMessageAsync(aiResponse);
-                                    
-                                    CurrentConversation.UpdatedAt = DateTime.Now;
-                                    CurrentConversation.TotalTokensUsed += aiResponse.TokensUsed;
-                                    
-                                    // Update title if needed
-                                    if (string.IsNullOrEmpty(CurrentConversation.Title) || 
-                                        CurrentConversation.Title == "New Chat" ||
-                                        CurrentConversation.Title == "Temporary Chat")
-                                    {
-                                        CurrentConversation.Title = _chatService.GenerateTitleFromMessage(userMessageText);
-                                        await MainThread.InvokeOnMainThreadAsync(() => 
-                                            OnPropertyChanged(nameof(CurrentConversation)));
-                                    }
-                                    
-                                    await _chatService.UpdateConversationAsync(CurrentConversation);
-                                }
-                            }
-                            catch (Exception ex)
-                            {
-                                Debug.WriteLine($"Error saving AI response: {ex.Message}");
-                            }
-                        });
+                        StatusMessage = $"{_currentOffset} more messages available";
+                        await Task.Delay(2000); // Show the status briefly
+                        StatusMessage = string.Empty;
                     }
-                    else
-                    {
-                        // Add error message if no response
-                        var errorMessage = MessageOperations.CreateErrorMessage(
-                            CurrentConversation?.Id ?? 0,
-                            userMessage.Id);
-                        
-                        await MainThread.InvokeOnMainThreadAsync(() => Messages.Add(errorMessage));
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"Error in async message processing: {ex}");
                 }
                 finally
                 {
-                    // Reset busy state
-                    await MainThread.InvokeOnMainThreadAsync(() => 
-                    {
-                        IsBusy = false;
-                        (SendMessageCommand as AsyncRelayCommand)?.NotifyCanExecuteChanged();
-                    });
+                    // Always reset loading state
+                    IsLoadingMore = false;
                 }
-            });
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error loading initial messages: {ex.Message}");
+                StatusMessage = "Error loading messages";
+                IsLoadingMore = false;
+            }
+        }
+        
+        /// <summary>
+        /// Loads more messages (older ones) when scrolling up
+        /// </summary>
+        private async Task LoadMoreMessagesAsync()
+        {
+            if (IsLoadingMore || !CanLoadMore || CurrentConversation?.Id <= 0)
+                return;
+            
+            try
+            {
+                IsLoadingMore = true;
+                StatusMessage = "Loading more messages...";
+                
+                // Add brief delay to allow UI to show loading indicator
+                await Task.Delay(200);
+                
+                // Calculate how many more messages to load
+                int offset = Math.Max(0, _currentOffset - _pageSize);
+                int limit = _currentOffset - offset;
+                
+                Debug.WriteLine($"Loading more messages: offset={offset}, limit={limit}, current offset={_currentOffset}");
+                
+                // Fetch older messages
+                var olderMessages = await _chatService.GetMessageAsync(
+                    CurrentConversation.Id,
+                    limit,
+                    offset);
+                
+                if (olderMessages.Count > 0)
+                {
+                    // Save the height of the first visible message to restore scroll position
+                    int firstVisibleIndex = 0; // Will be set by the View
+                    
+                    // Add older messages at the beginning to preserve order
+                    await MainThread.InvokeOnMainThreadAsync(() =>
+                    {
+                        // Insert at beginning (maintaining chronological order)
+                        for (int i = olderMessages.Count - 1; i >= 0; i--)
+                        {
+                            Messages.Insert(0, olderMessages[i]);
+                        }
+                    });
+                    
+                    // Update pagination state
+                    _currentOffset = offset;
+                    CanLoadMore = _currentOffset > 0;
+                    
+                    // Notify UI about the scroll position (View will handle this)
+                    StatusMessage = $"Loaded {olderMessages.Count} more messages";
+                    
+                    // Add info about remaining messages
+                    if (CanLoadMore)
+                    {
+                        StatusMessage += $" ({_currentOffset} more available)";
+                    }
+                }
+                else
+                {
+                    CanLoadMore = false;
+                    StatusMessage = "No more messages to load";
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error loading more messages: {ex.Message}");
+                StatusMessage = "Failed to load more messages";
+            }
+            finally
+            {
+                await Task.Delay(300); // Small delay to prevent rapid firing
+                IsLoadingMore = false;
+                (LoadMoreMessagesCommand as AsyncRelayCommand)?.NotifyCanExecuteChanged();
+            }
         }
         
         /// <summary>
@@ -326,8 +362,14 @@ namespace NexusChat.Core.ViewModels
             {
                 IsBusy = true;
                 
-                // Get messages from service
-                var messages = await _chatService.GetMessagesAsync(CurrentConversation.Id);
+                // Get total message count
+                int totalMessageCount = await _chatService.GetMessageCountAsync(CurrentConversation.Id);
+                
+                // Load most recent messages
+                var messages = await _chatService.GetMessageAsync(
+                    CurrentConversation.Id,
+                    _pageSize,
+                    Math.Max(0, totalMessageCount - _pageSize));
                 
                 // Update UI on main thread
                 await MainThread.InvokeOnMainThreadAsync(() => 
@@ -338,6 +380,11 @@ namespace NexusChat.Core.ViewModels
                         Messages.Add(message);
                     }
                 });
+                
+                // Update pagination state
+                _currentOffset = totalMessageCount - messages.Count;
+                CanLoadMore = _currentOffset > 0;
+                (LoadMoreMessagesCommand as AsyncRelayCommand)?.NotifyCanExecuteChanged();
                 
                 // Ensure title is set properly
                 await EnsureConversationHasTitleAsync();
@@ -708,6 +755,28 @@ namespace NexusChat.Core.ViewModels
             (SendMessageCommand as AsyncRelayCommand)?.NotifyCanExecuteChanged();
         }
         
+        partial void OnCanLoadMoreChanged(bool value)
+        {
+            OnPropertyChanged(nameof(ShowLoadMoreButton));
+
+            // Also update the command's CanExecute state
+            if (LoadMoreMessagesCommand is AsyncRelayCommand cmd)
+            {
+                cmd.NotifyCanExecuteChanged();
+            }
+        }
+
+        partial void OnIsLoadingMoreChanged(bool value)
+        {
+            OnPropertyChanged(nameof(ShowLoadMoreButton));
+            
+            // Also update the command's CanExecute state
+            if (LoadMoreMessagesCommand is AsyncRelayCommand cmd)
+            {
+                cmd.NotifyCanExecuteChanged();
+            }
+        }
+
         partial void OnMessagesChanged(ObservableCollection<Message> value)
         {
             // Force notification whenever the Messages collection changes
@@ -733,6 +802,163 @@ namespace NexusChat.Core.ViewModels
                     Debug.WriteLine($"Error disposing cancellation token: {ex.Message}");
                 }
             }
+        }
+        
+        /// <summary>
+        /// Gets the total count of messages in the conversation
+        /// </summary>
+        public async Task<int> GetMessageCountAsync()
+        {
+            if (CurrentConversation?.Id <= 0)
+                return 0;
+                
+            try
+            {
+                return await _chatService.GetMessageCountAsync(CurrentConversation.Id);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error getting message count: {ex.Message}");
+                return 0;
+            }
+        }
+        
+        /// <summary>
+        /// Send a message to the AI
+        /// </summary>
+        private async Task SendMessageAsync()
+        {
+            // First check if we can send
+            if (string.IsNullOrWhiteSpace(MessageText) || IsBusy)
+                return;
+            
+            // Grab message text and clear input field for immediate feedback
+            string userMessageText = MessageText?.Trim() ?? "";
+            MessageText = string.Empty;
+            
+            // Create user message
+            var userMessage = MessageOperations.CreateUserMessage(
+                userMessageText, 
+                CurrentConversation?.Id ?? 0);
+            
+            // Add user message to UI collection immediately
+            Messages.Add(userMessage);
+            
+            // New message sent means there's one more message
+            _currentOffset++;
+            
+            // Mark busy state AFTER adding the user message
+            IsBusy = true;
+            
+            // Start AI response process in the background
+            _ = Task.Run(async () => 
+            {
+                try
+                {
+                    // Set up cancellation
+                    CancelAndDisposeTokenSource();
+                    _cancellationTokenSource = new CancellationTokenSource();
+                    var cancellationToken = _cancellationTokenSource.Token;
+                    
+                    // Clean up any existing typing indicators
+                    await MessageOperations.CleanupTypingMessagesAsync(Messages);
+                    
+                    // Set typing indicator
+                    await MainThread.InvokeOnMainThreadAsync(() => IsAITyping = true);
+                    
+                    // Add typing indicator message
+                    var typingMessage = MessageOperations.CreateTypingMessage(
+                        CurrentConversation?.Id ?? 0,
+                        userMessage.Id);
+                    
+                    await MainThread.InvokeOnMainThreadAsync(() => Messages.Add(typingMessage));
+                    
+                    // Save user message to database (fire and forget)
+                    _ = Task.Run(async () => 
+                    {
+                        if (CurrentConversation?.Id > 0)
+                        {
+                            await _chatService.SaveMessageAsync(userMessage);
+                        }
+                    });
+                    
+                    // Get AI response
+                    string aiResponseText = await _chatService.GetAIResponseAsync(
+                        userMessageText, 
+                        cancellationToken);
+                    
+                    // Remove typing indicator
+                    await MainThread.InvokeOnMainThreadAsync(() => 
+                    {
+                        MessageOperations.CleanupTypingMessages(Messages);
+                        IsAITyping = false;
+                    });
+                    
+                    if (!string.IsNullOrEmpty(aiResponseText))
+                    {
+                        // Create and add AI message
+                        var aiResponse = MessageOperations.CreateAIMessage(
+                            aiResponseText,
+                            CurrentConversation?.Id ?? 0,
+                            userMessage.Id);
+                        
+                        await MainThread.InvokeOnMainThreadAsync(() => Messages.Add(aiResponse));
+                        
+                        // Save AI message and update conversation (fire and forget)
+                        _ = Task.Run(async () => 
+                        {
+                            try 
+                            {
+                                if (CurrentConversation?.Id > 0)
+                                {
+                                    await _chatService.SaveMessageAsync(aiResponse);
+                                    
+                                    CurrentConversation.UpdatedAt = DateTime.Now;
+                                    CurrentConversation.TotalTokensUsed += aiResponse.TokensUsed;
+                                    
+                                    // Update title if needed
+                                    if (string.IsNullOrEmpty(CurrentConversation.Title) || 
+                                        CurrentConversation.Title == "New Chat" ||
+                                        CurrentConversation.Title == "Temporary Chat")
+                                    {
+                                        CurrentConversation.Title = _chatService.GenerateTitleFromMessage(userMessageText);
+                                        await MainThread.InvokeOnMainThreadAsync(() => 
+                                            OnPropertyChanged(nameof(CurrentConversation)));
+                                    }
+                                    
+                                    await _chatService.UpdateConversationAsync(CurrentConversation);
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                Debug.WriteLine($"Error saving AI response: {ex.Message}");
+                            }
+                        });
+                    }
+                    else
+                    {
+                        // Add error message if no response
+                        var errorMessage = MessageOperations.CreateErrorMessage(
+                            CurrentConversation?.Id ?? 0,
+                            userMessage.Id);
+                        
+                        await MainThread.InvokeOnMainThreadAsync(() => Messages.Add(errorMessage));
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Error in async message processing: {ex}");
+                }
+                finally
+                {
+                    // Reset busy state
+                    await MainThread.InvokeOnMainThreadAsync(() => 
+                    {
+                        IsBusy = false;
+                        (SendMessageCommand as AsyncRelayCommand)?.NotifyCanExecuteChanged();
+                    });
+                }
+            });
         }
     }
 }

@@ -83,17 +83,27 @@ namespace NexusChat.Services
         /// <summary>
         /// Gets messages for a conversation
         /// </summary>
-        public async Task<List<Message>> GetMessagesAsync(int conversationId, int limit = 100)
+        /// <param name="conversationId">The conversation ID</param>
+        /// <param name="limit">Maximum number of messages to return</param>
+        /// <param name="offset">Number of messages to skip</param>
+        /// <returns>List of messages</returns>
+        public async Task<List<Message>> GetMessageAsync(int conversationId, int limit = 100, int offset = 0)
         {
             try
             {
-                return await _messageRepository.GetByConversationIdAsync(conversationId, limit);
+                return await _messageRepository.GetByConversationIdAsync(conversationId, limit, offset);
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error getting messages: {ex.Message}");
                 return new List<Message>();
             }
+        }
+
+        // Keep the original method for backward compatibility
+        public async Task<List<Message>> GetMessagesAsync(int conversationId, int limit = 100)
+        {
+            return await GetMessageAsync(conversationId, limit, 0);
         }
         
         /// <summary>
@@ -224,6 +234,22 @@ namespace NexusChat.Services
             catch
             {
                 return "New Chat";
+            }
+        }
+
+        /// <summary>
+        /// Gets the count of messages in a conversation
+        /// </summary>
+        public async Task<int> GetMessageCountAsync(int conversationId)
+        {
+            try
+            {
+                return await _messageRepository.GetMessageCountAsync(conversationId);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error getting message count: {ex.Message}");
+                return 0;
             }
         }
     }
