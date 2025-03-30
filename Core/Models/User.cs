@@ -2,12 +2,15 @@ using SQLite;
 using System;
 using System.Text.RegularExpressions;
 using System.ComponentModel.DataAnnotations;
+using System.Security.Cryptography;
+using System.Text;
 
-namespace NexusChat.Models
+namespace NexusChat.Core.Models
 {
     /// <summary>
     /// Represents a user in the NexusChat application
     /// </summary>
+    [Table("Users")]
     public class User
     {
         /// <summary>
@@ -19,8 +22,7 @@ namespace NexusChat.Models
         /// <summary>
         /// Username for login (must be unique)
         /// </summary>
-        [NotNull, Indexed(Unique = true)]
-        [SQLite.MaxLength(50)]
+        [Unique, NotNull, SQLite.MaxLength(50)]
         public string Username { get; set; }
 
         /// <summary>
@@ -30,9 +32,14 @@ namespace NexusChat.Models
         public string PasswordHash { get; set; }
 
         /// <summary>
+        /// Salt used for password hashing
+        /// </summary>
+        [NotNull]
+        public string Salt { get; set; }
+
+        /// <summary>
         /// User's display name shown in the application
         /// </summary>
-        
         [SQLite.MaxLength(100)]
         public string DisplayName { get; set; }
 
@@ -82,16 +89,20 @@ namespace NexusChat.Models
         /// </summary>
         public User()
         {
-            // Default constructor required by SQLite
+            DateCreated = DateTime.UtcNow;
+            IsActive = true;
+            
+            // Initialize salt to prevent null constraint violations
+            Salt = GenerateRandomSalt();
         }
 
         /// <summary>
         /// Creates a new user with basic required properties
         /// </summary>
-        public User(string username, string passwordHash)
+        public User(string username, string password)
         {
             Username = username;
-            PasswordHash = passwordHash;
+            SetPassword(password);
             DisplayName = username; // Default display name to username
             DateCreated = DateTime.UtcNow;
             IsActive = true;
@@ -100,11 +111,11 @@ namespace NexusChat.Models
         /// <summary>
         /// Creates a new user with all properties
         /// </summary>
-        public User(string username, string passwordHash, string displayName, string avatarPath, 
+        public User(string username, string password, string displayName, string avatarPath, 
                     string email, string preferredTheme, int? preferredModelId)
         {
             Username = username;
-            PasswordHash = passwordHash;
+            SetPassword(password);
             DisplayName = displayName ?? username;
             AvatarPath = avatarPath;
             Email = email;
@@ -112,6 +123,65 @@ namespace NexusChat.Models
             PreferredTheme = preferredTheme ?? "System";
             PreferredModelId = preferredModelId;
             IsActive = true;
+        }
+
+        /// <summary>
+        /// Sets a new password for the user
+        /// </summary>
+        /// <param name="password">New password in plain text</param>
+        public void SetPassword(string password)
+        {
+            // Generate a random salt
+            Salt = GenerateRandomSalt();
+
+            // Hash the password with the salt
+            PasswordHash = HashPassword(password, Salt);
+        }
+        
+        /// <summary>
+        /// Generates a random salt string
+        /// </summary>
+        private string GenerateRandomSalt()
+        {
+            byte[] saltBytes = new byte[16];
+            using (var rng = RandomNumberGenerator.Create())
+            {
+                rng.GetBytes(saltBytes);
+            }
+            return Convert.ToBase64String(saltBytes);
+        }
+
+        /// <summary>
+        /// Verifies if a given plain text password matches the stored hash
+        /// </summary>
+        /// <param name="password">Plain text password to verify</param>
+        /// <returns>True if password matches, false otherwise</returns>
+        public bool VerifyPassword(string password)
+        {
+            var hash = HashPassword(password, Salt);
+            return hash == PasswordHash;
+        }
+
+        /// <summary>
+        /// Helper method to hash a password with a salt
+        /// </summary>
+        private string HashPassword(string password, string salt)
+        {
+            byte[] saltBytes = Convert.FromBase64String(salt);
+
+            // Combine password and salt
+            byte[] passwordBytes = Encoding.UTF8.GetBytes(password);
+            byte[] combinedBytes = new byte[passwordBytes.Length + saltBytes.Length];
+
+            Buffer.BlockCopy(passwordBytes, 0, combinedBytes, 0, passwordBytes.Length);
+            Buffer.BlockCopy(saltBytes, 0, combinedBytes, passwordBytes.Length, saltBytes.Length);
+
+            // Hash with SHA256
+            using (var sha256 = SHA256.Create())
+            {
+                byte[] hashBytes = sha256.ComputeHash(combinedBytes);
+                return Convert.ToBase64String(hashBytes);
+            }
         }
 
         /// <summary>
@@ -180,17 +250,6 @@ namespace NexusChat.Models
         }
 
         /// <summary>
-        /// Verifies if a given plain text password matches the stored hash
-        /// </summary>
-        /// <param name="password">Plain text password to verify</param>
-        /// <returns>True if password matches, false otherwise</returns>
-        public bool VerifyPassword(string password)
-        {
-            // Uses BCrypt to verify the password against the stored hash
-            return BCrypt.Net.BCrypt.Verify(password, PasswordHash);
-        }
-
-        /// <summary>
         /// String representation for debugging
         /// </summary>
         public override string ToString()
@@ -203,15 +262,17 @@ namespace NexusChat.Models
         /// </summary>
         public static User CreateTestUser()
         {
-            return new User("testuser", BCrypt.Net.BCrypt.HashPassword("password123"))
+            var user = new User
             {
+                Username = "testuser",
                 DisplayName = "Test User",
                 Email = "test@example.com",
-                DateCreated = DateTime.UtcNow.AddDays(-30),
-                LastLogin = DateTime.UtcNow.AddHours(-2),
-                IsActive = true,
-                PreferredTheme = "System"
+                DateCreated = DateTime.UtcNow,
+                IsActive = true
             };
+
+            user.SetPassword("password123");
+            return user;
         }
     }
 }

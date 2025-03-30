@@ -1,20 +1,25 @@
-﻿using NexusChat.ViewModels;
+﻿using NexusChat.Core.ViewModels;
 using System;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
-using NexusChat.Views;
+using NexusChat.Views.Pages;
+using NexusChat.Views.Pages.DevTools;
+using System.Diagnostics;
+using NexusChat.Services;
 
-namespace NexusChat
+namespace NexusChat.Views.Pages
 {
     public partial class MainPage : ContentPage, IDisposable
     {
         private MainPageViewModel _viewModel;
         private bool _handlersInitialized = false;
+        private readonly NavigationService _navigationService;
 
-        public MainPage()
+        public MainPage(NavigationService navigationService)
         {
             InitializeComponent();
-            _viewModel = new MainPageViewModel(Navigation);
+            _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
+            _viewModel = new MainPageViewModel(navigationService);
             BindingContext = _viewModel;
         }
 
@@ -67,62 +72,61 @@ namespace NexusChat
             StartNewChatButton.GestureRecognizers.Add(newChatButtonTapGesture);
         }
 
-        private async void TestBtn_Clicked(object sender, EventArgs e)
+        private async void ThemesBtn_Clicked(object sender, EventArgs e)
         {
             if (sender is Button button)
+            {
                 button.IsEnabled = false;
                 
-            if (_viewModel.NavigateToThemeTestCommand is IAsyncRelayCommand cmd)
-                await cmd.ExecuteAsync(null);
-            
-            await Task.Delay(500);
-            if (sender is Button btn)
-                btn.IsEnabled = true;
-        }
-
-        private async void IconTestBtn_Clicked(object sender, EventArgs e)
-        {
-            if (sender is Button button)
-                button.IsEnabled = false;
-                
-            if (_viewModel.NavigateToIconTestCommand is IAsyncRelayCommand cmd)
-                await cmd.ExecuteAsync(null);
-            
-            await Task.Delay(500);
-            if (sender is Button btn)
-                btn.IsEnabled = true;
+                // Execute the command through the ViewModel
+                if (_viewModel.NavigateToThemesCommand != null)
+                {
+                    // Set up data binding for button text/state
+                    button.SetBinding(Button.TextProperty, new Binding(nameof(MainPageViewModel.ThemesButtonText), source: _viewModel));
+                    button.SetBinding(Button.IsEnabledProperty, new Binding(nameof(MainPageViewModel.ThemesButtonEnabled), source: _viewModel));
+                    
+                    // Execute the command
+                    await _viewModel.NavigateToThemesCommand.ExecuteAsync(null);
+                }
+            }
         }
 
         private async void ModelTestBtn_Clicked(object sender, EventArgs e)
         {
             if (sender is Button button)
+            {
                 button.IsEnabled = false;
                 
-            if (_viewModel.RunModelTestsCommand is IAsyncRelayCommand cmd)
-                await cmd.ExecuteAsync(null);
-            
-            await Task.Delay(500);
-            if (sender is Button btn)
-                btn.IsEnabled = true;
+                if (_viewModel.RunModelTestsCommand != null)
+                {
+                    await _viewModel.RunModelTestsCommand.ExecuteAsync(null);
+                }
+                
+                button.IsEnabled = true;
+            }
         }
 
         private async void DbViewerBtn_Clicked(object sender, EventArgs e)
         {
             if (sender is Button button)
+            {
                 button.IsEnabled = false;
                 
-            if (_viewModel.ViewDatabaseCommand is IAsyncRelayCommand cmd)
-                await cmd.ExecuteAsync(null);
-            
-            await Task.Delay(500);
-            if (sender is Button btn)
-                btn.IsEnabled = true;
+                if (_viewModel.ViewDatabaseCommand != null)
+                {
+                    await _viewModel.ViewDatabaseCommand.ExecuteAsync(null);
+                }
+                
+                button.IsEnabled = true;
+            }
         }
 
         private async void OnCounterClicked(object sender, EventArgs e)
         {
-            if (_viewModel.CounterClickCommand is IAsyncRelayCommand cmd)
-                await cmd.ExecuteAsync(null);
+            if (_viewModel.CounterClickCommand != null)
+            {
+                await _viewModel.CounterClickCommand.ExecuteAsync(null);
+            }
         }
 
         // Alternative cleanup approach - remove existing handlers
@@ -133,9 +137,6 @@ namespace NexusChat
             {
                 StartNewChatButton.GestureRecognizers.Clear();
             }
-
-            // For other controls, you could save references to the handlers
-            // and explicitly unsubscribe if needed
         }
         
         public void Dispose()

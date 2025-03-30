@@ -1,4 +1,4 @@
-using NexusChat.Models;
+using NexusChat.Core.Models;
 using System;
 
 namespace NexusChat.Tests

@@ -1,0 +1,248 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:vm="clr-namespace:NexusChat.Core.ViewModels.DevTools"
+    xmlns:converters="clr-namespace:NexusChat.Views.Converters"
+    xmlns:components="clr-namespace:NexusChat.Views.Controls"
+    xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
+    x:Class="NexusChat.Views.Pages.DevTools.ThemesPage"
+    Shell.NavBarIsVisible="False"
+    BackgroundColor="{AppThemeBinding Light={StaticResource Background}, Dark={StaticResource BackgroundDark}}"
+    Title="Theme Explorer">
+
+    <ContentPage.Resources>
+        <ResourceDictionary>
+            <!-- Component Button Style -->
+            <Style x:Key="ComponentButtonStyle" TargetType="Frame">
+                <Setter Property="BackgroundColor"
+                    Value="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}" />
+                <Setter Property="CornerRadius" Value="8" />
+                <Setter Property="Padding" Value="12" />
+                <Setter Property="HasShadow" Value="True" />
+                <Setter Property="HeightRequest" Value="100" />
+                <Setter Property="WidthRequest" Value="120" />
+                <Setter Property="BorderColor"
+                    Value="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray600}}" />
+            </Style>
+
+            <converters:BoolToStringConverter x:Key="ConnectedConverter"
+                TrueValue="System"
+                FalseValue="Manual" />
+        </ResourceDictionary>
+    </ContentPage.Resources>
+
+    <Grid RowDefinitions="Auto,*" RowSpacing="0">
+        <!-- Custom Header with Navigation and Theme Toggle -->
+        <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto"
+            BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+            Padding="15,12">
+
+            <!-- Back Button -->
+            <Button Grid.Column="0"
+                Text="&#xf060;"
+                FontFamily="FontAwesome-Solid"
+                Command="{Binding GoBackCommand}"
+                BackgroundColor="Transparent"
+                TextColor="White"
+                FontSize="22"
+                BorderColor="Transparent"
+                WidthRequest="50"
+                HeightRequest="50"
+                Padding="0"
+                CornerRadius="25"
+                HorizontalOptions="Start"
+                VerticalOptions="Center" />
+
+            <!-- Title -->
+            <Label Grid.Column="1"
+                Text="Theme Explorer"
+                FontFamily="OpenSansBold"
+                TextColor="White"
+                FontSize="20"
+                VerticalOptions="Center"
+                HorizontalOptions="Start" />
+
+            <!-- Theme Toggle Button -->
+            <Frame Grid.Column="2"
+                BackgroundColor="{AppThemeBinding Light=#8C65FF, Dark=#9D80E9}"
+                BorderColor="Transparent"
+                CornerRadius="20"
+                Padding="8"
+                WidthRequest="40"
+                HeightRequest="40"
+                HorizontalOptions="End">
+                <Label Text="{Binding ThemeIconText}"
+                    FontFamily="FontAwesome-Solid"
+                    TextColor="White"
+                    FontSize="18"
+                    HorizontalOptions="Center"
+                    VerticalOptions="Center" />
+                <Frame.GestureRecognizers>
+                    <TapGestureRecognizer Command="{Binding ToggleThemeCommand}" />
+                </Frame.GestureRecognizers>
+            </Frame>
+        </Grid>
+
+        <!-- Main Content -->
+        <ScrollView Grid.Row="1"
+            BackgroundColor="{AppThemeBinding Light={StaticResource Background}, Dark={StaticResource BackgroundDark}}">
+            <VerticalStackLayout Padding="20" Spacing="25">
+                <!-- Current Theme Info -->
+                <Frame Padding="15" CornerRadius="10" HasShadow="True"
+                    BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}">
+                    <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto"
+                        ColumnSpacing="15" RowSpacing="10">
+                        <!-- Theme Icon -->
+                        <Frame Grid.Column="0" Grid.RowSpan="2"
+                            BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                            CornerRadius="40" HeightRequest="60" WidthRequest="60"
+                            HorizontalOptions="Center" VerticalOptions="Center"
+                            Padding="0" BorderColor="Transparent">
+                            <Label Text="{Binding ThemeIconText}"
+                                FontFamily="FontAwesome-Solid"
+                                TextColor="White"
+                                FontSize="28"
+                                HorizontalOptions="Center"
+                                VerticalOptions="Center" />
+                        </Frame>
+
+                        <!-- Theme Info -->
+                        <Label Grid.Column="1" Grid.Row="0" 
+                               Text="Current Theme" 
+                               FontFamily="OpenSansSemiBold" 
+                               TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}"
+                               FontSize="16" />
+                        <Label Grid.Column="1" Grid.Row="1" 
+                               Text="{Binding CurrentThemeText}" 
+                               FontSize="14" 
+                               TextColor="{AppThemeBinding Light={StaticResource SecondaryTextColor}, Dark={StaticResource SecondaryTextColorDark}}" />
+                        
+                        <!-- Toggle Button -->
+                        <Button Grid.Column="2" Grid.Row="0" Grid.RowSpan="2"
+                                Text="{Binding ThemeToggleText}"
+                                Command="{Binding ToggleThemeCommand}"
+                                BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                TextColor="White"
+                                FontFamily="OpenSansSemiBold"
+                                FontSize="14"
+                                CornerRadius="20"
+                                Padding="15,10"
+                                VerticalOptions="Center" />
+                    </Grid>
+                </Frame>
+
+                <!-- Components Section -->
+                <toolkit:Expander x:Name="ComponentsExpander"
+                                 IsExpanded="True"
+                                 BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}">
+                    <toolkit:Expander.Header>
+                        <Grid ColumnDefinitions="Auto,*" Padding="10" ColumnSpacing="15">
+                            <Label Grid.Column="0" 
+                                   Text="&#xf1de;" 
+                                   FontFamily="FontAwesome-Solid"
+                                   FontSize="20"
+                                   TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                   VerticalOptions="Center" />
+                                   
+                            <Label Grid.Column="1" 
+                                   Text="UI Components" 
+                                   FontFamily="OpenSansBold"
+                                   FontSize="18" 
+                                   TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}"
+                                   VerticalOptions="Center" />
+                        </Grid>
+                    </toolkit:Expander.Header>
+                    
+                    <toolkit:Expander.Content>
+                        <VerticalStackLayout Spacing="15" Margin="0,10,0,0">
+                            <!-- Component Categories Grid -->
+                            <FlexLayout Wrap="Wrap" 
+                                        JustifyContent="Center" 
+                                        AlignItems="Center"
+                                        AlignContent="Center"
+                                        HorizontalOptions="Center"
+                                        Margin="0,10,0,10"
+                                        BindableLayout.ItemsSource="{Binding ComponentCategories}">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate>
+                                        <Frame Style="{StaticResource ComponentButtonStyle}"
+                                               Margin="6,6,6,6">
+                                            <VerticalStackLayout Spacing="5" HorizontalOptions="Center" VerticalOptions="Center">
+                                                <Label Text="{Binding Converter={StaticResource ComponentToIconConverter}}"
+                                                       FontFamily="FontAwesome-Solid"
+                                                       FontSize="22"
+                                                       FontAutoScalingEnabled="False"
+                                                       HorizontalOptions="Center"
+                                                       TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                                                <Label Text="{Binding}"
+                                                       TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}"
+                                                       FontFamily="OpenSansSemiBold"
+                                                       FontSize="13"
+                                                       LineBreakMode="TailTruncation"
+                                                       MaxLines="1"
+                                                       HorizontalTextAlignment="Center"
+                                                       HorizontalOptions="Center" />
+                                            </VerticalStackLayout>
+                                            <Frame.GestureRecognizers>
+                                                <TapGestureRecognizer Command="{Binding Path=SelectComponentCommand, Source={RelativeSource AncestorType={x:Type vm:ThemesPageViewModel}}}" 
+                                                                      CommandParameter="{Binding}" />
+                                            </Frame.GestureRecognizers>
+                                        </Frame>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </FlexLayout>
+                        </VerticalStackLayout>
+                    </toolkit:Expander.Content>
+                </toolkit:Expander>
+
+                <!-- Selected Component Display -->
+                <toolkit:Expander x:Name="SelectedComponentExpander"
+                                 IsExpanded="True"
+                                 BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}"
+                                 IsVisible="{Binding SelectedComponent, Converter={StaticResource NotNullConverter}}">
+                    <toolkit:Expander.Header>
+                        <Grid ColumnDefinitions="Auto,*" Padding="10" ColumnSpacing="15">
+                            <Label Grid.Column="0" 
+                                   Text="{Binding SelectedComponent, Converter={StaticResource ComponentToIconConverter}}" 
+                                   FontFamily="FontAwesome-Solid"
+                                   FontSize="20"
+                                   FontAutoScalingEnabled="False"
+                                   TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                   VerticalOptions="Center" />
+                                   
+                            <Label Grid.Column="1" 
+                                   Text="{Binding SelectedComponent, StringFormat='Component: {0}'}" 
+                                   FontFamily="OpenSansBold"
+                                   FontSize="18" 
+                                   TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}"
+                                   VerticalOptions="Center" />
+                        </Grid>
+                    </toolkit:Expander.Header>
+                    
+                    <toolkit:Expander.Content>
+                        <Grid RowDefinitions="Auto,Auto" Padding="5" MinimumHeightRequest="300">
+                            <!-- Component Display -->
+                            <ContentView x:Name="ComponentDisplay"
+                                         Grid.Row="0"
+                                         MinimumHeightRequest="250"/>
+                                         
+                            <!-- Loading Indicator -->
+                            <ActivityIndicator Grid.Row="1"
+                                               IsRunning="{Binding IsComponentLoading}"
+                                               IsVisible="{Binding IsComponentLoading}"
+                                               HorizontalOptions="Center"
+                                               Margin="0,10,0,0"
+                                               Color="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                        </Grid>
+                    </toolkit:Expander.Content>
+                </toolkit:Expander>
+
+                <!-- Bottom Version Info -->
+                <Label Text="NexusChat v1.0.0-dev" 
+                       HorizontalOptions="Center"
+                       TextColor="{AppThemeBinding Light={StaticResource SecondaryTextColor}, Dark={StaticResource SecondaryTextColorDark}}" 
+                       FontSize="12" Margin="0,10,0,20" />
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>

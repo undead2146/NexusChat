@@ -1,37 +1,37 @@
 ﻿<?xml version="1.0" encoding="UTF-8"?>
 <Application xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             xmlns:local="clr-namespace:NexusChat"
-             xmlns:converters="clr-namespace:NexusChat.Converters"
-             x:Class="NexusChat.App">
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:local="clr-namespace:NexusChat"
+    xmlns:converters="clr-namespace:NexusChat.Views.Converters"
+    xmlns:uistyles="clr-namespace:NexusChat.Resources.Styles.UI"
+    x:Class="NexusChat.App">
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <!-- Core resource files - order matters -->
                 <ResourceDictionary Source="Resources/Styles/Colors.xaml" />
                 <ResourceDictionary Source="Resources/Styles/Styles.xaml" />
-                
+                <uistyles:MessageBubbleStyles />
             </ResourceDictionary.MergedDictionaries>
-            
-            <!-- Fix for FontAwesome icons - using existing color resources instead of PrimaryTextColor -->
-            <Style x:Key="AppThemeBindingFontAwesome" TargetType="Label">
-                <Setter Property="FontFamily" Value="FontAwesome-Solid" />
-                <Setter Property="HorizontalOptions" Value="Center" />
-                <Setter Property="VerticalOptions" Value="Center" />
-                <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Black}, Dark={StaticResource White}}" />
-            </Style>
-            
+
+
             <!-- Converters -->
+            <converters:BoolToAlignmentConverter x:Key="BoolToAlignmentConverter" />
             <converters:BoolToColorConverter x:Key="BoolToColorConverter" />
+            <converters:BoolToObjectConverter x:Key="BoolToObjectConverter" />
             <converters:BoolToStringConverter x:Key="BoolToStringConverter" />
+            <converters:ComponentToIconConverter x:Key="ComponentToIconConverter" />
+            <converters:DateTimeToTimeStringConverter x:Key="DateTimeToTimeStringConverter" />
+            <converters:FormatStringConverter x:Key="FormatStringConverter" />
+            <converters:GreaterThanConverter x:Key="GreaterThanConverter" />
+            <converters:IntToBoolConverter x:Key="IntToBoolConverter" />
             <converters:InvertedBoolConverter x:Key="InvertedBoolConverter" />
-            
-            <!-- Common app color values -->
-            <Color x:Key="Success">#28a745</Color>
-            <Color x:Key="Error">#dc3545</Color>
-            <Color x:Key="Warning">#ffc107</Color>
-            <Color x:Key="Info">#17a2b8</Color>
-            <Color x:Key="SeparatorColor">#dee2e6</Color>
+            <converters:MessageAuthorConverter x:Key="MessageAuthorConverter" />
+            <converters:MessageIconConverter x:Key="MessageIconConverter" />
+            <converters:NotNullConverter x:Key="NotNullConverter" />
+            <converters:PageInfoConverter x:Key="PageInfoConverter" />
+            <converters:StringEmptyConverter x:Key="StringEmptyConverter" />
+            <converters:TextToWidthConverter x:Key="TextToWidthConverter" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

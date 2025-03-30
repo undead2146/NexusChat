@@ -1,195 +1,178 @@
+using Microsoft.Maui.Controls;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Collections.Specialized;
-using Microsoft.Maui.Controls;
+using System.Diagnostics;
+using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.Maui.Graphics;
 
 namespace NexusChat.Helpers
 {
     /// <summary>
-    /// Helper class to render a dynamic data grid from a collection of records
+    /// Helper class for rendering data in a grid format
     /// </summary>
-    public class DataGridRenderer : IDisposable
+    public class DataGridRenderer
     {
         private readonly Grid _grid;
-        private readonly ObservableCollection<Dictionary<string, object>> _records;
-        private readonly ObservableCollection<string> _columnNames;
-        private bool _isUpdating = false;
-        private const int UPDATE_THROTTLE_MS = 300;
-        
-        /// <summary>
-        /// Creates a new DataGridRenderer instance
-        /// </summary>
-        public DataGridRenderer(Grid grid, 
-            ObservableCollection<Dictionary<string, object>> records,
-            ObservableCollection<string> columnNames)
+        private readonly ObservableCollection<Dictionary<string, object>> _data;
+        private readonly ObservableCollection<string> _columns;
+        private const int MaxVisibleRows = 100; // Limit visible rows to improve performance
+
+        public DataGridRenderer(Grid grid, ObservableCollection<Dictionary<string, object>> data, ObservableCollection<string> columns)
         {
             _grid = grid ?? throw new ArgumentNullException(nameof(grid));
-            _records = records ?? throw new ArgumentNullException(nameof(records));
-            _columnNames = columnNames ?? throw new ArgumentNullException(nameof(columnNames));
-            
-            // Subscribe to collection changes
-            _records.CollectionChanged += OnRecordsCollectionChanged;
-            _columnNames.CollectionChanged += OnColumnsCollectionChanged;
+            _data = data ?? throw new ArgumentNullException(nameof(data));
+            _columns = columns ?? throw new ArgumentNullException(nameof(columns));
         }
-        
-        private void OnColumnsCollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
-        {
-            if (!_isUpdating)
-                MainThread.BeginInvokeOnMainThread(ThrottledRebuild);
-        }
-        
-        private void OnRecordsCollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
-        {
-            if (!_isUpdating)
-                MainThread.BeginInvokeOnMainThread(ThrottledRebuild);
-        }
-        
+
         /// <summary>
-        /// Throttles rebuilds to prevent excessive UI updates
-        /// </summary>
-        private async void ThrottledRebuild()
-        {
-            if (_isUpdating)
-                return;
-                
-            _isUpdating = true;
-            await Task.Delay(UPDATE_THROTTLE_MS);
-            
-            try
-            {
-                RebuildDataGrid();
-            }
-            finally
-            {
-                _isUpdating = false;
-            }
-        }
-        
-        /// <summary>
-        /// Rebuilds the data grid based on current data
+        /// Rebuilds the grid with improved performance
         /// </summary>
         public void RebuildDataGrid()
         {
-            if (!MainThread.IsMainThread)
-            {
-                MainThread.BeginInvokeOnMainThread(RebuildDataGrid);
-                return;
-            }
-
             try
             {
+                if (_grid == null) return;
+
+                // Clear existing content
                 _grid.Children.Clear();
                 _grid.RowDefinitions.Clear();
                 _grid.ColumnDefinitions.Clear();
-                
-                var columnNames = new List<string>(_columnNames);
-                if (columnNames.Count == 0 || _records.Count == 0)
-                    return;
-                
-                // Set up columns
-                for (int i = 0; i < columnNames.Count; i++)
-                {
-                    _grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-                }
-                
-                // Limit number of rows to show for performance
-                const int MAX_VISIBLE_ROWS = 100;
-                int rowCount = Math.Min(_records.Count, MAX_VISIBLE_ROWS);
-                
-                // Set up rows (header + data)
+
+                // If no columns or data, just return
+                if (_columns.Count == 0 || _data.Count == 0) return;
+
+                // Create the header row and column definitions
                 _grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-                for (int i = 0; i < rowCount; i++)
-                {
-                    _grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-                }
                 
-                // Add headers
-                for (int col = 0; col < columnNames.Count; col++)
+                // Add column definitions
+                int columnIndex = 0;
+                foreach (var column in _columns)
                 {
+                    // Make ID columns narrower, content columns wider
+                    GridLength colWidth = column.EndsWith("Id") || column == "Id" 
+                        ? new GridLength(80) 
+                        : (column == "Content" || column == "RawResponse" || column == "Description" || column == "Summary")
+                            ? new GridLength(300)
+                            : new GridLength(150);
+                            
+                    _grid.ColumnDefinitions.Add(new ColumnDefinition { Width = colWidth });
+
+                    // Add header cell
+                    var headerFrame = new Frame
+                    {
+                        BackgroundColor = Color.FromArgb("#007BFF"),
+                        Padding = new Thickness(5),
+                        Margin = new Thickness(0),
+                        HasShadow = false,
+                        BorderColor = Color.FromArgb("#FFFFFF")
+                    };
+
                     var headerLabel = new Label
                     {
-                        Text = columnNames[col],
-                        FontAttributes = FontAttributes.Bold,
+                        Text = column,
                         TextColor = Colors.White,
-                        BackgroundColor = Color.FromArgb("#6c757d"),
-                        Padding = new Thickness(8, 6),
+                        FontAttributes = FontAttributes.Bold,
+                        FontSize = 14,
                         LineBreakMode = LineBreakMode.TailTruncation
                     };
-                    
-                    _grid.Add(headerLabel, col, 0);
+
+                    headerFrame.Content = headerLabel;
+                    _grid.Add(headerFrame, columnIndex, 0);
+
+                    columnIndex++;
                 }
+
+                // Limit the number of rows to display for better performance
+                int rowsToDisplay = Math.Min(_data.Count, MaxVisibleRows);
                 
-                // Add data rows
-                for (int row = 0; row < rowCount; row++)
+                // Add data rows - with performance optimizations
+                for (int rowIndex = 0; rowIndex < rowsToDisplay; rowIndex++)
                 {
-                    var record = _records[row];
-                    var rowColor = row % 2 == 0 ? Colors.White : Color.FromArgb("#f8f9fa");
+                    // Add row definition
+                    _grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
                     
-                    for (int col = 0; col < columnNames.Count; col++)
+                    // Get the data for this row
+                    var rowData = _data[rowIndex];
+                    
+                    // Add cells
+                    for (int colIndex = 0; colIndex < _columns.Count; colIndex++)
                     {
-                        string key = columnNames[col];
-                        string cellValue = record.ContainsKey(key) ? record[key]?.ToString() ?? "null" : "";
-                        
-                        // Truncate long cell values
-                        if (cellValue.Length > 100)
+                        var column = _columns[colIndex];
+
+                        // Create the cell frame
+                        var cellFrame = new Frame
                         {
-                            cellValue = cellValue.Substring(0, 97) + "...";
-                        }
+                            BackgroundColor = rowIndex % 2 == 0 
+                                ? Color.FromArgb("#FFFFFF") 
+                                : Color.FromArgb("#F8F9FA"),
+                            Padding = new Thickness(5),
+                            Margin = new Thickness(0),
+                            HasShadow = false,
+                            BorderColor = Color.FromArgb("#DEE2E6")
+                        };
+
+                        // Create cell content
+                        object cellValue = rowData.ContainsKey(column) ? rowData[column] : null;
+                        string cellText = cellValue?.ToString() ?? "";
                         
+                        // Truncate very long text for performance
+                        if (cellText.Length > 500)
+                        {
+                            cellText = cellText.Substring(0, 500) + "...";
+                        }
+
                         var cellLabel = new Label
                         {
-                            Text = cellValue,
-                            TextColor = Colors.Black,
-                            BackgroundColor = rowColor,
-                            Padding = new Thickness(8, 6),
-                            LineBreakMode = LineBreakMode.TailTruncation
+                            Text = cellText,
+                            TextColor = Color.FromArgb("#212529"),
+                            FontSize = 13,
+                            LineBreakMode = LineBreakMode.WordWrap,
+                            MaxLines = 2, // Limit lines for better performance
                         };
-                        
-                        _grid.Add(cellLabel, col, row + 1); // +1 for header row
+
+                        cellFrame.Content = cellLabel;
+                        _grid.Add(cellFrame, colIndex, rowIndex + 1); // +1 to account for header row
                     }
                 }
                 
-                // Add "more rows" indicator if needed
-                if (_records.Count > MAX_VISIBLE_ROWS)
+                // If we limited the number of rows, add a note at the bottom
+                if (rowsToDisplay < _data.Count)
                 {
-                    var moreLabel = new Label
+                    // Add a row for the note
+                    _grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                    
+                    // Create a frame for the note
+                    var noteFrame = new Frame
                     {
-                        Text = $"+ {_records.Count - MAX_VISIBLE_ROWS} more rows (not shown for performance)",
-                        TextColor = Color.FromArgb("#6c757d"),
-                        HorizontalOptions = LayoutOptions.Center,
-                        Margin = new Thickness(0, 10, 0, 0),
-                        FontSize = 12
+                        BackgroundColor = Color.FromArgb("#FFF3CD"),
+                        Padding = new Thickness(10),
+                        Margin = new Thickness(0),
+                        HasShadow = false,
+                        BorderColor = Color.FromArgb("#FFEEBA")
                     };
                     
-                    _grid.Add(moreLabel, 0, rowCount + 1, columnNames.Count, 1); // Span all columns
+                    // Create note label
+                    var noteLabel = new Label
+                    {
+                        Text = $"Showing {rowsToDisplay} of {_data.Count} records. Use paging controls to see more.",
+                        TextColor = Color.FromArgb("#856404"),
+                        FontSize = 14,
+                        HorizontalOptions = LayoutOptions.Center
+                    };
+                    
+                    noteFrame.Content = noteLabel;
+                    
+                    // Add the note - span across all columns
+                    Grid.SetColumnSpan(noteFrame, _columns.Count);
+                    _grid.Add(noteFrame, 0, rowsToDisplay + 1); // +1 for header row
                 }
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error rebuilding grid: {ex.Message}");
+                Debug.WriteLine($"Error rebuilding data grid: {ex.Message}");
             }
-        }
-        
-        /// <summary>
-        /// Disposes the DataGridRenderer and unsubscribes from events
-        /// </summary>
-        public void Dispose()
-        {
-            if (_records != null)
-                _records.CollectionChanged -= OnRecordsCollectionChanged;
-                
-            if (_columnNames != null)
-                _columnNames.CollectionChanged -= OnColumnsCollectionChanged;
-        }
-        
-        /// <summary>
-        /// Cleans up event subscriptions (alias for Dispose)
-        /// </summary>
-        public void CleanUp()
-        {
-            Dispose();
         }
     }
 }
