@@ -17,10 +17,10 @@
     </ContentPage.Resources>
 
     <Grid RowDefinitions="Auto, *, Auto" RowSpacing="0">
-        <!-- Header Bar -->
+        <!-- Header Bar with improved colors -->
         <Grid Grid.Row="0" 
               ColumnDefinitions="Auto,*,Auto,Auto" 
-              BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceBackground}, Dark={StaticResource Gray900}}"
+              BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceBackground}, Dark={StaticResource SurfaceBackgroundDark}}"
               Padding="12,10"
               HeightRequest="56"
               ColumnSpacing="12">
@@ -78,7 +78,7 @@
 
         <!-- Message List -->
         <Grid Grid.Row="1" Margin="10,5">
-            <!-- Loading Indicator for "Load More" -->
+            <!-- Fix LoadingMoreGrid with proper colors -->
             <Grid x:Name="LoadingMoreGrid" 
                   VerticalOptions="Start" 
                   HorizontalOptions="Center"
@@ -86,13 +86,13 @@
                   Padding="0,5"
                   HeightRequest="40">
                 <ActivityIndicator IsRunning="{Binding IsLoadingMore}"
-                                Color="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Primary}}"
+                                Color="{StaticResource Primary}"
                                 HorizontalOptions="Center"
                                 VerticalOptions="Center"
                                 WidthRequest="25"
                                 HeightRequest="25" />
                 <Label Text="Loading..."
-                      TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}"
+                      TextColor="{AppThemeBinding Light={StaticResource SecondaryTextColor}, Dark={StaticResource SecondaryTextColorDark}}"
                       HorizontalOptions="Center" 
                       VerticalOptions="Center" 
                       Margin="35,0,0,0" />
@@ -101,17 +101,18 @@
             <ScrollView x:Name="MessageScrollView" 
                         HorizontalScrollBarVisibility="Never"
                         VerticalScrollBarVisibility="Default"
-                        Scrolled="MessageScrollView_Scrolled">
+                        Scrolled="MessageScrollView_Scrolled"
+                        Margin="0,10,0,5">
                 <Grid RowDefinitions="Auto,*">
-                    <!-- Load More Button (visible when more messages are available and not loading) -->
+                    <!-- Fix Load More button colors -->
                     <Button Grid.Row="0"
                             Text="Load More Messages" 
                             Command="{Binding LoadMoreMessagesCommand}"
                             IsVisible="{Binding ShowLoadMoreButton}"
                             Opacity="0.8"
                             Margin="0,10,0,5"
-                            BackgroundColor="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray700}}"
-                            TextColor="{AppThemeBinding Light={StaticResource Gray800}, Dark={StaticResource Gray200}}"
+                            BackgroundColor="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray700}}"
+                            TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}"
                             BorderColor="Transparent"
                             CornerRadius="20"
                             FontSize="13"
@@ -121,7 +122,8 @@
                     <!-- Messages List -->
                     <CollectionView Grid.Row="1" 
                                   ItemsSource="{Binding Messages}"
-                                  x:Name="MessageList">
+                                  x:Name="MessageList"
+                                  ItemSizingStrategy="MeasureAllItems">
                         <CollectionView.EmptyView>
                             <StackLayout HorizontalOptions="Center" VerticalOptions="Center">
                                 <Label Text="Start a conversation!"
@@ -140,15 +142,15 @@
             </ScrollView>
         </Grid>
 
-        <!-- Input Area -->
+        <!-- Fix Input Area with consistent colors -->
         <Grid Grid.Row="2"
               ColumnDefinitions="*, Auto"
               Padding="12,10,12,16"
-              BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceBackground}, Dark={StaticResource Gray900}}">
+              BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceBackground}, Dark={StaticResource SurfaceBackgroundDark}}">
             
             <!-- Text Input -->
             <Frame Grid.Column="0"
-                   BorderColor="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray600}}"
+                   BorderColor="{AppThemeBinding Light={StaticResource BorderColor}, Dark={StaticResource BorderColorDark}}"
                    CornerRadius="20"
                    Padding="15,0"
                    HasShadow="False">

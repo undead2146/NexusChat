@@ -6,169 +6,360 @@ using System.Threading;
 using System.Threading.Tasks;
 using NexusChat.Core.Models;
 using NexusChat.Data.Context;
+using NexusChat.Data.Interfaces;
 using SQLite;
+using SQLiteNetExtensionsAsync.Extensions;
 
 namespace NexusChat.Data.Repositories
 {
     /// <summary>
-    /// Repository for Message data access operations
+    /// Repository implementation for Message data access
     /// </summary>
     public class MessageRepository : BaseRepository<Message>, IMessageRepository
     {
+        private readonly DatabaseService _databaseService;
+
         /// <summary>
-        /// Initializes a new repository instance
+        /// Initializes a new instance of the MessageRepository
         /// </summary>
         /// <param name="databaseService">Database service</param>
-        public MessageRepository(DatabaseService databaseService) : base(databaseService)
+        public MessageRepository(DatabaseService databaseService)
+            : base(databaseService.Database) // Pass the SQLiteAsyncConnection to the base constructor
         {
+            _databaseService = databaseService;
         }
-        
+
         /// <summary>
-        /// Gets messages for a specific conversation
+        /// Gets all messages for a conversation
         /// </summary>
-        public async Task<List<Message>> GetByConversationIdAsync(
-            int conversationId, 
-            int limit = 100, 
-            int offset = 0, 
-            CancellationToken cancellationToken = default)
+        public async Task<List<Message>> GetMessagesByConversationAsync(int conversationId)
         {
             try
             {
-                await _databaseService.Initialize(cancellationToken);
-                return await _databaseService.Database.Table<Message>()
+                var query = _databaseService.Database.Table<Message>()
                     .Where(m => m.ConversationId == conversationId)
-                    .OrderBy(m => m.Timestamp) // Order by timestamp to get messages in chronological order
+                    .OrderBy(m => m.Timestamp)
+                    .ToListAsync();
+
+                return await WithCancellation(query, CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error getting messages for conversation {conversationId}: {ex.Message}");
+                return new List<Message>();
+            }
+        }
+
+        /// <summary>
+        /// Gets all messages for a conversation with cancellation support
+        /// </summary>
+        public async Task<List<Message>> GetMessagesByConversationAsync(int conversationId, CancellationToken cancellationToken)
+        {
+            try
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var query = _databaseService.Database.Table<Message>()
+                    .Where(m => m.ConversationId == conversationId)
+                    .OrderBy(m => m.Timestamp)
+                    .ToListAsync();
+
+                return await WithCancellation(query, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error getting messages for conversation {conversationId}: {ex.Message}");
+                return new List<Message>();
+            }
+        }
+
+        /// <summary>
+        /// Gets messages for a conversation with pagination
+        /// </summary>
+        public async Task<List<Message>> GetMessagesByConversationAsync(int conversationId, int limit, int offset)
+        {
+            try
+            {
+                var query = _databaseService.Database.Table<Message>()
+                    .Where(m => m.ConversationId == conversationId)
+                    .OrderBy(m => m.Timestamp)
                     .Skip(offset)
                     .Take(limit)
                     .ToListAsync();
+
+                return await WithCancellation(query, CancellationToken.None);
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error in GetByConversationIdAsync: {ex.Message}");
-                throw;
+                Debug.WriteLine($"Error getting paginated messages for conversation {conversationId}: {ex.Message}");
+                return new List<Message>();
             }
         }
-        
+
         /// <summary>
-        /// Gets the most recent message in a conversation
+        /// Gets messages for a conversation with pagination and cancellation support
         /// </summary>
-        public async Task<Message> GetMostRecentMessageAsync(
-            int conversationId,
-            CancellationToken cancellationToken = default)
+        public async Task<List<Message>> GetMessagesByConversationAsync(int conversationId, int limit, int offset, CancellationToken cancellationToken)
         {
             try
             {
-                await _databaseService.Initialize(cancellationToken);
-                return await _databaseService.Database.Table<Message>()
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var query = _databaseService.Database.Table<Message>()
+                    .Where(m => m.ConversationId == conversationId)
+                    .OrderBy(m => m.Timestamp)
+                    .Skip(offset)
+                    .Take(limit)
+                    .ToListAsync();
+
+                return await WithCancellation(query, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error getting paginated messages for conversation {conversationId}: {ex.Message}");
+                return new List<Message>();
+            }
+        }
+
+        /// <summary>
+        /// Gets the most recent message for a conversation
+        /// </summary>
+        public async Task<Message> GetLastMessageAsync(int conversationId)
+        {
+            try
+            {
+                var query = _databaseService.Database.Table<Message>()
                     .Where(m => m.ConversationId == conversationId)
                     .OrderByDescending(m => m.Timestamp)
                     .FirstOrDefaultAsync();
+
+                return await WithCancellation(query, CancellationToken.None);
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error in GetMostRecentMessageAsync: {ex.Message}");
-                throw;
+                Debug.WriteLine($"Error getting last message for conversation {conversationId}: {ex.Message}");
+                return null;
             }
         }
-        
+
         /// <summary>
-        /// Gets messages that match a search term
+        /// Gets the most recent message for a conversation with cancellation support
         /// </summary>
-        public async Task<List<Message>> SearchMessagesAsync(
-            string searchTerm,
-            CancellationToken cancellationToken = default)
+        public async Task<Message> GetLastMessageAsync(int conversationId, CancellationToken cancellationToken)
         {
-            if (string.IsNullOrWhiteSpace(searchTerm))
-                return new List<Message>();
-                
             try
             {
-                await _databaseService.Initialize(cancellationToken);
-                
-                // SQLite doesn't support LIKE with parameters directly in query expressions
-                // So we'll get all messages and filter in memory
-                var allMessages = await _databaseService.Database.Table<Message>().ToListAsync();
-                return allMessages.Where(m => m.Content.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)).ToList();
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var query = _databaseService.Database.Table<Message>()
+                    .Where(m => m.ConversationId == conversationId)
+                    .OrderByDescending(m => m.Timestamp)
+                    .FirstOrDefaultAsync();
+
+                return await WithCancellation(query, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error in SearchMessagesAsync: {ex.Message}");
-                throw;
+                Debug.WriteLine($"Error getting last message for conversation {conversationId}: {ex.Message}");
+                return null;
             }
         }
-        
+
         /// <summary>
-        /// Gets the count of messages in a conversation
+        /// Gets the count of messages for a conversation
         /// </summary>
-        public async Task<int> GetMessageCountAsync(int conversationId, CancellationToken cancellationToken = default)
+        public async Task<int> GetMessageCountAsync(int conversationId)
         {
             try
             {
-                await _databaseService.Initialize(cancellationToken);
-                return await _databaseService.Database.Table<Message>()
+                var query = _databaseService.Database.Table<Message>()
                     .Where(m => m.ConversationId == conversationId)
                     .CountAsync();
+
+                return await WithCancellation(query, CancellationToken.None);
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error in GetMessageCountAsync: {ex.Message}");
-                throw;
+                Debug.WriteLine($"Error getting message count for conversation {conversationId}: {ex.Message}");
+                return 0;
             }
         }
-        
+
+        /// <summary>
+        /// Gets the count of messages for a conversation with cancellation support
+        /// </summary>
+        public async Task<int> GetMessageCountAsync(int conversationId, CancellationToken cancellationToken)
+        {
+            try
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var query = _databaseService.Database.Table<Message>()
+                    .Where(m => m.ConversationId == conversationId)
+                    .CountAsync();
+
+                return await WithCancellation(query, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error getting message count for conversation {conversationId}: {ex.Message}");
+                return 0;
+            }
+        }
+
         /// <summary>
         /// Deletes all messages for a conversation
         /// </summary>
-        public async Task<int> DeleteByConversationIdAsync(int conversationId, CancellationToken cancellationToken = default)
+        public async Task<int> DeleteByConversationAsync(int conversationId)
         {
             try
             {
-                await _databaseService.Initialize(cancellationToken);
-                
-                // First check if the Messages table exists
-                bool tableExists = await _databaseService.TableExistsAsync("Messages");
-                if (!tableExists)
-                {
-                    Debug.WriteLine("Messages table doesn't exist. Creating it now...");
-                    await _databaseService.Database.CreateTableAsync<Message>();
-                    Debug.WriteLine("Messages table created");
-                    return 0; // No messages to delete since table was just created
-                }
-                
-                // Use the correct table name 'Messages' (plural) as defined in the Message model
-                int rowsAffected = await _databaseService.Database.ExecuteAsync(
+                var query = _databaseService.Database.ExecuteAsync(
                     "DELETE FROM Messages WHERE ConversationId = ?", 
                     conversationId);
-                    
-                Debug.WriteLine($"Deleted {rowsAffected} messages from conversation {conversationId}");
-                return rowsAffected;
-            }
-            catch (SQLiteException ex)
-            {
-                Debug.WriteLine($"SQLite error in DeleteByConversationIdAsync: {ex.Message}");
-                
-                if (ex.Message.Contains("no such table"))
-                {
-                    try
-                    {
-                        // Try to create the table if it doesn't exist
-                        await _databaseService.Database.CreateTableAsync<Message>();
-                        Debug.WriteLine("Created Messages table after error");
-                        return 0; // No messages to delete since table was just created
-                    }
-                    catch (Exception innerEx)
-                    {
-                        Debug.WriteLine($"Failed to create Messages table: {innerEx.Message}");
-                    }
-                }
-                
-                return 0; // Return 0 to indicate no rows affected due to error
+
+                return await WithCancellation(query, CancellationToken.None);
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error in DeleteByConversationIdAsync: {ex.Message}");
-                return 0; // Return 0 to indicate no rows affected due to error
+                Debug.WriteLine($"Error deleting messages for conversation {conversationId}: {ex.Message}");
+                return 0;
             }
+        }
+
+        /// <summary>
+        /// Deletes all messages for a conversation with cancellation support
+        /// </summary>
+        public async Task<int> DeleteByConversationAsync(int conversationId, CancellationToken cancellationToken)
+        {
+            try
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var query = _databaseService.Database.ExecuteAsync(
+                    "DELETE FROM Messages WHERE ConversationId = ?", 
+                    conversationId);
+
+                return await WithCancellation(query, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error deleting messages for conversation {conversationId}: {ex.Message}");
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// Adds a message to a conversation
+        /// </summary>
+        public async Task<int> AddMessageAsync(Message message, int conversationId)
+        {
+            if (message == null)
+                throw new ArgumentNullException(nameof(message));
+
+            try
+            {
+                message.ConversationId = conversationId;
+
+                if (message.Timestamp == default)
+                {
+                    message.Timestamp = DateTime.Now;
+                }
+
+                var query = _databaseService.Database.InsertAsync(message);
+
+                return await WithCancellation(query, CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error adding message to conversation {conversationId}: {ex.Message}");
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// Adds a message to a conversation with cancellation support
+        /// </summary>
+        public async Task<int> AddMessageAsync(Message message, int conversationId, CancellationToken cancellationToken)
+        {
+            if (message == null)
+                throw new ArgumentNullException(nameof(message));
+
+            try
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                message.ConversationId = conversationId;
+
+                if (message.Timestamp == default)
+                {
+                    message.Timestamp = DateTime.Now;
+                }
+
+                var query = _databaseService.Database.InsertAsync(message);
+
+                return await WithCancellation(query, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error adding message to conversation {conversationId}: {ex.Message}");
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// Gets all messages for a conversation (alias for backward compatibility)
+        /// </summary>
+        public async Task<List<Message>> GetByConversationIdAsync(int conversationId)
+        {
+            return await GetMessagesByConversationAsync(conversationId);
+        }
+
+        /// <summary>
+        /// Deletes all messages for a conversation (alias for backward compatibility)
+        /// </summary>
+        public async Task<int> DeleteByConversationIdAsync(int conversationId)
+        {
+            return await DeleteByConversationAsync(conversationId);
+        }
+
+        private async Task<T> WithCancellation<T>(Task<T> task, CancellationToken cancellationToken)
+        {
+            // For SQLite operations that don't natively support cancellation
+            var tcs = new TaskCompletionSource<bool>();
+            using (cancellationToken.Register(() => tcs.TrySetResult(true)))
+            {
+                if (await Task.WhenAny(task, tcs.Task) == tcs.Task && cancellationToken.IsCancellationRequested)
+                {
+                    throw new OperationCanceledException(cancellationToken);
+                }
+            }
+            
+            return await task;
         }
     }
 }

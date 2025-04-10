@@ -6,7 +6,7 @@ using SQLiteNetExtensions.Attributes;
 namespace NexusChat.Core.Models
 {
     /// <summary>
-    /// Represents a conversation between a user and an AI
+    /// Represents a conversation with an AI model
     /// </summary>
     [Table("Conversations")]
     public class Conversation
@@ -18,6 +18,12 @@ namespace NexusChat.Core.Models
         public int Id { get; set; }
         
         /// <summary>
+        /// Title of the conversation
+        /// </summary>
+        [MaxLength(100)]
+        public string Title { get; set; }
+        
+        /// <summary>
         /// User who owns this conversation
         /// </summary>
         [Indexed]
@@ -27,51 +33,67 @@ namespace NexusChat.Core.Models
         /// <summary>
         /// AI model used for this conversation
         /// </summary>
-        [ForeignKey(typeof(AIModel))]
-        public int ModelId { get; set; }
+        public int AIModelId { get; set; }
         
         /// <summary>
-        /// Title/name of the conversation
+        /// Alias property for AIModelId to maintain backward compatibility
         /// </summary>
-        [MaxLength(100)]
-        public string Title { get; set; }
+        public int ModelId 
+        {
+            get => AIModelId;
+            set => AIModelId = value;
+        }
         
         /// <summary>
-        /// Optional category for organization
+        /// Date when conversation was created
         /// </summary>
-        [MaxLength(50)]
-        public string Category { get; set; }
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         
         /// <summary>
-        /// When the conversation was created
+        /// Date when conversation was last updated
         /// </summary>
-        public DateTime CreatedAt { get; set; }
+        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
         
         /// <summary>
-        /// When the conversation was last updated
+        /// Date when conversation was last updated with a new message
         /// </summary>
-        public DateTime UpdatedAt { get; set; }
+        public DateTime LastMessageDate { get; set; } = DateTime.UtcNow;
         
         /// <summary>
-        /// Whether the conversation is marked as favorite
-        /// </summary>
-        public bool IsFavorite { get; set; }
-        
-        /// <summary>
-        /// Whether the conversation is archived
-        /// </summary>
-        public bool IsArchived { get; set; }
-        
-        /// <summary>
-        /// Total tokens used in this conversation
+        /// Total number of tokens used in this conversation
         /// </summary>
         public int TotalTokensUsed { get; set; }
         
         /// <summary>
-        /// Brief summary of the conversation content
+        /// Summary of the conversation content (for search and display)
         /// </summary>
         [MaxLength(500)]
         public string Summary { get; set; }
+        
+        /// <summary>
+        /// Whether the conversation is active or archived
+        /// </summary>
+        public bool IsActive { get; set; } = true;
+        
+        /// <summary>
+        /// Whether the conversation is archived (inverse of IsActive)
+        /// </summary>
+        public bool IsArchived 
+        { 
+            get => !IsActive;
+            set => IsActive = !value;
+        }
+        
+        /// <summary>
+        /// Whether the conversation is marked as favorite
+        /// </summary>
+        public bool IsFavorite { get; set; } = false;
+        
+        /// <summary>
+        /// Optional category/label for the conversation
+        /// </summary>
+        [MaxLength(50)]
+        public string Category { get; set; }
         
         /// <summary>
         /// Navigation property for the user
@@ -96,11 +118,6 @@ namespace NexusChat.Core.Models
         /// </summary>
         public Conversation()
         {
-            CreatedAt = DateTime.UtcNow;
-            UpdatedAt = DateTime.UtcNow;
-            IsFavorite = false;
-            IsArchived = false;
-            TotalTokensUsed = 0;
             Messages = new List<Message>();
         }
         
@@ -110,13 +127,8 @@ namespace NexusChat.Core.Models
         public Conversation(int userId, int modelId, string title = null)
         {
             UserId = userId;
-            ModelId = modelId;
+            AIModelId = modelId;
             Title = title ?? "New Conversation";
-            CreatedAt = DateTime.UtcNow;
-            UpdatedAt = DateTime.UtcNow;
-            IsFavorite = false;
-            IsArchived = false;
-            TotalTokensUsed = 0;
             Messages = new List<Message>();
         }
         
@@ -128,6 +140,7 @@ namespace NexusChat.Core.Models
         {
             TotalTokensUsed += tokensUsed;
             UpdatedAt = DateTime.UtcNow;
+            LastMessageDate = DateTime.UtcNow;
         }
         
         /// <summary>
@@ -146,10 +159,11 @@ namespace NexusChat.Core.Models
             return new Conversation
             {
                 UserId = userId,
-                ModelId = modelId,
+                AIModelId = modelId,
                 Title = "Test Conversation",
                 CreatedAt = DateTime.UtcNow.AddHours(-1),
                 UpdatedAt = DateTime.UtcNow,
+                LastMessageDate = DateTime.UtcNow,
                 TotalTokensUsed = 0
             };
         }

@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using NexusChat.Core.Models;
+using NexusChat.Data.Interfaces;
 using NexusChat.Data.Repositories;
 using NexusChat.Services.Interfaces;
 
@@ -84,18 +86,44 @@ namespace NexusChat.Services
         /// Gets messages for a conversation
         /// </summary>
         /// <param name="conversationId">The conversation ID</param>
-        /// <param name="limit">Maximum number of messages to return</param>
-        /// <param name="offset">Number of messages to skip</param>
         /// <returns>List of messages</returns>
-        public async Task<List<Message>> GetMessageAsync(int conversationId, int limit = 100, int offset = 0)
+        public async Task<List<Message>> GetByConversationIdAsync(int conversationId)
         {
             try
             {
-                return await _messageRepository.GetByConversationIdAsync(conversationId, limit, offset);
+                return await _messageRepository.GetByConversationIdAsync(conversationId);
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error getting messages: {ex.Message}");
+                return new List<Message>();
+            }
+        }
+
+        /// <summary>
+        /// Gets messages for a conversation with pagination
+        /// </summary>
+        public async Task<List<Message>> GetMessageAsync(int conversationId, int limit = 100, int offset = 0)
+        {
+            try
+            {
+                // Implement pagination
+                var messages = await _messageRepository.GetByConversationIdAsync(conversationId);
+                
+                // Apply pagination
+                if (offset >= 0 && limit > 0)
+                {
+                    return messages
+                        .Skip(offset)
+                        .Take(limit)
+                        .ToList();
+                }
+                
+                return messages;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error getting paginated messages: {ex.Message}");
                 return new List<Message>();
             }
         }
@@ -143,7 +171,13 @@ namespace NexusChat.Services
                     throw new ArgumentException("ConversationId must be greater than 0");
                 }
                 
-                return await _messageRepository.AddAsync(message);
+                var messageId = await _messageRepository.AddMessageAsync(message, message.ConversationId);
+                if (messageId > 0) 
+                {
+                    message.Id = messageId;
+                    return message;
+                }
+                return null;
             }
             catch (Exception ex)
             {
@@ -159,7 +193,8 @@ namespace NexusChat.Services
         {
             try
             {
-                return await _conversationRepository.UpdateAsync(conversation);
+                var result = await _conversationRepository.UpdateAsync(conversation);
+                return result > 0; // Convert int to bool
             }
             catch (Exception ex)
             {
@@ -175,7 +210,7 @@ namespace NexusChat.Services
         {
             try
             {
-                await _messageRepository.EnsureDatabaseAsync();
+                await _messageRepository.EnsureDatabaseAsync(CancellationToken.None);
                 return await _messageRepository.DeleteByConversationIdAsync(conversationId);
             }
             catch (Exception ex)
@@ -193,12 +228,11 @@ namespace NexusChat.Services
             try
             {
                 // First ensure both repositories are initialized
-                await _messageRepository.EnsureDatabaseAsync();
-                await _conversationRepository.EnsureDatabaseAsync();
+                await _messageRepository.EnsureDatabaseAsync(CancellationToken.None);
+                await _conversationRepository.EnsureDatabaseAsync(CancellationToken.None);
                 
-                // Delete messages first
-                int messagesDeleted = await _messageRepository.DeleteByConversationIdAsync(conversationId);
-                Debug.WriteLine($"Deleted {messagesDeleted} messages for conversation {conversationId}");
+                // Delete messages
+                await _messageRepository.DeleteByConversationIdAsync(conversationId);
                 
                 // Then delete the conversation
                 int conversationsDeleted = await (_conversationRepository as ConversationRepository).DeleteAsync(conversationId);
@@ -251,6 +285,16 @@ namespace NexusChat.Services
                 Debug.WriteLine($"Error getting message count: {ex.Message}");
                 return 0;
             }
+        }
+
+        /// <summary>
+        /// Gets a message by its ID
+        /// </summary>
+        public async Task<Message> GetMessageAsync(int messageId)
+        {
+            // Implement message retrieval logic
+            // This is a placeholder - implement with your repository
+            return await Task.FromResult(new Message { Id = messageId });
         }
     }
 }

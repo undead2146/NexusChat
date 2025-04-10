@@ -67,15 +67,23 @@ namespace NexusChat.Tests
             if (user2.DateCreated.Date != DateTime.UtcNow.Date)
                 throw new Exception("DateCreated was not set to current date");
 
-            // 3. Test full constructor
+            // 3. Test full constructor - fix parameter order to match implementation
             string testDisplayName = "John Doe";
-            string testAvatarPath = "avatars/johndoe.jpg";
             string testEmail = "john@example.com";
+            string testAvatarPath = "avatars/johndoe.jpg";
             string testTheme = "Dark";
-            int? testModelId = 2;
+            int testModelId = 2;
+            DateTime? testCreatedAt = DateTime.UtcNow.AddDays(-1);
             
-            var user3 = new User(testUsername, testPasswordHash, testDisplayName, testAvatarPath, 
-                testEmail, testTheme, testModelId);
+            var user3 = new User(
+                testUsername, 
+                testPasswordHash, 
+                testDisplayName, 
+                testAvatarPath,
+                testEmail, 
+                testTheme, 
+                testModelId, 
+                testCreatedAt);
             
             if (user3.DisplayName != testDisplayName)
                 throw new Exception("DisplayName was not set correctly");
@@ -91,6 +99,9 @@ namespace NexusChat.Tests
             
             if (user3.PreferredModelId != testModelId)
                 throw new Exception("PreferredModelId was not set correctly");
+            
+            if (user3.CreatedAt != testCreatedAt)
+                throw new Exception("CreatedAt was not set correctly");
         }
 
         private static void TestUserValidation()

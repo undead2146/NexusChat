@@ -9,7 +9,7 @@ using SQLite;
 namespace NexusChat.Data.Context
 {
     /// <summary>
-    /// Service for database operations
+    /// Service for managing database connections
     /// </summary>
     public class DatabaseService
     {
@@ -18,7 +18,10 @@ namespace NexusChat.Data.Context
         
         private readonly string _databasePath;
         private SQLiteAsyncConnection _database;
-        
+        private SQLiteAsyncConnection _asyncConnection;
+        private SQLiteConnection _syncConnection;
+        private readonly object _initLock = new object();
+
         /// <summary>
         /// Gets the database connection, initialize if needed
         /// </summary>
@@ -41,12 +44,16 @@ namespace NexusChat.Data.Context
         public const string DatabaseFilename = "nexus_chat.db3";
         
         /// <summary>
-        /// Initialize a new DatabaseService with default path
+        /// Creates a new instance of DatabaseService
         /// </summary>
         public DatabaseService()
         {
             _databasePath = Path.Combine(FileSystem.AppDataDirectory, DatabaseFilename);
             Debug.WriteLine($"Database path: {_databasePath}");
+            _database = new SQLiteAsyncConnection(_databasePath);
+            
+            // Initialize sync connection
+            Connection = new SQLiteConnection(_databasePath);
         }
         
         /// <summary>
@@ -234,6 +241,101 @@ namespace NexusChat.Data.Context
                 Debug.WriteLine($"Error checking table existence for {tableName}: {ex.Message}");
                 return false;
             }
+        }
+
+        /// <summary>
+        /// Gets the SQLite async connection
+        /// </summary>
+        /// <returns>SQLiteAsyncConnection</returns>
+        public SQLiteAsyncConnection GetAsyncConnection()
+        {
+            if (_asyncConnection == null)
+            {
+                // Create a new connection if one doesn't exist
+                _asyncConnection = new SQLiteAsyncConnection(_databasePath, SQLiteOpenFlags.ReadWrite | SQLiteOpenFlags.Create | SQLiteOpenFlags.SharedCache);
+                Debug.WriteLine($"Created new async database connection: {_databasePath}");
+            }
+            
+            return _asyncConnection;
+        }
+
+        /// <summary>
+        /// Gets the SQLite synchronous connection
+        /// </summary>
+        /// <returns>SQLiteConnection</returns>
+        public SQLiteConnection GetSyncConnection()
+        {
+            if (_syncConnection == null)
+            {
+                // Create a new synchronous connection if one doesn't exist
+                _syncConnection = new SQLiteConnection(_databasePath, SQLiteOpenFlags.ReadWrite | SQLiteOpenFlags.Create | SQLiteOpenFlags.SharedCache);
+                Debug.WriteLine($"Created new sync database connection: {_databasePath}");
+            }
+            
+            return _syncConnection;
+        }
+        
+        /// <summary>
+        /// Closes and disposes database connections
+        /// </summary>
+        public void CloseConnections()
+        {
+            try
+            {
+                _syncConnection?.Close();
+                _syncConnection?.Dispose();
+                _syncConnection = null;
+                
+                // For async connection, we can only dispose it
+                _asyncConnection?.CloseAsync().Wait();
+                _asyncConnection = null;
+                
+                Debug.WriteLine("Database connections closed");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error closing database connections: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Ensures the database is initialized
+        /// </summary>
+        public async Task EnsureInitializedAsync()
+        {
+            if (_isInitialized)
+                return;
+
+            lock (_initLock)
+            {
+                if (_isInitialized)
+                    return;
+
+                if (_database == null)
+                {
+                    // Create database connection
+                    _database = new SQLiteAsyncConnection(_databasePath, SQLiteOpenFlags.ReadWrite | SQLiteOpenFlags.Create | SQLiteOpenFlags.SharedCache);
+                }
+            }
+
+            // Create tables if they don't exist - outside the lock to avoid deadlocks during async operations
+            await CreateTablesIfNeededAsync();
+
+            _isInitialized = true;
+        }
+
+        /// <summary>
+        /// Gets the SQLite synchronous connection
+        /// </summary>
+        public SQLiteConnection Connection { get; private set; }
+
+        /// <summary>
+        /// Gets the SQLite async connection
+        /// </summary>
+        /// <returns>SQLiteAsyncConnection</returns>
+        public SQLiteAsyncConnection GetConnection()
+        {
+            return _database;  // Assuming _database is the SQLiteAsyncConnection instance
         }
     }
 }

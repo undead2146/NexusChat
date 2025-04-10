@@ -10,32 +10,46 @@ using System;
 using System.Diagnostics;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Maui;
+using NexusChat.Views.Pages;
 
 namespace NexusChat
 {
-    public partial class App : Application
+    public partial class App : Microsoft.Maui.Controls.Application
     {
+        private readonly IServiceProvider _serviceProvider;
+
         public App(IServiceProvider serviceProvider)
         {
             try
             {
-                // First initialize the XAML resources
+                _serviceProvider = serviceProvider;
+                
+                Debug.WriteLine("App: Starting initialization sequence");
+                
+                // Apply default colors before any UI components are created
+                // This ensures colors are available during XAML parsing
+                ApplyDefaultColors();
+                
+                // Initialize the XAML resources
                 InitializeComponent();
                 
                 // Register message bubble styles
                 RegisterMessageBubbleStyles();
                 
-                // Create and set the Shell - MUST be done before any initialization
-                MainPage = serviceProvider.GetRequiredService<AppShell>();
-                
-                // Initialize theme system
+                // CRITICAL: Initialize theme system immediately
+                // This must happen before creating the Shell to ensure proper theme application
                 ThemeManager.Initialize();
+                Debug.WriteLine("App: ThemeManager initialized directly");
                 
-                // Initialize other services in the background AFTER MainPage is set
-                MainThread.BeginInvokeOnMainThread(async () =>
-                {
+                // Create and set the Shell with MainPage as the entry point
+                MainPage = new AppShell(serviceProvider.GetRequiredService<INavigationService>());
+                
+                // Initialize other services in the background after UI is set up
+                MainThread.BeginInvokeOnMainThread(async () => {
                     try
                     {
+                        await Task.Delay(100); // Small delay to allow UI to render
                         await InitializeServicesAsync(serviceProvider);
                     }
                     catch (Exception ex)
@@ -49,11 +63,56 @@ namespace NexusChat
                 Debug.WriteLine($"Critical error in App constructor: {ex.Message}");
                 Debug.WriteLine($"Stack trace: {ex.StackTrace}");
                 
-                // Emergency fallback - ensure MainPage is set
+                // Emergency fallback
                 if (MainPage == null)
                 {
-                    MainPage = serviceProvider.GetRequiredService<AppShell>();
+                    var navService = serviceProvider.GetRequiredService<INavigationService>();
+                    MainPage = new AppShell(navService);
                 }
+            }
+        }
+
+        /// <summary>
+        /// Apply default colors before InitializeComponent to ensure consistent rendering
+        /// </summary>
+        private void ApplyDefaultColors()
+        {
+            try
+            {
+                // Create a minimal application resources dictionary with essential colors
+                if (Resources == null)
+                {
+                    Resources = new ResourceDictionary();
+                }
+                
+                // Add critical colors for initial rendering
+                Resources["Primary"] = Color.FromArgb("#512BD4");
+                Resources["PrimaryDark"] = Color.FromArgb("#7B68EE");
+                Resources["Background"] = Color.FromArgb("#F9F9F9");
+                Resources["BackgroundDark"] = Color.FromArgb("#121212");
+                Resources["CardBackground"] = Color.FromArgb("#FFFFFF");
+                Resources["CardBackgroundDark"] = Color.FromArgb("#252525");
+                Resources["PrimaryTextColor"] = Color.FromArgb("#212121");
+                Resources["PrimaryTextColorDark"] = Color.FromArgb("#EEEEEE");
+                Resources["SecondaryTextColor"] = Color.FromArgb("#616161");
+                Resources["SecondaryTextColorDark"] = Color.FromArgb("#B0B0B0");
+                Resources["White"] = Colors.White;
+                Resources["Black"] = Colors.Black;
+                
+                // Added for compatibility with styles
+                Resources["Gray100"] = Color.FromArgb("#F5F5F5");
+                Resources["Gray200"] = Color.FromArgb("#EEEEEE");
+                Resources["Gray600"] = Color.FromArgb("#757575");
+                Resources["Gray800"] = Color.FromArgb("#424242");
+                Resources["Gray900"] = Color.FromArgb("#212121");
+                Resources["Gray950"] = Color.FromArgb("#121212");
+                Resources["OffBlack"] = Color.FromArgb("#121212");
+                
+                Debug.WriteLine("App: Default colors applied successfully");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error applying default colors: {ex.Message}");
             }
         }
 
@@ -69,6 +128,7 @@ namespace NexusChat
                 
                 foreach (var initializer in initializers)
                 {
+                    // Use InitializeAsync instead of Initialize
                     await initializer.InitializeAsync();
                 }
                 

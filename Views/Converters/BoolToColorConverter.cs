@@ -11,29 +11,23 @@ namespace NexusChat.Views.Converters
     public class BoolToColorConverter : IValueConverter
     {
         /// <summary>
+        /// Gets or sets the color to use when the input is true
+        /// </summary>
+        public Color TrueValue { get; set; }
+
+        /// <summary>
+        /// Gets or sets the color to use when the input is false
+        /// </summary>
+        public Color FalseValue { get; set; }
+
+        /// <summary>
         /// Converts bool to Color
         /// </summary>
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
             if (value is bool boolValue)
             {
-                // AI message (true) gets lighter background, user message (false) gets primary color
-                if (boolValue)
-                {
-                    // Return light gray for AI messages
-                    if (Application.Current?.RequestedTheme == AppTheme.Dark)
-                        return Color.FromArgb("#303030");
-                    else
-                        return Color.FromArgb("#F0F0F0"); 
-                }
-                else
-                {
-                    // Return blue for user messages
-                    if (Application.Current?.RequestedTheme == AppTheme.Dark)
-                        return Color.FromArgb("#0A84FF");
-                    else
-                        return Color.FromArgb("#007AFF");
-                }
+                return boolValue ? TrueValue : FalseValue;
             }
 
             // Default color if conversion fails

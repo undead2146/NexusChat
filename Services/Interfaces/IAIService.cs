@@ -1,73 +1,67 @@
+using System;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using NexusChat.Core.Models;
 
 namespace NexusChat.Services.Interfaces
 {
     /// <summary>
-    /// Interface for AI service providers that can generate responses to prompts
+    /// Interface for AI service providers that defines standard capabilities
+    /// for interacting with various AI models across different providers.
     /// </summary>
     public interface IAIService
     {
         /// <summary>
-        /// Gets the name of the AI model being used
+        /// Gets the name of the model this service is using
         /// </summary>
         string ModelName { get; }
         
         /// <summary>
-        /// Gets the name of the provider offering the AI service
+        /// Gets the name of the AI provider (e.g., Groq, OpenRouter, etc.)
         /// </summary>
         string ProviderName { get; }
         
         /// <summary>
-        /// Sends a message to the AI service and gets a response
+        /// Indicates whether this service supports streaming responses
         /// </summary>
-        /// <param name="prompt">The user's message or prompt</param>
-        /// <param name="cancellationToken">Token to cancel the operation</param>
-        /// <returns>The AI's response text</returns>
+        bool SupportsStreaming { get; }
+        
+        /// <summary>
+        /// Gets the maximum context window size in tokens
+        /// </summary>
+        int MaxContextWindow { get; }
+        
+        /// <summary>
+        /// Sends a message to the AI and gets a complete text response
+        /// </summary>
+        /// <param name="prompt">The message to send</param>
+        /// <param name="cancellationToken">Token for canceling the operation</param>
+        /// <returns>The AI's response as a string</returns>
         Task<string> SendMessageAsync(string prompt, CancellationToken cancellationToken);
         
         /// <summary>
-        /// Gets information about the model's capabilities
+        /// Sends a message to the AI and gets a streamed response
         /// </summary>
-        /// <returns>Dictionary of capability information</returns>
+        /// <param name="prompt">The message to send</param>
+        /// <param name="cancellationToken">Token for canceling the operation</param>
+        /// <param name="onMessageUpdate">Callback that receives partial messages as they arrive</param>
+        /// <returns>The streamed response as a Stream</returns>
+        Task<Stream> SendStreamedMessageAsync(string prompt, CancellationToken cancellationToken, Action<string> onMessageUpdate);
+        
+        /// <summary>
+        /// Gets the capabilities of the current model including context window,
+        /// supported features, and performance characteristics
+        /// </summary>
+        /// <returns>A ModelCapabilities object describing the model's capabilities</returns>
         Task<ModelCapabilities> GetCapabilitiesAsync();
         
         /// <summary>
-        /// Estimates the number of tokens in the given text
+        /// Estimates the number of tokens in the provided text based on
+        /// the tokenization algorithm used by the current model
         /// </summary>
-        /// <param name="text">Text to analyze</param>
+        /// <param name="text">The text to analyze</param>
         /// <returns>Estimated token count</returns>
         int EstimateTokens(string text);
-    }
-    
-    /// <summary>
-    /// Represents the capabilities of an AI model
-    /// </summary>
-    public class ModelCapabilities
-    {
-        /// <summary>
-        /// Maximum number of tokens the model can process in a single request
-        /// </summary>
-        public int MaxTokens { get; set; }
-        
-        /// <summary>
-        /// Whether the model supports image generation
-        /// </summary>
-        public bool SupportsImageGeneration { get; set; }
-        
-        /// <summary>
-        /// Whether the model supports code completion
-        /// </summary>
-        public bool SupportsCodeCompletion { get; set; }
-        
-        /// <summary>
-        /// Whether the model supports function calling
-        /// </summary>
-        public bool SupportsFunctionCalling { get; set; }
-        
-        /// <summary>
-        /// Default temperature setting for the model
-        /// </summary>
-        public float DefaultTemperature { get; set; }
     }
 }

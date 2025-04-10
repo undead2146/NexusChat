@@ -7,11 +7,11 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NexusChat.Core.Models;
-using NexusChat.Data.Repositories;
 using NexusChat.Helpers;
 using NexusChat.Services;
 using NexusChat.Services.Interfaces;
 using Microsoft.Maui.Controls;
+using NexusChat.Data.Interfaces;
 
 namespace NexusChat.Core.ViewModels
 {
