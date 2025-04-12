@@ -108,7 +108,7 @@ namespace NexusChat.Core.ViewModels
             SupportsStreaming = model.SupportsStreaming;
             DefaultTemperature = model.DefaultTemperature;
             IsDefault = false;
-            IsFavourite = false;
+            IsFavourite = model.IsFavourite; // Initialize from model's favorite status
             IsSelected = false;
         }
         
@@ -130,6 +130,7 @@ namespace NexusChat.Core.ViewModels
             MaxContextWindow = model.MaxContextWindow;
             SupportsStreaming = model.SupportsStreaming;
             DefaultTemperature = model.DefaultTemperature;
+            IsFavourite = model.IsFavourite; // Update favorite status from model
             // Don't update IsDefault and IsSelected - these are UI state
         }
         
@@ -148,7 +149,8 @@ namespace NexusChat.Core.ViewModels
                 MaxTokens = MaxTokens,
                 MaxContextWindow = MaxContextWindow,
                 SupportsStreaming = SupportsStreaming,
-                DefaultTemperature = DefaultTemperature
+                DefaultTemperature = DefaultTemperature,
+                IsFavourite = IsFavourite // Include favorite status when converting back to model
             };
         }
         

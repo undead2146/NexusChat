@@ -220,7 +220,8 @@ namespace NexusChat.Core.ViewModels
                         var viewModel = new AIModelItemViewModel(model)
                         {
                             IsDefault = model.Id == _modelManager.DefaultModelId,
-                            IsSelected = model.Id == _modelManager.CurrentModel?.Id
+                            IsSelected = model.Id == _modelManager.CurrentModel?.Id,
+                            IsFavourite = model.IsFavourite // Ensure favorite status is correctly initialized
                         };
                         
                         modelViewModels.Add(viewModel);
@@ -294,7 +295,8 @@ namespace NexusChat.Core.ViewModels
                     var viewModel = new AIModelItemViewModel(model)
                     {
                         IsDefault = model.Id == _modelManager.DefaultModelId,
-                        IsSelected = model.Id == _modelManager.CurrentModel?.Id
+                        IsSelected = model.Id == _modelManager.CurrentModel?.Id,
+                        IsFavourite = model.IsFavourite // Ensure favorite status is loaded from the database model
                     };
                     
                     Models.Add(viewModel);
@@ -862,6 +864,75 @@ namespace NexusChat.Core.ViewModels
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error setting scroll to model: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Persists the current state of models (selected and favorites) to the database
+        /// This is called when leaving the page to ensure states are saved
+        /// </summary>
+        public async Task PersistModelStatesAsync()
+        {
+            if (!IsInitialized || Models == null || Models.Count == 0)
+                return;
+                
+            try
+            {
+                Debug.WriteLine("Persisting model states to database...");
+                
+                // Get current selected model
+                var selectedModel = Models.FirstOrDefault(m => m.IsSelected);
+                if (selectedModel != null)
+                {
+                    // Ensure the model manager has the same selected model
+                    var modelEntity = await _modelRepository.GetModelByIdAsync(selectedModel.Id);
+                    if (modelEntity != null)
+                    {
+                        await _modelManager.SetCurrentModelAsync(modelEntity);
+                        Debug.WriteLine($"Current model set to {modelEntity.ModelName}");
+                    }
+                }
+                
+                // Get current default model
+                var defaultModel = Models.FirstOrDefault(m => m.IsDefault);
+                if (defaultModel != null)
+                {
+                    // Save default model ID to preferences
+                    await _modelManager.SetDefaultModelAsync(defaultModel.Id);
+                    Debug.WriteLine($"Default model set to {defaultModel.ModelName}");
+                }
+                
+                // Persist all favorite models to database
+                var favorites = Models.Where(m => m.IsFavourite).ToList();
+                foreach (var favorite in favorites)
+                {
+                    // Only update if needed (to avoid unnecessary DB operations)
+                    var dbModel = await _modelRepository.GetModelByIdAsync(favorite.Id);
+                    if (dbModel != null && !dbModel.IsFavourite)
+                    {
+                        dbModel.IsFavourite = true;
+                        await _modelRepository.UpdateModelAsync(dbModel);
+                    }
+                }
+                
+                // Update non-favorites as well
+                var nonFavorites = Models.Where(m => !m.IsFavourite).ToList();
+                foreach (var nonFavorite in nonFavorites)
+                {
+                    // Only update if needed (to avoid unnecessary DB operations)
+                    var dbModel = await _modelRepository.GetModelByIdAsync(nonFavorite.Id);
+                    if (dbModel != null && dbModel.IsFavourite)
+                    {
+                        dbModel.IsFavourite = false;
+                        await _modelRepository.UpdateModelAsync(dbModel);
+                    }
+                }
+                
+                Debug.WriteLine($"Successfully persisted states for {favorites.Count} favorite models");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error persisting model states: {ex.Message}");
             }
         }
     }

@@ -45,6 +45,7 @@ namespace NexusChat.Views.Pages
         {
             try
             {
+                await SaveModelStatesAsync();
                 await Shell.Current.GoToAsync("..");
             }
             catch (Exception ex)
@@ -99,6 +100,40 @@ namespace NexusChat.Views.Pages
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error in AIModelsPage OnAppearing: {ex.Message}");
+            }
+        }
+        
+        protected override async void OnDisappearing()
+        {
+            try
+            {
+                base.OnDisappearing();
+                
+                // Save model states when leaving the page
+                await SaveModelStatesAsync();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error in AIModelsPage OnDisappearing: {ex.Message}");
+            }
+        }
+        
+        // Helper method to save model states
+        private async Task SaveModelStatesAsync()
+        {
+            try
+            {
+                Debug.WriteLine("AIModelsPage: Saving model states...");
+                
+                // Persist the model states to database
+                if (_viewModel != null && _viewModel.IsInitialized)
+                {
+                    await _viewModel.PersistModelStatesAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error saving model states: {ex.Message}");
             }
         }
 

@@ -23,7 +23,7 @@ public static class MauiProgram
         var builder = MauiApp.CreateBuilder();
         builder
             .UseMauiApp<App>()
-            .UseMauiCommunityToolkit() // Required for EventToCommandBehavior
+            .UseMauiCommunityToolkit() 
             .ConfigureMauiHandlers(handlers =>
             {
                 // Remove specific handler registration for CollectionView - not needed
@@ -54,29 +54,32 @@ public static class MauiProgram
         // Register core services
         services.AddSingleton<INavigationService, NavigationService>();
         
-        services.AddSingleton<IAIService, DummyAIService>();
-        services.AddSingleton<IAIServiceFactory, AIServiceFactory>();
-        services.AddSingleton<IModelManager, ModelManager>();
-        services.AddSingleton<IApiKeyManager, ApiKeyManager>();
-        services.AddSingleton<IModelLoaderService, ModelLoaderService>();
-        services.AddSingleton<IEnvironmentService, EnvFileInitializer>();
-        
-        // Add memory cache for AIServiceFactory
+        // Add memory cache for services that need it
         services.AddMemoryCache();
         
-        // Register AIServiceFactory as singleton
-        services.AddSingleton<IAIServiceFactory, AIServiceFactory>();
-        
-        // Add as startup initializer
-        services.AddSingleton<IStartupInitializer>(provider =>
-            (IStartupInitializer)provider.GetRequiredService<IAIServiceFactory>());
-        
-        // Register database-related services
+        // Register database service first (needed by other services)
         services.AddSingleton<DatabaseService>();
+        
+        // Register environment and model loading services first
+        services.AddSingleton<IEnvironmentService, EnvFileInitializer>();
+        services.AddSingleton<IModelLoaderService, ModelLoaderService>();
+        
+        // Register AI services
+        services.AddSingleton<IAIServiceFactory, AIServiceFactory>();
+        services.AddSingleton<IAIService, DummyAIService>();
+        services.AddSingleton<IApiKeyManager, ApiKeyManager>();
+        
+        // Register ModelManager with proper dependency order
+        services.AddSingleton<IModelManager, ModelManager>();
         
         // Register startup initializers
         services.AddSingleton<IStartupInitializer, DatabaseInitializer>();
         services.AddSingleton<IStartupInitializer, EnvFileInitializer>();
+        
+        // Register service instances that implement IStartupInitializer explicitly
+        // This handles the IAIServiceFactory registration by using a factory method
+        services.AddSingleton<IStartupInitializer>(sp => 
+            (IStartupInitializer)(sp.GetService<IAIServiceFactory>()));
         
         // Register repositories
         services.AddTransient<IUserRepository, UserRepository>();
@@ -92,7 +95,6 @@ public static class MauiProgram
         services.AddTransient<ModelTestingViewModel>();
         services.AddTransient<DatabaseViewerViewModel>();
         services.AddTransient<AIModelsViewModel>();
-        // No ViewModel for DebugLogAnalyzerPage as it's relatively simple
         
         // Register Pages
         services.AddTransient<MainPage>();
@@ -102,7 +104,7 @@ public static class MauiProgram
         services.AddTransient<DatabaseViewerPage>();
         services.AddTransient<AIModelsPage>();
         
-        // Register service implementations
+        // Register AI service implementations
         services.AddTransient<GroqAIService>();
         services.AddTransient<OpenRouterAIService>();
         services.AddTransient<DummyAIService>();

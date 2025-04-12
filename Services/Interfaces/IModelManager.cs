@@ -58,5 +58,12 @@ namespace NexusChat.Services.Interfaces
         /// <param name="modelId">ID of the model</param>
         /// <returns>The AI service for the model</returns>
         Task<IAIService> GetServiceForModelAsync(int modelId);
+        
+        /// <summary>
+        /// Sets the current model and creates the appropriate service
+        /// </summary>
+        /// <param name="model">The model to set as current</param>
+        /// <returns>True if successful</returns>
+        Task<bool> SetCurrentModelAsync(AIModel model);
     }
 }

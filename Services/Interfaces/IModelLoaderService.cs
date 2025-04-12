@@ -7,7 +7,7 @@ namespace NexusChat.Services.Interfaces
     /// <summary>
     /// Service for loading model configurations from various sources
     /// </summary>
-    public interface IModelLoaderService
+    public interface IModelLoaderService : IStartupInitializer
     {
         /// <summary>
         /// Gets all available model configurations

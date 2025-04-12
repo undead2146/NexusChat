@@ -17,6 +17,7 @@ namespace NexusChat.Services.AIManagement
     {
         private readonly IAIServiceFactory _serviceFactory;
         private readonly IAIModelRepository _modelRepository;
+        private readonly IModelLoaderService _modelLoaderService;
         private AIModel _currentModel;
         private IAIService _currentService;
         private int _defaultModelId;
@@ -50,10 +51,12 @@ namespace NexusChat.Services.AIManagement
         /// </summary>
         public ModelManager(
             IAIModelRepository modelRepository,
-            IAIServiceFactory serviceFactory)
+            IAIServiceFactory serviceFactory,
+            IModelLoaderService modelLoaderService)
         {
             _modelRepository = modelRepository ?? throw new ArgumentNullException(nameof(modelRepository));
             _serviceFactory = serviceFactory ?? throw new ArgumentNullException(nameof(serviceFactory));
+            _modelLoaderService = modelLoaderService ?? throw new ArgumentNullException(nameof(modelLoaderService));
         }
 
         /// <summary>
@@ -63,6 +66,63 @@ namespace NexusChat.Services.AIManagement
         {
             try
             {
+                // Ensure the model loader service is initialized
+                await _modelLoaderService.InitializeAsync();
+                
+                // Check if we have models in the database
+                var existingModels = await GetAvailableModelsAsync();
+                if (existingModels.Count == 0)
+                {
+                    // No models found, try to import from environment variables
+                    Debug.WriteLine("No models found in database. Importing from environment variables...");
+                    var envModels = await _modelLoaderService.ExtractModelsFromEnvironmentAsync();
+                    
+                    if (envModels.Count > 0)
+                    {
+                        // Import models to database
+                        Debug.WriteLine($"Found {envModels.Count} models in environment variables. Adding to database...");
+                        foreach (var model in envModels)
+                        {
+                            // Set default favorite state to false for imported models
+                            model.IsFavourite = false;
+                            await _modelRepository.AddModelAsync(model);
+                        }
+                        
+                        // Refresh the model list after import
+                        existingModels = await GetAvailableModelsAsync();
+                        Debug.WriteLine($"Successfully imported {existingModels.Count} models from environment variables.");
+                    }
+                    else
+                    {
+                        Debug.WriteLine("No models found in environment variables. Creating fallback models...");
+                        // Try to create fallback models
+                        var fallbackConfigs = await _modelLoaderService.CreateFallbackConfigurationsAsync();
+                        
+                        // Convert fallback configurations to AIModels and add to database
+                        foreach (var config in fallbackConfigs)
+                        {
+                            var fallbackModel = new AIModel
+                            {
+                                ModelName = config.ModelIdentifier,
+                                ProviderName = config.ProviderName,
+                                Description = config.Description,
+                                IsAvailable = config.IsEnabled,
+                                MaxTokens = config.Capabilities?.MaxTokens ?? 4096,
+                                MaxContextWindow = config.Capabilities?.MaxContextWindow ?? 8192,
+                                SupportsStreaming = config.Capabilities?.SupportsStreaming ?? true,
+                                DefaultTemperature = config.Capabilities?.DefaultTemperature ?? 0.7f,
+                                IsDefault = config.IsDefault,
+                                IsFavourite = false // Initialize favorite status as false for new fallback models
+                            };
+                            
+                            await _modelRepository.AddModelAsync(fallbackModel);
+                        }
+                        
+                        // Refresh the model list after adding fallbacks
+                        existingModels = await GetAvailableModelsAsync();
+                    }
+                }
+                
                 // Load the default model ID from preferences
                 await LoadDefaultModelIdAsync();
                 
@@ -76,7 +136,7 @@ namespace NexusChat.Services.AIManagement
                         return;
                     }
                 }
-                
+                        
                 // If no default model was found or loaded, get the default from database
                 var defaultModel = await GetDefaultModelAsync();
                 if (defaultModel != null)
@@ -87,23 +147,36 @@ namespace NexusChat.Services.AIManagement
                 }
                 
                 // If no database default, try to get any model
-                var models = await GetAvailableModelsAsync();
-                if (models.Count > 0)
+                if (existingModels.Count > 0)
                 {
                     // Log a warning but use the first available model
                     Debug.WriteLine("No default model found, using the first available model");
-                    await SetCurrentModelAsync(models[0]);
+                    await SetCurrentModelAsync(existingModels[0]);
                     return;
                 }
                 
                 // If all else fails
-                Debug.WriteLine("ERROR: No models available in the system. Please configure models via environment variables.");
-                throw new InvalidOperationException("No models available. Please configure models via environment variables.");
+                Debug.WriteLine("WARNING: No models were found or created. Using a minimal dummy model for basic functionality");
+                _currentModel = new AIModel
+                {
+                    Id = -1,
+                    ModelName = "minimal-dummy",
+                    ProviderName = "Dummy",
+                    Description = "Minimal dummy model for fallback",
+                    IsAvailable = true,
+                    MaxTokens = 2048,
+                    MaxContextWindow = 4096,
+                    SupportsStreaming = true,
+                    DefaultTemperature = 0.7f,
+                    IsFavourite = false // Initialize favorite status as false
+                };
+                
+                _currentService = _serviceFactory.CreateService("minimal-dummy");
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error initializing model manager: {ex.Message}");
-                throw; // Let the application handle this appropriately
+                Debug.WriteLine(ex.StackTrace);
             }
         }
 

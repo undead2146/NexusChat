@@ -435,7 +435,8 @@ namespace NexusChat.Services.AIManagement
                     MaxTokens = config.Capabilities?.MaxTokens ?? 4096,
                     MaxContextWindow = config.Capabilities?.MaxContextWindow ?? 8192,
                     SupportsStreaming = config.Capabilities?.SupportsStreaming ?? true,
-                    DefaultTemperature = config.Capabilities?.DefaultTemperature ?? 0.7f
+                    DefaultTemperature = config.Capabilities?.DefaultTemperature ?? 0.7f,
+                    IsFavourite = false // Initialize favorite status as false for new models from environment
                 });
             }
             
