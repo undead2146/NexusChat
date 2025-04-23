@@ -1,98 +1,82 @@
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading.Tasks;
+using NexusChat.Services.Interfaces;
 
 namespace NexusChat.Services
 {
     /// <summary>
     /// Service for handling application navigation
     /// </summary>
-    public class NavigationService
+    public class NavigationService : INavigationService
     {
-        private readonly Dictionary<string, Type> _routes = new Dictionary<string, Type>();
-        private bool _isNavigating = false;
-
         /// <summary>
-        /// Registers available routes for navigation
+        /// Navigates to a route
         /// </summary>
-        public void RegisterRoutes()
+        /// <param name="route">The route</param>
+        public async Task NavigateToAsync(string route)
         {
-            // Register all app routes here
-            foreach (var route in GetRoutes())
-            {
-                Routing.RegisterRoute(route.Key, route.Value);
-            }
-        }
-
-        /// <summary>
-        /// Gets the dictionary of route mappings
-        /// </summary>
-        private Dictionary<string, Type> GetRoutes()
-        {
-            // Centralize route definitions here
-            return new Dictionary<string, Type>
-            {
-                { "ChatPage", typeof(NexusChat.Views.Pages.ChatPage) },
-                { "ThemesPage", typeof(NexusChat.Views.Pages.DevTools.ThemesPage) },
-                { "ModelTestingPage", typeof(NexusChat.Views.Pages.DevTools.ModelTestingPage) },
-                { "DatabaseViewerPage", typeof(NexusChat.Views.Pages.DevTools.DatabaseViewerPage) }
-            };
-        }
-
-        /// <summary>
-        /// Navigate to a specific route
-        /// </summary>
-        public async Task NavigateToAsync(string route, Dictionary<string, object> parameters = null)
-        {
-            if (_isNavigating)
-                return;
-
             try
             {
-                _isNavigating = true;
-
-                if (parameters != null)
-                {
-                    await Shell.Current.GoToAsync(route, parameters);
-                }
-                else
-                {
-                    await Shell.Current.GoToAsync(route);
-                }
+                await Shell.Current.GoToAsync(route);
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Navigation error to {route}: {ex.Message}");
             }
-            finally
+        }
+
+        /// <summary>
+        /// Navigates to a route with parameter
+        /// </summary>
+        /// <param name="route">The route</param>
+        /// <param name="parameter">Route parameter</param>
+        public async Task NavigateToAsync(string route, object parameter)
+        {
+            try
             {
-                // Add a small delay to prevent rapid navigation attempts
-                await Task.Delay(300);
-                _isNavigating = false;
+                await Shell.Current.GoToAsync(route, new Dictionary<string, object>
+                {
+                    { "Parameter", parameter }
+                });
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Navigation error to {route} with parameter: {ex.Message}");
             }
         }
 
         /// <summary>
-        /// Navigate back to the previous page
+        /// Navigates back
         /// </summary>
-        public async Task NavigateBackAsync()
+        public async Task GoBackAsync()
         {
-            if (_isNavigating)
-                return;
-
             try
             {
-                _isNavigating = true;
                 await Shell.Current.GoToAsync("..");
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Navigation back error: {ex.Message}");
             }
-            finally
+        }
+
+        /// <summary>
+        /// Registers routes for navigation
+        /// </summary>
+        public void RegisterRoutes()
+        {
+            try
             {
-                _isNavigating = false;
+                Routing.RegisterRoute(nameof(Views.Pages.ChatPage), typeof(Views.Pages.ChatPage));
+                Routing.RegisterRoute(nameof(Views.Pages.AIModelsPage), typeof(Views.Pages.AIModelsPage));
+                Routing.RegisterRoute(nameof(Views.Pages.DevTools.ThemesPage), typeof(Views.Pages.DevTools.ThemesPage));
+                Routing.RegisterRoute(nameof(Views.Pages.DevTools.DatabaseViewerPage), typeof(Views.Pages.DevTools.DatabaseViewerPage));
+                Routing.RegisterRoute(nameof(Views.Pages.DevTools.ModelTestingPage), typeof(Views.Pages.DevTools.ModelTestingPage));
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error registering routes: {ex.Message}");
             }
         }
     }

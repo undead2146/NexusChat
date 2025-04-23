@@ -3,37 +3,16 @@
     x:Class="NexusChat.AppShell"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-    xmlns:local="clr-namespace:NexusChat.Views.Pages"
-    xmlns:devTools="clr-namespace:NexusChat.Views.Pages.DevTools"
+    xmlns:local="clr-namespace:NexusChat"
+    xmlns:pages="clr-namespace:NexusChat.Views.Pages"
+    Title="NexusChat"
     Shell.FlyoutBehavior="Disabled"
-    BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
-    ForegroundColor="White"
-    TitleColor="White"
-    Title="NexusChat">
+    Shell.NavBarIsVisible="False">
 
+    <!-- Single ShellContent with MainPage as starting point -->
     <ShellContent
-        Title="Home"
-        ContentTemplate="{DataTemplate local:MainPage}"
         Route="MainPage"
-        Shell.NavBarIsVisible="False" />
-        
-    <!-- Add routes for DevTools -->
-    <ShellContent
-        Title="Theme Explorer"
-        ContentTemplate="{DataTemplate devTools:ThemesPage}"
-        Route="ThemesPage"
-        Shell.NavBarIsVisible="False" />
-        
-    <ShellContent
-        Title="Model Testing"
-        ContentTemplate="{DataTemplate devTools:ModelTestingPage}"
-        Route="ModelTestingPage"
-        Shell.NavBarIsVisible="False" />
-        
-    <ShellContent
-        Title="Database Viewer"
-        ContentTemplate="{DataTemplate devTools:DatabaseViewerPage}"
-        Route="DatabaseViewerPage"
-        Shell.NavBarIsVisible="False" />
+        ContentTemplate="{DataTemplate pages:MainPage}"
+        FlyoutItemIsVisible="False" />
 
 </Shell>

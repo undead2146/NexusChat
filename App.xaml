@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="UTF-8"?>
 <Application xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-    xmlns:local="clr-namespace:NexusChat"
+    xmlns:fi="clr-namespace:NexusChat"
     xmlns:converters="clr-namespace:NexusChat.Views.Converters"
     xmlns:uistyles="clr-namespace:NexusChat.Resources.Styles.UI"
     x:Class="NexusChat.App">
@@ -11,9 +11,11 @@
                 <!-- Core resource files - order matters -->
                 <ResourceDictionary Source="Resources/Styles/Colors.xaml" />
                 <ResourceDictionary Source="Resources/Styles/Styles.xaml" />
+                <ResourceDictionary Source="Resources/Styles/DarkTheme.xaml" />
+                <ResourceDictionary Source="Resources/Styles/LightTheme.xaml" />
+                <ResourceDictionary Source="Resources/Styles/SharedStyles.xaml" />
                 <uistyles:MessageBubbleStyles />
             </ResourceDictionary.MergedDictionaries>
-
 
             <!-- Converters -->
             <converters:BoolToAlignmentConverter x:Key="BoolToAlignmentConverter" />
@@ -30,6 +32,7 @@
             <converters:MessageIconConverter x:Key="MessageIconConverter" />
             <converters:NotNullConverter x:Key="NotNullConverter" />
             <converters:PageInfoConverter x:Key="PageInfoConverter" />
+            <converters:ProviderToColorConverter x:Key="ProviderToColorConverter" />
             <converters:StringEmptyConverter x:Key="StringEmptyConverter" />
             <converters:TextToWidthConverter x:Key="TextToWidthConverter" />
         </ResourceDictionary>

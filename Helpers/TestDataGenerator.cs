@@ -46,10 +46,7 @@ namespace NexusChat.Helpers
                 .RuleFor(u => u.DisplayName, f => f.Name.FullName())
                 .RuleFor(u => u.Email, f => f.Internet.Email())
                 .RuleFor(u => u.DateCreated, f => f.Date.Past(1))
-                .RuleFor(u => u.LastLogin, f => f.Date.Recent())
                 .RuleFor(u => u.PreferredTheme, f => f.Random.ArrayElement(new[] { "Light", "Dark", "System" }))
-                .RuleFor(u => u.IsEmailVerified, f => f.Random.Bool(0.7f))
-                .RuleFor(u => u.IsActive, f => f.Random.Bool(0.9f))
                 .RuleFor(u => u.AvatarPath, f => f.Internet.Avatar());
             
             // Generate users with delay to avoid UI freeze for large generations
@@ -60,7 +57,7 @@ namespace NexusChat.Helpers
                     break;
                     
                 var user = faker.Generate();
-                user.SetPassword("Test@123");  // Use a standard test password
+                user.SetPassword($"password{i}");  // Use a standard test password
                 users.Add(user);
                 
                 // Add to display collection if provided

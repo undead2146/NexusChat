@@ -1,14 +1,13 @@
-using SQLite;
 using System;
-using System.Text.RegularExpressions;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using System.Security.Cryptography;
-using System.Text;
+using SQLite;
+using MaxLengthAttribute = SQLite.MaxLengthAttribute;
 
 namespace NexusChat.Core.Models
 {
     /// <summary>
-    /// Represents a user in the NexusChat application
+    /// Represents a user in the application
     /// </summary>
     [Table("Users")]
     public class User
@@ -18,261 +17,280 @@ namespace NexusChat.Core.Models
         /// </summary>
         [PrimaryKey, AutoIncrement]
         public int Id { get; set; }
-
+        
         /// <summary>
-        /// Username for login (must be unique)
+        /// Username for authentication
         /// </summary>
-        [Unique, NotNull, SQLite.MaxLength(50)]
+        [MaxLength(50), Unique]
+        [Required(ErrorMessage = "Username is required")]
         public string Username { get; set; }
-
+        
         /// <summary>
-        /// Hashed password (BCrypt format)
+        /// Hashed password
         /// </summary>
-        [NotNull]
         public string PasswordHash { get; set; }
-
+        
         /// <summary>
-        /// Salt used for password hashing
+        /// User's display name
         /// </summary>
-        [NotNull]
-        public string Salt { get; set; }
-
-        /// <summary>
-        /// User's display name shown in the application
-        /// </summary>
-        [SQLite.MaxLength(100)]
+        [MaxLength(100)]
         public string DisplayName { get; set; }
-
+        
         /// <summary>
-        /// Path to user's avatar image
+        /// User's email address
         /// </summary>
+        [MaxLength(100)]
+        [EmailAddress(ErrorMessage = "Invalid email address format")]
+        public string Email { get; set; }
+        
+        /// <summary>
+        /// Path to the user's avatar image
+        /// </summary>
+        [MaxLength(255)]
         public string AvatarPath { get; set; }
-
+        
         /// <summary>
-        /// Date and time when the user account was created
-        /// </summary>
-        public DateTime DateCreated { get; set; }
-
-        /// <summary>
-        /// Date and time of the user's last login
-        /// </summary>
-        public DateTime? LastLogin { get; set; }
-
-        /// <summary>
-        /// User's preferred theme (Light, Dark, System)
+        /// Preferred theme for the user interface
         /// </summary>
         public string PreferredTheme { get; set; } = "System";
-
+        
         /// <summary>
-        /// ID of user's preferred AI model
+        /// Preferred AI model ID
         /// </summary>
-        public int? PreferredModelId { get; set; }
-
+        public int PreferredModelId { get; set; }
+        
         /// <summary>
-        /// Email address for account recovery (optional)
+        /// When the user was created
         /// </summary>
-        [SQLite.MaxLength(100), EmailAddress]
-        public string Email { get; set; }
-
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        
         /// <summary>
-        /// Indicates if the user's email has been verified
+        /// Alias for CreatedAt to maintain backward compatibility
         /// </summary>
-        public bool IsEmailVerified { get; set; }
-
-        /// <summary>
-        /// Indicates if the user account is active
-        /// </summary>
-        public bool IsActive { get; set; } = true;
-
-        /// <summary>
-        /// Default constructor required by SQLite
-        /// </summary>
-        public User()
+        public DateTime DateCreated 
         {
-            DateCreated = DateTime.UtcNow;
-            IsActive = true;
-            
-            // Initialize salt to prevent null constraint violations
-            Salt = GenerateRandomSalt();
-        }
-
-        /// <summary>
-        /// Creates a new user with basic required properties
-        /// </summary>
-        public User(string username, string password)
-        {
-            Username = username;
-            SetPassword(password);
-            DisplayName = username; // Default display name to username
-            DateCreated = DateTime.UtcNow;
-            IsActive = true;
-        }
-
-        /// <summary>
-        /// Creates a new user with all properties
-        /// </summary>
-        public User(string username, string password, string displayName, string avatarPath, 
-                    string email, string preferredTheme, int? preferredModelId)
-        {
-            Username = username;
-            SetPassword(password);
-            DisplayName = displayName ?? username;
-            AvatarPath = avatarPath;
-            Email = email;
-            DateCreated = DateTime.UtcNow;
-            PreferredTheme = preferredTheme ?? "System";
-            PreferredModelId = preferredModelId;
-            IsActive = true;
-        }
-
-        /// <summary>
-        /// Sets a new password for the user
-        /// </summary>
-        /// <param name="password">New password in plain text</param>
-        public void SetPassword(string password)
-        {
-            // Generate a random salt
-            Salt = GenerateRandomSalt();
-
-            // Hash the password with the salt
-            PasswordHash = HashPassword(password, Salt);
+            get => CreatedAt;
+            set => CreatedAt = value;
         }
         
         /// <summary>
-        /// Generates a random salt string
+        /// When the user last logged in
         /// </summary>
-        private string GenerateRandomSalt()
-        {
-            byte[] saltBytes = new byte[16];
-            using (var rng = RandomNumberGenerator.Create())
-            {
-                rng.GetBytes(saltBytes);
-            }
-            return Convert.ToBase64String(saltBytes);
-        }
+        public DateTime? LastLoginAt { get; set; }
 
         /// <summary>
-        /// Verifies if a given plain text password matches the stored hash
+        /// Default constructor
         /// </summary>
-        /// <param name="password">Plain text password to verify</param>
-        /// <returns>True if password matches, false otherwise</returns>
-        public bool VerifyPassword(string password)
-        {
-            var hash = HashPassword(password, Salt);
-            return hash == PasswordHash;
-        }
-
+        public User() { }
+        
         /// <summary>
-        /// Helper method to hash a password with a salt
+        /// Constructor with basic fields
         /// </summary>
-        private string HashPassword(string password, string salt)
+        public User(string username, string displayName = null)
         {
-            byte[] saltBytes = Convert.FromBase64String(salt);
-
-            // Combine password and salt
-            byte[] passwordBytes = Encoding.UTF8.GetBytes(password);
-            byte[] combinedBytes = new byte[passwordBytes.Length + saltBytes.Length];
-
-            Buffer.BlockCopy(passwordBytes, 0, combinedBytes, 0, passwordBytes.Length);
-            Buffer.BlockCopy(saltBytes, 0, combinedBytes, passwordBytes.Length, saltBytes.Length);
-
-            // Hash with SHA256
-            using (var sha256 = SHA256.Create())
-            {
-                byte[] hashBytes = sha256.ComputeHash(combinedBytes);
-                return Convert.ToBase64String(hashBytes);
-            }
+            Username = username;
+            DisplayName = displayName ?? username;
+            CreatedAt = DateTime.UtcNow;
         }
+        
 
+        
         /// <summary>
-        /// Validates the user model
+        /// Extended constructor for all fields
         /// </summary>
-        /// <param name="errorMessage">Error message if validation fails</param>
+        public User(
+            string username, 
+            string displayName, 
+            string email, 
+            string avatarPath, 
+            string preferredTheme, 
+            int preferredModelId, 
+            DateTime? createdAt = null)
+        {
+            Username = username;
+            DisplayName = displayName ?? username;
+            Email = email;
+            AvatarPath = avatarPath;
+            PreferredTheme = preferredTheme ?? "System";
+            PreferredModelId = preferredModelId;
+            CreatedAt = createdAt ?? DateTime.UtcNow;
+        }
+        
+        /// <summary>
+        /// Extended constructor for all fields - matches test expectations
+        /// </summary>
+        public User(
+            string username, 
+            string passwordHash, 
+            string displayName, 
+            string avatarPath, 
+            string email, 
+            string preferredTheme, 
+            int preferredModelId, 
+            DateTime? createdAt = null)
+        {
+            Username = username;
+            PasswordHash = passwordHash;
+            DisplayName = displayName ?? username;
+            AvatarPath = avatarPath;
+            Email = email;
+            PreferredTheme = preferredTheme ?? "System";
+            PreferredModelId = preferredModelId;
+            CreatedAt = createdAt ?? DateTime.UtcNow;
+        }
+        
+        /// <summary>
+        /// Validates user properties
+        /// </summary>
+        /// <returns>True if valid, false otherwise</returns>
+        public bool Validate()
+        {
+            return Validate(out _);
+        }
+        
+        /// <summary>
+        /// Validates user properties with detailed error message
+        /// </summary>
+        /// <param name="errorMessage">Output error message if validation fails</param>
         /// <returns>True if valid, false otherwise</returns>
         public bool Validate(out string errorMessage)
         {
-            // Username validation
+            errorMessage = null;
+            
             if (string.IsNullOrWhiteSpace(Username))
             {
                 errorMessage = "Username is required";
                 return false;
             }
-
+                
             if (Username.Length < 3)
             {
                 errorMessage = "Username must be at least 3 characters";
                 return false;
             }
-
-            // Only alphanumeric characters and underscore allowed
-            if (!Regex.IsMatch(Username, @"^[a-zA-Z0-9_]+$"))
+            
+            if (Username.Length > 50)
             {
-                errorMessage = "Username can only contain letters, numbers, and underscore";
+                errorMessage = "Username cannot exceed 50 characters";
                 return false;
             }
-
-            // Password hash validation
-            if (string.IsNullOrWhiteSpace(PasswordHash))
+            
+            // Check for valid characters in username
+            foreach (char c in Username)
             {
-                errorMessage = "Password hash is required";
-                return false;
-            }
-
-            // Email validation (if provided)
-            if (!string.IsNullOrWhiteSpace(Email))
-            {
-                // Simple regex for email validation
-                if (!Regex.IsMatch(Email, @"^[\w-\.]+@([\w-]+\.)+[\w-]{2,}$"))
+                if (!char.IsLetterOrDigit(c) && c != '_' && c != '-' && c != '.')
                 {
-                    errorMessage = "Invalid email format";
+                    errorMessage = "Username can only contain letters, numbers, underscores, hyphens, and periods";
                     return false;
                 }
             }
-
-            // PreferredTheme validation
-            if (PreferredTheme != "Light" && PreferredTheme != "Dark" && PreferredTheme != "System")
+            
+            if (!string.IsNullOrEmpty(Email) && !IsValidEmail(Email))
+            {
+                errorMessage = "Invalid email address format";
+                return false;
+            }
+            
+            // Validate theme
+            if (!string.IsNullOrEmpty(PreferredTheme) && 
+                PreferredTheme != "Light" && 
+                PreferredTheme != "Dark" && 
+                PreferredTheme != "System")
             {
                 errorMessage = "Theme must be Light, Dark, or System";
                 return false;
             }
-
-            // All validations passed
-            errorMessage = null;
+                
             return true;
         }
-
+        
         /// <summary>
-        /// Updates the last login time to current UTC time
+        /// Verifies a password against the stored hash
         /// </summary>
-        public void UpdateLastLogin()
+        /// <param name="password">The password to verify</param>
+        /// <returns>True if password matches, false otherwise</returns>
+        public bool VerifyPassword(string password)
         {
-            LastLogin = DateTime.UtcNow;
+            if (string.IsNullOrEmpty(password) || string.IsNullOrEmpty(PasswordHash))
+                return false;
+                
+            return BCrypt.Net.BCrypt.Verify(password, PasswordHash);
         }
-
+        
         /// <summary>
-        /// String representation for debugging
+        /// Sets the password for this user by hashing it
         /// </summary>
-        public override string ToString()
+        /// <param name="password">Plain text password to hash and store</param>
+        public void SetPassword(string password)
         {
-            return $"User: {Username} (ID: {Id}, DisplayName: {DisplayName})";
+            if (string.IsNullOrEmpty(password))
+                throw new ArgumentException("Password cannot be empty", nameof(password));
+                
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(password);
         }
-
+        
         /// <summary>
-        /// Creates a test user for development purposes
+        /// Validates an email address format
         /// </summary>
+        private bool IsValidEmail(string email)
+        {
+            try
+            {
+                var addr = new System.Net.Mail.MailAddress(email);
+                return addr.Address == email;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+        
+        /// <summary>
+        /// Creates a test user with pre-hashed password
+        /// </summary>
+        /// <returns>A test user instance</returns>
         public static User CreateTestUser()
         {
-            var user = new User
+            return new User
             {
                 Username = "testuser",
                 DisplayName = "Test User",
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("password123"),
                 Email = "test@example.com",
-                DateCreated = DateTime.UtcNow,
-                IsActive = true
+                CreatedAt = DateTime.UtcNow,
+                LastLoginAt = DateTime.UtcNow,
+                PreferredTheme = "System",
+                AvatarPath = "/images/default-avatar.png",
+                PreferredModelId = 1
             };
-
-            user.SetPassword("password123");
-            return user;
+        }
+        
+        /// <summary>
+        /// Creates multiple test users for development purposes
+        /// </summary>
+        /// <param name="count">Number of test users to create</param>
+        /// <returns>List of test users</returns>
+        public static List<User> CreateTestUsers(int count = 5)
+        {
+            var users = new List<User>();
+            
+            for (int i = 0; i < count; i++)
+            {
+                users.Add(new User
+                {
+                    Username = $"testuser{i+1}",
+                    DisplayName = $"Test User {i+1}",
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword($"password{i+1}"),
+                    Email = $"test{i+1}@example.com",
+                    CreatedAt = DateTime.UtcNow.AddDays(-i),
+                    LastLoginAt = i % 2 == 0 ? DateTime.UtcNow.AddHours(-i) : null,
+                    PreferredTheme = "System",
+                    AvatarPath = $"/images/avatar{i+1}.png",
+                    PreferredModelId = i + 1
+                });
+            }
+            
+            return users;
         }
     }
 }

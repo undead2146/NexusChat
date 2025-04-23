@@ -5,6 +5,11 @@
 
 Local/
 .vscode/
+.env
+.editorconfig
+.gitignore
+
+
 
 # User-specific files
 *.rsuser

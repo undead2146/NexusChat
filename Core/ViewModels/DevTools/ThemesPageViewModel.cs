@@ -8,7 +8,7 @@ using CommunityToolkit.Maui.Core;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Maui.Controls;
-using NexusChat.Services; // Add this missing using directive for ThemeManager
+using NexusChat.Services;
 
 namespace NexusChat.Core.ViewModels.DevTools
 {
@@ -19,63 +19,33 @@ namespace NexusChat.Core.ViewModels.DevTools
     {
         #region Observable Properties
         
-        /// <summary>
-        /// Gets or sets whether to use system theme
-        /// </summary>
         [ObservableProperty]
         private bool _useSystemTheme;
         
-        /// <summary>
-        /// Gets or sets whether dark theme is enabled
-        /// </summary>
         [ObservableProperty]
         private bool _isDarkTheme;
         
-        /// <summary>
-        /// Gets or sets the icon text representation for the current theme
-        /// </summary>
         [ObservableProperty]
         private string _themeIconText = "\uf185"; // Sun icon for light theme by default
         
-        /// <summary>
-        /// Gets or sets the toggle button text for switching themes
-        /// </summary>
         [ObservableProperty]
         private string _themeToggleText;
         
-        /// <summary>
-        /// Gets or sets the text displaying current theme
-        /// </summary>
         [ObservableProperty]
         private string _currentThemeText;
         
-        /// <summary>
-        /// Gets or sets the text displaying system theme info
-        /// </summary>
         [ObservableProperty]
         private string _systemThemeText;
         
-        /// <summary>
-        /// Gets or sets the currently selected AI model
-        /// </summary>
         [ObservableProperty]
         private string _selectedModel = "GPT-4 Turbo";
         
-        /// <summary>
-        /// Gets or sets whether components are currently loading
-        /// </summary>
         [ObservableProperty]
         private bool _isLoading;
         
-        /// <summary>
-        /// Gets or sets the last copied color
-        /// </summary>
         [ObservableProperty]
         private string _lastCopiedColor;
         
-        /// <summary>
-        /// Gets or sets the currently selected component
-        /// </summary>
         [ObservableProperty]
         private string _selectedComponent;
 
@@ -87,6 +57,12 @@ namespace NexusChat.Core.ViewModels.DevTools
 
         [ObservableProperty]
         private ObservableCollection<string> _componentCategories;
+        
+        // Flag to track if icons have been initialized
+        private bool _iconsInitialized = false;
+        
+        // Dictionary to track which components have been loaded
+        private readonly Dictionary<string, bool> _loadedComponents = new Dictionary<string, bool>();
         
         #endregion
         
@@ -184,12 +160,6 @@ namespace NexusChat.Core.ViewModels.DevTools
             // Initialize text properties
             UpdateThemeText();
             
-            // Initialize icons collection
-            InitializeIcons();
-            
-            // Generate font debug info
-            GenerateFontDebugInfo();
-            
             // Subscribe to theme changes
             ThemeManager.ThemeChanged += OnThemeChanged;
 
@@ -207,41 +177,17 @@ namespace NexusChat.Core.ViewModels.DevTools
                 "Accessibility",
                 "Icons"
             };
-        }
-        
-        /// <summary>
-        /// Selects a component to display
-        /// </summary>
-        public void SelectComponent(string componentName)
-        {
-            Debug.WriteLine($"ThemesPageViewModel: SelectComponent {componentName}");
-            IsComponentLoading = true;
-            SelectedComponent = componentName;
-            ComponentChanged?.Invoke(this, componentName);
-        }
-        
-        /// <summary>
-        /// Toggles between light and dark themes
-        /// </summary>
-        public void ToggleTheme()
-        {
-            try
+            
+            // Initialize empty icons collection
+            _icons = new ObservableCollection<IconItem>();
+            
+            // Initialize the component tracking dictionary
+            foreach (var category in _componentCategories)
             {
-                // Directly use ThemeManager to change the theme
-                // This will affect the entire application, not just the current page
-                bool newTheme = !IsDarkTheme; 
-                ThemeManager.SetTheme(newTheme);
-                
-                // Local UI will be updated via ThemeChanged event that we're subscribed to
-                // No need to manually set IsDarkTheme here as the event handler will do it
-                Debug.WriteLine($"Theme toggled to {(newTheme ? "Dark" : "Light")} mode");
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error toggling theme: {ex.Message}");
+                _loadedComponents[category] = false;
             }
         }
-        
+
         /// <summary>
         /// Toggles the use of system theme
         /// </summary>
@@ -286,8 +232,67 @@ namespace NexusChat.Core.ViewModels.DevTools
         /// </summary>
         private void OnThemeChanged(object sender, bool isDark)
         {
-            IsDarkTheme = isDark;
-            UpdateThemeText();
+            MainThread.BeginInvokeOnMainThread(async () => 
+            {
+                try
+                {
+                    // Update ViewModel properties to match new theme
+                    IsDarkTheme = isDark;
+                    UpdateThemeText();
+                    
+                    // Force a theme-specific UI refresh
+                    RefreshThemeSpecificUIElements();
+                    
+                    // Add a small delay to ensure text refresh has time to complete
+                    await Task.Delay(50);
+                    
+                    // Force another refresh for reliable icon display
+                    RefreshThemeSpecificUIElements();
+                    
+                    // If icons are loaded, refresh them explicitly
+                    if (_iconsInitialized && Icons?.Count > 0)
+                    {
+                        var tempIcons = Icons.ToList();
+                        Icons.Clear();
+                        
+                        // Add a small delay before re-adding icons to force a refresh
+                        await Task.Delay(50);
+                        foreach (var icon in tempIcons)
+                        {
+                            Icons.Add(icon);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Error in theme change handler: {ex.Message}");
+                }
+            });
+        }
+
+        /// <summary>
+        /// Explicitly refreshes theme-specific UI elements
+        /// </summary>
+        private void RefreshThemeSpecificUIElements()
+        {
+            try
+            {
+                // Update icon visibility by modifying property
+                var currentIcon = ThemeIconText;
+                ThemeIconText = currentIcon == "\uf185" ? "\uf186" : "\uf185";  // Toggle icon to force update
+                ThemeIconText = currentIcon;  // Set back to correct icon
+                
+                // Notify UI to refresh important properties
+                OnPropertyChanged(nameof(ThemeIconText));
+                OnPropertyChanged(nameof(ThemeToggleText));
+                OnPropertyChanged(nameof(CurrentThemeText));
+                OnPropertyChanged(nameof(SystemThemeText));
+                OnPropertyChanged(nameof(IsDarkTheme));
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error refreshing theme UI elements: {ex.Message}");
+            }
         }
         
         /// <summary>
@@ -342,7 +347,91 @@ namespace NexusChat.Core.ViewModels.DevTools
         }
         
         /// <summary>
-        /// Initializes the ViewModel asynchronously
+        /// Selects a component to display with lazy loading
+        /// </summary>
+        public void SelectComponent(string componentName)
+        {
+            Debug.WriteLine($"ThemesPageViewModel: SelectComponent {componentName}");
+            
+            // Set loading state
+            IsComponentLoading = true;
+            SelectedComponent = componentName;
+            
+            // Unload other components if needed
+            // This is optional - if memory usage becomes an issue, we could implement
+            // a more aggressive unloading strategy
+            
+            // Load this component if it hasn't been loaded yet
+            if (!_loadedComponents.ContainsKey(componentName) || !_loadedComponents[componentName])
+            {
+                // Execute the appropriate loading method based on component type
+                switch (componentName)
+                {
+                    case "Icons":
+                        if (!_iconsInitialized)
+                        {
+                            InitializeIcons();
+                            _iconsInitialized = true;
+                        }
+                        break;
+                    
+                    default:
+                        // For most components, just mark them as loaded
+                        break;
+                }
+                
+                // Mark this component as loaded
+                _loadedComponents[componentName] = true;
+            }
+            
+            // Notify UI that component should change
+            ComponentChanged?.Invoke(this, componentName);
+        }
+        
+        /// <summary>
+        /// Toggles between light and dark themes
+        /// </summary>
+        public void ToggleTheme()
+        {
+            try
+            {
+                Debug.WriteLine("ThemesPageViewModel: Toggling theme");
+                
+                // Directly use ThemeManager to change the theme
+                // This will affect the entire application, not just the current page
+                bool newTheme = !IsDarkTheme; 
+                
+                // Set loading state to indicate theme change is happening
+                IsLoading = true;
+                
+                // Force icon refresh before changing theme
+                RefreshThemeSpecificUIElements();
+                
+                // Apply theme change
+                ThemeManager.SetTheme(newTheme);
+                
+                // Explicitly update our local properties to match new theme
+                IsDarkTheme = newTheme;
+                UpdateThemeText();
+                
+                // Reset loading state after a small delay
+                MainThread.BeginInvokeOnMainThread(async () => {
+                    await Task.Delay(100);
+                    IsLoading = false;
+                    RefreshThemeSpecificUIElements();
+                });
+                
+                Debug.WriteLine($"Theme toggled to {(newTheme ? "Dark" : "Light")} mode");
+            }
+            catch (Exception ex)
+            {
+                IsLoading = false;
+                Debug.WriteLine($"Error toggling theme: {ex.Message}");
+            }
+        }
+        
+        /// <summary>
+        /// Initializes the ViewModel asynchronously with performance optimizations
         /// </summary>
         public async Task InitializeAsync()
         {
@@ -353,25 +442,30 @@ namespace NexusChat.Core.ViewModels.DevTools
                 IsPageLoading = true;
                 
                 // Update theme information - don't change themes, just read state
+                IsDarkTheme = ThemeManager.IsDarkTheme;
                 UpdateThemeText();
                 
                 // Ensure all properties are properly notified
                 OnPropertyChanged(nameof(IsNotUsingSystemTheme));
                 
-                // Give UI time to render before loading components
-                await Task.Delay(300);
+                // Give UI time to render before finishing initialization
+                await Task.Delay(100);
                 
-                // Update loading state
+                // Force theme icon to be visible on initial load
+                RefreshThemeSpecificUIElements();
+                
+                // Update loading state - but don't load any components yet
                 IsPageLoading = false;
                 
-                // Select default component - delay actual component loading
-                await Task.Delay(100);
-                SelectComponent("Colors");
+                // Don't automatically select any component
+                // Let the user choose which one to load
+                IsComponentLoading = false;
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error initializing themes page: {ex.Message}");
                 IsPageLoading = false;
+                IsComponentLoading = false;
             }
             finally
             {
@@ -388,95 +482,6 @@ namespace NexusChat.Core.ViewModels.DevTools
         }
         
         /// <summary>
-        /// Initializes only basic properties to speed up page loading
-        /// </summary>
-        public async Task InitializeBasicPropertiesAsync()
-        {
-            Debug.WriteLine("ThemesPageViewModel: InitializeBasicPropertiesAsync");
-            
-            try
-            {
-                // Set loading state
-                IsPageLoading = true;
-                
-                // Only read theme properties - don't change themes
-                _isDarkTheme = ThemeManager.IsDarkTheme;
-                CurrentThemeText = _isDarkTheme ? "Dark" : "Light";
-                
-                var systemTheme = Application.Current.RequestedTheme == AppTheme.Dark ? "Dark" : "Light";
-                SystemThemeText = systemTheme;
-                
-                // Read system theme setting from preferences
-                _useSystemTheme = Preferences.Default.Get("theme", "System") == "System";
-                
-                // Update FontAwesome icon representing theme
-                ThemeIconText = UseSystemTheme ? "\uf042" : (_isDarkTheme ? "\uf186" : "\uf185");
-                ThemeToggleText = _isDarkTheme ? "Switch to Light" : "Switch to Dark";
-                
-                // Notify calculated properties
-                OnPropertyChanged(nameof(IsNotUsingSystemTheme));
-                
-                // Subscribe to theme changes
-                ThemeManager.ThemeChanged += OnThemeChanged;
-                
-                Debug.WriteLine("ThemesPageViewModel: Basic properties initialized");
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error initializing basic properties: {ex.Message}");
-            }
-        }
-        
-        /// <summary>
-        /// Completes the initialization after the UI is stable
-        /// </summary>
-        public async Task CompleteInitializationAsync()
-        {
-            try
-            {
-                // Get the actual current theme from the application
-                var userTheme = Application.Current.UserAppTheme;
-                var requestedTheme = Application.Current.RequestedTheme;
-                
-                // Check if system theme is in use
-                _useSystemTheme = userTheme == AppTheme.Unspecified;
-                
-                // Determine the effective theme
-                if (UseSystemTheme)
-                {
-                    _isDarkTheme = requestedTheme == AppTheme.Dark;
-                }
-                else
-                {
-                    _isDarkTheme = userTheme == AppTheme.Dark;
-                }
-                
-                // Update FontAwesome icon representing theme
-                ThemeIconText = UseSystemTheme ? "\uf042" : (IsDarkTheme ? "\uf186" : "\uf185");
-                ThemeToggleText = IsDarkTheme ? "Switch to Light" : "Switch to Dark";
-                CurrentThemeText = IsDarkTheme ? "Dark" : "Light";
-                
-                // Subscribe to theme changes
-                ThemeManager.ThemeChanged += OnThemeChanged;
-                
-                // Small delay to ensure UI is ready
-                await Task.Delay(50);
-                
-                // Complete loading
-                IsPageLoading = false;
-                
-                // Select default component after page is loaded
-                await Task.Delay(200);
-                SelectComponent("Colors");
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error completing initialization: {ex.Message}");
-                IsPageLoading = false;
-            }
-        }
-        
-        /// <summary>
         /// Cleans up resources when the ViewModel is no longer needed
         /// </summary>
         public void Cleanup()
@@ -488,91 +493,20 @@ namespace NexusChat.Core.ViewModels.DevTools
             
             // Clear any references that might hold resources
             LastCopiedColor = null;
-        }
-        
-        /// <summary>
-        /// Initializes properties without changing theme
-        /// </summary>
-        public void InitializeWithoutThemeChanges()
-        {
-            Debug.WriteLine("ThemesPageViewModel: InitializeWithoutThemeChanges");
             
-            try
+            // Clear icons collection to free memory
+            if (_icons != null)
             {
-                // Get the actual current theme
-                var userTheme = Application.Current.UserAppTheme;
-                var requestedTheme = Application.Current.RequestedTheme; 
-                
-                // Check if system theme is in use
-                _useSystemTheme = userTheme == AppTheme.Unspecified;
-                
-                // Determine the effective theme
-                if (UseSystemTheme)
-                {
-                    _isDarkTheme = requestedTheme == AppTheme.Dark;
-                }
-                else
-                {
-                    _isDarkTheme = userTheme == AppTheme.Dark;
-                }
-                
-                // Update UI to match actual theme
-                CurrentThemeText = IsDarkTheme ? "Dark" : "Light";
-                SystemThemeText = requestedTheme == AppTheme.Dark ? "Dark" : "Light";
-                
-                ThemeIconText = UseSystemTheme ? "\uf042" : (IsDarkTheme ? "\uf186" : "\uf185");
-                ThemeToggleText = IsDarkTheme ? "Switch to Light" : "Switch to Dark";
-                
-                OnPropertyChanged(nameof(IsNotUsingSystemTheme));
-                
-                // Subscribe to theme changes but don't trigger any
-                ThemeManager.ThemeChanged -= OnThemeChanged; // Remove existing listener to prevent duplicates
-                ThemeManager.ThemeChanged += OnThemeChanged;
-                
-                Debug.WriteLine($"Theme initialized: IsDark={IsDarkTheme}, UseSystem={UseSystemTheme}, ThemeToggleText={ThemeToggleText}");
+                _icons.Clear();
             }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error in InitializeWithoutThemeChanges: {ex.Message}");
-            }
-        }
-        
-        /// <summary>
-        /// Emergency lightweight initialization
-        /// </summary>
-        public void InitializeEmergency()
-        {
-            Debug.WriteLine("ThemesPageViewModel: Emergency initialization");
             
-            try
+            // Reset loaded component tracking
+            foreach (var key in _loadedComponents.Keys.ToList())
             {
-                // Set all essential properties without any heavy operations
-                IsPageLoading = false;
-                IsComponentLoading = false;
-                
-                // Just get current theme info - don't try to change it
-                IsDarkTheme = Application.Current?.RequestedTheme == AppTheme.Dark;
-                CurrentThemeText = IsDarkTheme ? "Dark" : "Light";
-                SystemThemeText = Application.Current?.RequestedTheme == AppTheme.Dark ? "Dark" : "Light";
-                ThemeIconText = IsDarkTheme ? "\uf186" : "\uf185"; 
-                ThemeToggleText = IsDarkTheme ? "Switch to Light" : "Switch to Dark";
-                UseSystemTheme = true;  // Default to system theme for safety
-                
-                // Initialize minimal icon list
-                if (Icons == null)
-                {
-                    Icons = new ObservableCollection<IconItem> 
-                    {
-                        new IconItem { Name = "Star", Code = "\uf005", Category = "Shapes" },
-                        new IconItem { Name = "Home", Code = "\uf015", Category = "Navigation" }
-                        // Only include the minimal set needed for initial display
-                    };
-                }
+                _loadedComponents[key] = false;
             }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error in emergency initialization: {ex.Message}");
-            }
+            
+            _iconsInitialized = false;
         }
         
         #region Icon Methods
@@ -607,6 +541,7 @@ namespace NexusChat.Core.ViewModels.DevTools
         /// </summary>
         private void GenerateFontDebugInfo()
         {
+            // Generate only when needed - don't create in constructor
             var debugInfo = 
                 "Font Information:\n" +
                 "- FontAwesome-Solid\n" +
@@ -621,10 +556,16 @@ namespace NexusChat.Core.ViewModels.DevTools
         }
 
         /// <summary>
-        /// Initializes the collection of FontAwesome icons
+        /// Initializes the collection of FontAwesome icons - only when needed
         /// </summary>
         private void InitializeIcons()
         {
+            Debug.WriteLine("ThemesPageViewModel: Initializing icons on demand");
+            
+            // Only initialize if not already done
+            if (_iconsInitialized)
+                return;
+                
             Icons = new ObservableCollection<IconItem>
             {
                 new IconItem { Name = "Home", Code = "\uf015", Category = "Navigation" },
@@ -643,9 +584,14 @@ namespace NexusChat.Core.ViewModels.DevTools
                 new IconItem { Name = "Envelope", Code = "\uf0e0", Category = "Communication" },
                 new IconItem { Name = "Pencil", Code = "\uf303", Category = "Actions" }
             };
+            
+            // Also generate font debug info when icons are loaded
+            GenerateFontDebugInfo();
+            
+            _iconsInitialized = true;
         }
 
-        // Update this when theme changes
+        // Update when theme changes
         private void UpdateThemeIcon()
         {
             ThemeIconText = Application.Current.RequestedTheme == AppTheme.Dark ? "\uf186" : "\uf185";
