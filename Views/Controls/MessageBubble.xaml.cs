@@ -1,41 +1,49 @@
 using System;
-using System.Diagnostics;
+using System.Windows.Input;
 using Microsoft.Maui.Controls;
 using NexusChat.Core.Models;
+using NexusChat.Core.ViewModels;
 
 namespace NexusChat.Views.Controls
 {
     /// <summary>
-    /// Custom control for displaying chat messages with different styles based on author (user or AI)
+    /// Custom control for displaying chat messages
     /// </summary>
     public partial class MessageBubble : ContentView
     {
         /// <summary>
-        /// Bindable property for Message object
+        /// Message property
         /// </summary>
         public static readonly BindableProperty MessageProperty =
-            BindableProperty.Create(nameof(Message), typeof(Message), typeof(MessageBubble), null, propertyChanged: OnMessageChanged);
+            BindableProperty.Create(nameof(Message), typeof(Message), typeof(MessageBubble), null,
+                propertyChanged: OnMessageChanged);
 
         /// <summary>
-        /// Bindable property indicating if the message is from an AI
-        /// </summary>
-        public static readonly BindableProperty IsAIProperty =
-            BindableProperty.Create(nameof(IsAI), typeof(bool), typeof(MessageBubble), false);
-
-        /// <summary>
-        /// Bindable property for the message content text
+        /// Message content property
         /// </summary>
         public static readonly BindableProperty MessageContentProperty =
             BindableProperty.Create(nameof(MessageContent), typeof(string), typeof(MessageBubble), string.Empty);
 
         /// <summary>
-        /// Bindable property for the message timestamp
+        /// IsAI property
+        /// </summary>
+        public static readonly BindableProperty IsAIProperty =
+            BindableProperty.Create(nameof(IsAI), typeof(bool), typeof(MessageBubble), false);
+
+        /// <summary>
+        /// Timestamp property
         /// </summary>
         public static readonly BindableProperty TimestampProperty =
             BindableProperty.Create(nameof(Timestamp), typeof(DateTime), typeof(MessageBubble), DateTime.Now);
 
         /// <summary>
-        /// Gets or sets the Message object
+        /// RegenerateCommand property
+        /// </summary>
+        public static readonly BindableProperty RegenerateCommandProperty =
+            BindableProperty.Create(nameof(RegenerateCommand), typeof(ICommand), typeof(MessageBubble));
+
+        /// <summary>
+        /// Gets or sets the message
         /// </summary>
         public Message Message
         {
@@ -44,16 +52,7 @@ namespace NexusChat.Views.Controls
         }
 
         /// <summary>
-        /// Gets or sets whether the message is from an AI
-        /// </summary>
-        public bool IsAI
-        {
-            get => (bool)GetValue(IsAIProperty);
-            set => SetValue(IsAIProperty, value);
-        }
-
-        /// <summary>
-        /// Gets or sets the message content text
+        /// Gets or sets the message content
         /// </summary>
         public string MessageContent
         {
@@ -62,7 +61,16 @@ namespace NexusChat.Views.Controls
         }
 
         /// <summary>
-        /// Gets or sets the message timestamp
+        /// Gets or sets whether the message is from AI
+        /// </summary>
+        public bool IsAI
+        {
+            get => (bool)GetValue(IsAIProperty);
+            set => SetValue(IsAIProperty, value);
+        }
+
+        /// <summary>
+        /// Gets or sets the timestamp
         /// </summary>
         public DateTime Timestamp
         {
@@ -71,76 +79,50 @@ namespace NexusChat.Views.Controls
         }
 
         /// <summary>
-        /// Initializes a new instance of MessageBubble
+        /// Gets or sets the regenerate command
         /// </summary>
-        public MessageBubble()
+        public ICommand RegenerateCommand
         {
-            try
+            get => (ICommand)GetValue(RegenerateCommandProperty);
+            set => SetValue(RegenerateCommandProperty, value);
+        }
+        
+        private static void OnMessageChanged(BindableObject bindable, object oldValue, object newValue)
+        {
+            if (bindable is MessageBubble bubble && newValue is Message message)
             {
-                InitializeComponent();
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error initializing MessageBubble: {ex.Message}");
+                bubble.MessageContent = message.Content;
+                bubble.IsAI = message.IsAI;
+                bubble.Timestamp = message.CreatedAt;
+                
+                // If status is 'thinking', show the thinking indicator
+                if (message.Status?.ToLowerInvariant() == "thinking")
+                {
+                    bubble.ThinkingGrid.IsVisible = true;
+                    bubble.ContentLabel.IsVisible = false;
+                }
+                else
+                {
+                    bubble.ThinkingGrid.IsVisible = false;
+                    bubble.ContentLabel.IsVisible = true;
+                }
             }
         }
 
         /// <summary>
-        /// Handles changes to the Message property
+        /// Initializes a new MessageBubble
         /// </summary>
-        private static void OnMessageChanged(BindableObject bindable, object oldValue, object newValue)
+        public MessageBubble()
         {
-            try
-            {
-                var control = (MessageBubble)bindable;
-                var message = (Message)newValue;
-
-                if (message == null) return;
-
-                // Update basic properties
-                control.IsAI = message.IsAI;
-                control.MessageContent = message.Content;
-                control.Timestamp = message.Timestamp;
-                
-                // Check if this is a typing message
-                bool isTyping = message.IsAI && message.Status == "Typing";
-                
-                // Update UI immediately on main thread
-                MainThread.BeginInvokeOnMainThread(() => {
-                    try
-                    {
-                        // Show/hide UI elements based on message state
-                        if (control.ThinkingGrid != null)
-                        {
-                            control.ThinkingGrid.IsVisible = isTyping;
-                            
-                            // Make sure the thinking indicator is active if visible
-                            var thinkingIndicator = control.ThinkingGrid.Children.FirstOrDefault() as ThinkingIndicator;
-                            if (thinkingIndicator != null)
-                            {
-                                thinkingIndicator.IsActive = isTyping;
-                            }
-                        }
-                        
-                        // Show content only when not in typing state
-                        if (control.ContentLabel != null)
-                        {
-                            control.ContentLabel.IsVisible = !isTyping;
-                        }
-                        
-                        Debug.WriteLine($"Message bubble updated - ID: {message.Id}, IsAI: {message.IsAI}, " +
-                                       $"Status: {message.Status}, IsTyping: {isTyping}");
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"Error updating message UI: {ex.Message}");
-                    }
-                });
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error in OnMessageChanged: {ex}");
-            }
+            InitializeComponent();
+        }
+        
+        /// <summary>
+        /// Updates message content during streaming
+        /// </summary>
+        public void UpdateStreamingContent(string content)
+        {
+            MessageContent = content;
         }
     }
 }

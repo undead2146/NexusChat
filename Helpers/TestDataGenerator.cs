@@ -167,20 +167,17 @@ namespace NexusChat.Helpers
             // Categories and tags for more realistic data
             var categories = new[] { "General", "Work", "Personal", "Creative", "Technical", "Research", "Education" };
             var topics = new[] { "AI", "Programming", "Philosophy", "Science", "Mathematics", "History", "Art", "Finance", "Health" };
-            
+
             // Create fake data generator with more realistic titles
             var faker = new Faker<Conversation>()
                 .RuleFor(c => c.UserId, f => f.PickRandom(userIds))
                 .RuleFor(c => c.Title, f => CreateConversationTitle(f, topics))
-                .RuleFor(c => c.ModelId, f => f.PickRandom(modelIds))
                 .RuleFor(c => c.CreatedAt, f => f.Date.Past(1))
                 // Fix the UpdatedAt rule
-                .RuleFor(c => c.UpdatedAt, (f, c) => f.Date.Between(c.CreatedAt, DateTime.Now))
                 .RuleFor(c => c.IsFavorite, f => f.Random.Bool(0.3f))
                 .RuleFor(c => c.IsArchived, f => f.Random.Bool(0.15f))
                 .RuleFor(c => c.Category, f => f.PickRandom(categories))
-                .RuleFor(c => c.Summary, f => f.Lorem.Paragraph())
-                .RuleFor(c => c.TotalTokensUsed, f => f.Random.Number(100, 5000));
+                .RuleFor(c => c.Summary, f => f.Lorem.Paragraph());
             
             // Generate conversations with delay to avoid UI freeze
             var conversations = new List<Conversation>();
@@ -268,7 +265,6 @@ namespace NexusChat.Helpers
                 
                 // Update conversation tokens
                 int totalTokens = messages.Where(m => m.IsAI).Sum(m => m.TokensUsed);
-                conversation.TotalTokensUsed += totalTokens;
                 await _databaseService.Database.UpdateAsync(conversation);
                 
                 // Update message counts

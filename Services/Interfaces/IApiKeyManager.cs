@@ -1,48 +1,41 @@
+using System;
 using System.Threading.Tasks;
 
 namespace NexusChat.Services.Interfaces
 {
     /// <summary>
-    /// Interface for managing API keys securely 
+    /// Interface for API key management
     /// </summary>
     public interface IApiKeyManager
     {
         /// <summary>
-        /// Sets a custom API key for a specific service
+        /// Occurs when an API key is changed
         /// </summary>
-        /// <param name="keyName">The name/identifier of the key</param>
-        /// <param name="apiKey">The API key value</param>
-        /// <returns>True if successful, false otherwise</returns>
-        Task<bool> SetCustomApiKeyAsync(string keyName, string apiKey);
+        event EventHandler<string> ApiKeyChanged;
         
         /// <summary>
-        /// Gets an API key by name
+        /// Initializes the API key manager
         /// </summary>
-        /// <param name="keyName">The name/identifier of the key</param>
-        /// <returns>The API key value, or null if not found</returns>
-        string GetApiKey(string keyName);
+        Task InitializeAsync();
         
         /// <summary>
-        /// Validates the format of an API key
+        /// Gets an API key for a specific provider
         /// </summary>
-        /// <param name="apiKey">The API key to validate</param>
-        /// <returns>True if the format is valid, false otherwise</returns>
-        bool ValidateApiKeyFormat(string apiKey);
+        Task<string> GetApiKeyAsync(string providerName);
         
         /// <summary>
-        /// Gets the appropriate key name for a provider and model combination
+        /// Saves an API key for a provider
         /// </summary>
-        /// <param name="providerName">The provider name</param>
-        /// <param name="modelName">The model name</param>
-        /// <returns>The key name to use for this provider/model</returns>
-        string GetModelKeyFromNames(string providerName, string modelName);
+        Task<bool> SaveApiKeyAsync(string providerName, string apiKey);
         
         /// <summary>
-        /// Resolves an API key for a model asynchronously with fallbacks
+        /// Deletes an API key for a provider
         /// </summary>
-        /// <param name="modelName">The model name</param>
-        /// <param name="providerName">The provider name</param>
-        /// <returns>The API key or null if not found</returns>
-        Task<string> ResolveApiKeyAsync(string modelName, string providerName);
+        Task<bool> DeleteApiKeyAsync(string providerName);
+        
+        /// <summary>
+        /// Checks if an API key exists for a provider
+        /// </summary>
+        Task<bool> HasApiKeyAsync(string providerName);
     }
 }

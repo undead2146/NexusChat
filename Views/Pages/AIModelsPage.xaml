@@ -2,480 +2,502 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:viewmodels="clr-namespace:NexusChat.Core.ViewModels"
-             xmlns:vm="clr-namespace:NexusChat.Core.ViewModels"
              xmlns:models="clr-namespace:NexusChat.Core.Models"
+             xmlns:controls="clr-namespace:NexusChat.Views.Controls"
              xmlns:converters="clr-namespace:NexusChat.Views.Converters"
-             xmlns:behaviors="clr-namespace:NexusChat.Behaviors"
              x:Class="NexusChat.Views.Pages.AIModelsPage"
-             Shell.NavBarIsVisible="False"
-             BackgroundColor="{AppThemeBinding Light={StaticResource Background}, Dark={StaticResource BackgroundDark}}">
+             Title="AI Models"
+             x:DataType="viewmodels:AIModelsViewModel">
 
     <ContentPage.Resources>
         <ResourceDictionary>
-            <converters:BoolToColorConverter x:Key="BoolToColorConverter"/>
-            <converters:BoolToColorConverter x:Key="LocalBoolToColorConverter"/>
-            <converters:StarColorConverter x:Key="StarColorConverter"/>
-            <converters:ProviderToColorConverter x:Key="ProviderToColorConverter"/>
-            <converters:ProviderToColorConverter x:Key="LocalProviderToColorConverter"/>
-            <converters:BoolToStringConverter x:Key="LocalBoolToStringConverter"
-                                              TrueValue="CURRENT MODEL"
-                                              FalseValue="USE THIS MODEL"/>
-            <converters:BoolToStringConverter x:Key="SelectedIconConverter"
-                                              TrueValue="&#xf00c;" 
-                                              FalseValue="&#xf061;"/> 
-            <converters:InvertedBoolConverter x:Key="LocalInvertedBoolConverter"/>
-            <converters:BoolToColorConverter x:Key="SelectedTextColorConverter"
-                                             TrueValue="{StaticResource PrimaryTextColorDark}"
-                                             FalseValue="White"/>
-            <converters:BoolToColorConverter x:Key="DefaultStarColorConverter"
-                                             TrueValue="Gold"
-                                             FalseValue="{StaticResource Gray400}"/>
+            <converters:BoolToColorConverter x:Key="BoolToColorConverter" />
+            <converters:InvertedBoolConverter x:Key="InvertedBoolConverter" />
+            <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+            <converters:ProviderToColorConverter x:Key="ProviderToColorConverter" />
+            <converters:StarColorConverter x:Key="StarColorConverter" />
+            
+            <!-- Colors for status badges -->
+            <Color x:Key="SelectedBadgeColor">#0078D7</Color>
+            <Color x:Key="FavoriteBadgeColor">#FFD700</Color>
+            <Color x:Key="DefaultBadgeColor">#00CC6A</Color>
+            <Color x:Key="StreamingBadgeColor">#9C27B0</Color>
+            <Color x:Key="VisionBadgeColor">#E91E63</Color>
+            <Color x:Key="CodeCompletionBadgeColor">#FF9800</Color>
+            
+            <!-- Card style -->
+            <Style x:Key="ModelCardStyle" TargetType="Border">
+                <Setter Property="StrokeShape" Value="RoundRectangle 12,12,12,12" />
+                <Setter Property="Padding" Value="16" />
+                <Setter Property="Margin" Value="8,4" />
+                <Setter Property="BackgroundColor" Value="{AppThemeBinding Light=#FFFFFF, Dark=#2D2D2D}" />
+                <Setter Property="StrokeThickness" Value="1" />
+                <Setter Property="Stroke" Value="Transparent" />
+                <Setter Property="Shadow">
+                    <Setter.Value>
+                        <Shadow Brush="#22000000" Offset="0,2" Radius="4" />
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            
+            <!-- Badge style -->
+            <Style x:Key="BadgeStyle" TargetType="Border">
+                <Setter Property="Padding" Value="8,3" />
+                <Setter Property="StrokeShape" Value="RoundRectangle 12,12,12,12" />
+                <Setter Property="HeightRequest" Value="26" />
+                <Setter Property="VerticalOptions" Value="Center" />
+                <Setter Property="Margin" Value="0,0,6,6" />
+            </Style>
+            
+            <!-- Badge label style -->
+            <Style x:Key="BadgeLabelStyle" TargetType="Label">
+                <Setter Property="TextColor" Value="White" />
+                <Setter Property="FontSize" Value="11" />
+                <Setter Property="FontAttributes" Value="Bold" />
+                <Setter Property="VerticalOptions" Value="Center" />
+                <Setter Property="HorizontalOptions" Value="Center" />
+                <Setter Property="Margin" Value="0" />
+            </Style>
+            
+            <!-- Action button style -->
+            <Style x:Key="ActionButtonStyle" TargetType="Button">
+                <Setter Property="CornerRadius" Value="8" />
+                <Setter Property="HeightRequest" Value="36" />
+                <Setter Property="FontSize" Value="14" />
+                <Setter Property="Padding" Value="8,0" />
+            </Style>
         </ResourceDictionary>
     </ContentPage.Resources>
 
-    <Grid>
-        <!-- Header Grid -->
-        <Grid VerticalOptions="Start"
-              HeightRequest="60"
-              Margin="0,0,0,0"
-              ColumnDefinitions="Auto,*,Auto"
-              Padding="15,10,15,0"
-              BackgroundColor="Transparent">
-
-            <!-- Back Button -->
-            <Button Grid.Column="0"
-                    Text="&#xf060;"
-                    FontFamily="FontAwesome-Solid"
-                    Style="{StaticResource IconButtonStyle}"
+    <Grid RowDefinitions="Auto,*,Auto" Padding="0" RowSpacing="0">
+        <!-- Header with search and filter -->
+        <Grid Grid.Row="0" 
+              ColumnDefinitions="Auto,*,Auto,Auto"
+              BackgroundColor="{AppThemeBinding Light=#f5f5f5, Dark=#1e1e1e}" 
+              Padding="16,12,16,12"
+              ColumnSpacing="8">
+            
+            <!-- Back button -->
+            <Button Grid.Column="0" 
+                    Text="&#xf053;" 
+                    FontFamily="FontAwesome-Solid" 
+                    Command="{Binding GoBackCommand}"
                     BackgroundColor="Transparent"
-                    TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}"
-                    FontSize="18"
+                    BorderColor="Transparent" 
+                    TextColor="{AppThemeBinding Light=#333333, Dark=#ffffff}"
                     WidthRequest="40"
                     HeightRequest="40"
+                    FontSize="18"
                     Padding="0"
-                    Margin="0,0,5,0"
-                    Clicked="BackButton_Clicked"
-                    HorizontalOptions="Start"/>
-
-            <!-- Search Bar -->
-            <SearchBar Grid.Column="1"
-                       Placeholder="Search models..."
-                       Text="{Binding SearchText, Mode=TwoWay}"
-                       SearchCommand="{Binding FilterModelsCommand}"
-                       TextChanged="SearchBar_TextChanged"
-                       BackgroundColor="Transparent"
-                       HorizontalOptions="Fill"/>
-
-            <!-- Refresh Button -->
+                    CornerRadius="20"
+                    VerticalOptions="Center" />
+            
+            <!-- Search box -->
+            <Border Grid.Column="1" 
+                   StrokeShape="RoundRectangle 20,20,20,20"
+                   Padding="12,0" 
+                   BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#333333}"
+                   Stroke="{AppThemeBinding Light=#e0e0e0, Dark=#555555}"
+                   HeightRequest="40"
+                   VerticalOptions="Center">
+                <Grid ColumnDefinitions="Auto,*">
+                    <Label Grid.Column="0"
+                           Text="&#xf002;" 
+                           FontFamily="FontAwesome-Solid"
+                           TextColor="{AppThemeBinding Light=#999999, Dark=#999999}"
+                           FontSize="14"
+                           VerticalOptions="Center" />
+                    <Entry Grid.Column="1" 
+                           Placeholder="Search models" 
+                           Text="{Binding SearchText}"
+                           ReturnCommand="{Binding FilterModelsCommand}"
+                           BackgroundColor="Transparent"
+                           ClearButtonVisibility="WhileEditing"
+                           FontSize="14"
+                           VerticalOptions="Center" />
+                </Grid>
+            </Border>
+            
+            <!-- Favorites filter toggle with visible star -->
             <Button Grid.Column="2"
-                    Text="&#xf021;"
+                    Text="&#xf005;" 
                     FontFamily="FontAwesome-Solid"
-                    Command="{Binding RefreshCommand}"
-                    IsEnabled="{Binding IsNotLoading}"
-                    Style="{StaticResource IconButtonStyle}"
+                    Command="{Binding ToggleFavoritesFilterCommand}"
                     BackgroundColor="Transparent"
-                    TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}"
-                    FontSize="18"
+                    BorderColor="Transparent" 
+                    TextColor="{Binding ShowFavoritesOnly, Converter={StaticResource StarColorConverter}}"
                     WidthRequest="40"
                     HeightRequest="40"
+                    FontSize="22"
                     Padding="0"
-                    HorizontalOptions="End"/>
+                    CornerRadius="20"
+                    VerticalOptions="Center" />
+            
+            <!-- Refresh button -->
+            <Button Grid.Column="3"
+                    Text="&#xf021;" 
+                    FontFamily="FontAwesome-Solid" 
+                    Command="{Binding RefreshModelsFromProvidersCommand}"
+                    BackgroundColor="Transparent"
+                    BorderColor="Transparent"
+                    TextColor="{AppThemeBinding Light=#333333, Dark=#ffffff}"
+                    WidthRequest="40"
+                    HeightRequest="40"
+                    FontSize="18"
+                    Padding="0"
+                    CornerRadius="20"
+                    VerticalOptions="Center" />
         </Grid>
 
-        <!-- Main Content -->
-        <CollectionView Margin="15,60,15,15"
-                        ItemsSource="{Binding Models}"
-                        IsGrouped="False"
-                        IsVisible="{Binding IsNotLoading}"
-                        x:Name="ModelsCollection">
-
-            <CollectionView.Behaviors>
-                <behaviors:ScrollToCommandBehavior ScrollTarget="{Binding ScrollToModel}"/>
-            </CollectionView.Behaviors>
-
-            <CollectionView.EmptyView>
-                <StackLayout VerticalOptions="Center"
-                             HorizontalOptions="Center">
-                    <Label Text="No models found"
-                           FontSize="Medium"
-                           HorizontalTextAlignment="Center"/>
-                    <Label Text="Try refreshing or check your configuration"
-                           FontSize="Small"
-                           HorizontalTextAlignment="Center"/>
-                </StackLayout>
-            </CollectionView.EmptyView>
-
-            <CollectionView.ItemsLayout>
-                <LinearItemsLayout ItemSpacing="12"
-                                   Orientation="Vertical"/>
-            </CollectionView.ItemsLayout>
-
-            <CollectionView.ItemTemplate>
-                <DataTemplate>
-                    <!-- Main Card Container -->
-                    <Border Stroke="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray700}}"
-                            StrokeThickness="1"
-                            StrokeShape="RoundRectangle 16"
-                            BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}">
-
-                        <!-- Card Content -->
-                        <Grid Padding="0">
-                            <!-- Status Bar for Default Model (Yellow) -->
-                            <BoxView HeightRequest="5"
-                                     VerticalOptions="Start"
-                                     HorizontalOptions="Fill"
-                                     Color="{StaticResource Warning}"
-                                     IsVisible="{Binding IsDefault}"/>
-
-                            <!-- Status Bar for Selected Model (Blue) -->
-                            <BoxView HeightRequest="5"
-                                     VerticalOptions="Start"
-                                     HorizontalOptions="Fill"
-                                     Color="{StaticResource Primary}"
-                                     IsVisible="{Binding IsSelected}"/>
-                                     
-                            <!-- Card Content Grid -->
-                            <Grid RowDefinitions="Auto,Auto,Auto"
-                                  RowSpacing="8"
-                                  Padding="16,16,16,14"
-                                  Margin="0,5,0,0">
-
-                                <!-- Model Header & Provider -->
-                                <Grid Grid.Row="0"
-                                      ColumnDefinitions="*,Auto">
-                                    <StackLayout Grid.Column="0"
-                                                 Orientation="Vertical"
-                                                 Spacing="4">
-                                        <!-- Model Name -->
-                                        <Label Text="{Binding ModelName}"
-                                               FontAttributes="Bold"
-                                               FontSize="18"
-                                               LineBreakMode="TailTruncation"/>
-
-                                        <!-- Provider with Icon -->
-                                        <StackLayout Orientation="Horizontal"
-                                                     Spacing="6">
-                                            <Label Text="&#xf1c0;"
-                                                   FontFamily="FontAwesome-Solid"
-                                                   FontSize="12"
-                                                   TextColor="{Binding ProviderName, Converter={StaticResource LocalProviderToColorConverter}}"
-                                                   VerticalOptions="Center"/>
-
-                                            <Label Text="{Binding ProviderName}"
-                                                   FontSize="14"
-                                                   TextColor="{Binding ProviderName, Converter={StaticResource LocalProviderToColorConverter}}"
-                                                   FontAttributes="Bold"
-                                                   VerticalOptions="Center"/>
-                                        </StackLayout>
-                                    </StackLayout>
-
-                                    <!-- Status Badges -->
-                                    <StackLayout Grid.Column="1"
-                                                 Orientation="Horizontal"
-                                                 Spacing="6"
-                                                 VerticalOptions="Start">
-
-                                        <!-- Default Badge with Star -->
-                                        <Border StrokeShape="RoundRectangle 12"
-                                                BackgroundColor="{AppThemeBinding Light={StaticResource DefaultBadgeBackground}, Dark={StaticResource DefaultBadgeBackgroundDark}}"
-                                                Padding="8,4"
-                                                IsVisible="{Binding IsDefault}">
-                                            <StackLayout Orientation="Horizontal"
-                                                         Spacing="4">
-                                                <Label Text="&#xf005;"
-                                                       FontFamily="FontAwesome-Solid"
-                                                       FontSize="12"
-                                                       TextColor="{StaticResource DefaultStarColor}"
-                                                       VerticalOptions="Center"/>
-
-                                                <Label Text="DEFAULT"
-                                                       TextColor="{AppThemeBinding Light={StaticResource DefaultBadgeText}, Dark={StaticResource DefaultBadgeTextDark}}"
-                                                       FontSize="11"
-                                                       FontAttributes="Bold"
-                                                       VerticalOptions="Center"/>
-                                            </StackLayout>
-                                        </Border>
-
-                                        <!-- Favourite Badge -->
-                                        <Border StrokeShape="RoundRectangle 12"
-                                                BackgroundColor="{AppThemeBinding Light={StaticResource StarButtonBackground}, Dark={StaticResource StarButtonBackgroundDark}}"
-                                                Padding="8,4"
-                                                IsVisible="{Binding IsFavourite}">
-                                            <StackLayout Orientation="Horizontal"
-                                                         Spacing="4">
-                                                <Label Text="&#xf005;"
-                                                       FontFamily="FontAwesome-Solid"
-                                                       FontSize="12"
-                                                       TextColor="{StaticResource Gold}"
-                                                       VerticalOptions="Center"/>
-
-                                                <Label Text="FAVOURITE"
-                                                       TextColor="{AppThemeBinding Light={StaticResource DefaultBadgeText}, Dark={StaticResource DefaultBadgeTextDark}}"
-                                                       FontSize="11"
-                                                       FontAttributes="Bold"
-                                                       VerticalOptions="Center"/>
-                                            </StackLayout>
-                                        </Border>
-
-                                        <!-- Selected Badge -->
-                                        <Border StrokeShape="RoundRectangle 12"
-                                                BackgroundColor="{AppThemeBinding Light={StaticResource SelectedBadgeBackground}, Dark={StaticResource SelectedBadgeBackgroundDark}}"
-                                                Padding="8,4"
-                                                IsVisible="{Binding IsSelected}">
-                                            <StackLayout Orientation="Horizontal"
-                                                         Spacing="4">
-                                                <Label Text="&#xf00c;"
-                                                       FontFamily="FontAwesome-Solid"
-                                                       FontSize="12"
-                                                       TextColor="{AppThemeBinding Light={StaticResource SelectedBadgeText}, Dark={StaticResource SelectedBadgeTextDark}}"
-                                                       VerticalOptions="Center"/>
-
-                                                <Label Text="CURRENT"
-                                                       TextColor="{AppThemeBinding Light={StaticResource SelectedBadgeText}, Dark={StaticResource SelectedBadgeTextDark}}"
-                                                       FontSize="11"
-                                                       FontAttributes="Bold"
-                                                       VerticalOptions="Center"/>
-                                            </StackLayout>
-                                        </Border>
-                                    </StackLayout>
-                                </Grid>
-
-                                <!-- Description & Capabilities -->
-                                <Grid Grid.Row="1"
-                                      RowDefinitions="Auto,Auto"
+        <!-- Main content -->
+        <Grid Grid.Row="1">
+            <!-- Loading indicator -->
+            <ActivityIndicator IsRunning="{Binding IsLoading}" 
+                               IsVisible="{Binding IsLoading}"
+                               HorizontalOptions="Center" 
+                               VerticalOptions="Center"
+                               Color="{AppThemeBinding Light=#0078D7, Dark=#0078D7}" />
+            
+            <!-- Empty state message -->
+            <StackLayout IsVisible="{Binding ShowNoResults}"
+                         VerticalOptions="Center"
+                         HorizontalOptions="Center"
+                         Spacing="8"
+                         Padding="20">
+                <Label Text="No models found" 
+                       FontSize="18" 
+                       HorizontalOptions="Center"
+                       TextColor="{AppThemeBinding Light=#999999, Dark=#999999}" />
+                <Label Text="Try adjusting your search or filters" 
+                       FontSize="14" 
+                       HorizontalOptions="Center"
+                       TextColor="{AppThemeBinding Light=#999999, Dark=#999999}" />
+            </StackLayout>
+            
+            <!-- Error message -->
+            <StackLayout IsVisible="{Binding HasError}"
+                         VerticalOptions="Center"
+                         HorizontalOptions="Center"
+                         Spacing="8"
+                         Padding="20">
+                <Label Text="Something went wrong" 
+                       FontSize="18" 
+                       HorizontalOptions="Center"
+                       TextColor="{AppThemeBinding Light=#e74c3c, Dark=#e74c3c}" />
+                <Label Text="{Binding ErrorMessage}" 
+                       FontSize="14" 
+                       HorizontalOptions="Center"
+                       TextColor="{AppThemeBinding Light=#e74c3c, Dark=#e74c3c}" />
+                <Button Text="Retry"
+                        Command="{Binding RefreshModelsFromProvidersCommand}"
+                        HorizontalOptions="Center"
+                        Margin="0,12,0,0" />
+            </StackLayout>
+            
+            <!-- AI Models list -->
+            <ScrollView x:Name="ModelsScrollView" 
+                       IsVisible="{Binding IsNotLoading}">
+                <CollectionView x:Name="ModelList"
+                              ItemsSource="{Binding Models}"
+                              SelectionMode="None"
+                              ItemsLayout="VerticalList"
+                              Margin="12,8">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="models:AIModel">
+                            <!-- Main container with selection border -->
+                            <Border x:Name="ModelCard"
+                                   Style="{StaticResource ModelCardStyle}"
+                                   Stroke="{Binding IsSelected, Converter={StaticResource BoolToColorConverter}, ConverterParameter='#0078D7;Transparent'}"
+                                   Opacity="{Binding IsAvailable, Converter={StaticResource BoolToColorConverter}, ConverterParameter='1.0;0.6'}"
+                                   Margin="4,8">
+                                
+                                <!-- We need to set stroke colors based on state -->
+                                <Border.Triggers>
+                                    <DataTrigger TargetType="Border" 
+                                                Binding="{Binding IsSelected}" 
+                                                Value="True">
+                                        <Setter Property="Stroke" Value="#0078D7" />
+                                        <Setter Property="StrokeThickness" Value="2" />
+                                    </DataTrigger>
+                                    <DataTrigger TargetType="Border" 
+                                                Binding="{Binding IsFavorite}" 
+                                                Value="True">
+                                        <Setter Property="Stroke" Value="#FFD700" />
+                                        <Setter Property="StrokeThickness" Value="2" />
+                                    </DataTrigger>
+                                    <DataTrigger TargetType="Border" 
+                                                Binding="{Binding IsDefault}" 
+                                                Value="True">
+                                        <Setter Property="Stroke" Value="#00CC6A" />
+                                        <Setter Property="StrokeThickness" Value="2" />
+                                    </DataTrigger>
+                                </Border.Triggers>
+                                
+                                <Grid ColumnDefinitions="Auto,*,Auto"
+                                      RowDefinitions="Auto,Auto,Auto,Auto"
+                                      ColumnSpacing="12"
                                       RowSpacing="8">
+                                    
+                                    <!-- Provider icon -->
+                                    <Border Grid.Column="0" Grid.Row="0"
+                                           HeightRequest="48" 
+                                           WidthRequest="48" 
+                                           StrokeShape="RoundRectangle 24,24,24,24"
+                                           Padding="0"
+                                           BackgroundColor="{Binding ProviderName, Converter={StaticResource ProviderToColorConverter}}"
+                                           HorizontalOptions="Start"
+                                           VerticalOptions="Start">
+                                        <Label Text="&#xf233;" 
+                                               FontFamily="FontAwesome-Solid"
+                                               FontSize="20" 
+                                               HorizontalOptions="Center"
+                                               VerticalOptions="Center"
+                                               TextColor="White" />
+                                    </Border>
+                                    
+                                    <!-- Model name and provider -->
+                                    <StackLayout Grid.Column="1" Grid.Row="0"
+                                                 Spacing="2"
+                                                 VerticalOptions="Start">
+                                        <Label Text="{Binding ModelName}" 
+                                               FontSize="16" 
+                                               FontAttributes="Bold"
+                                               LineBreakMode="TailTruncation" />
+                                        <Label Text="{Binding ProviderName}" 
+                                               FontSize="14" 
+                                               Opacity="0.7"
+                                               LineBreakMode="TailTruncation" />
+                                    </StackLayout>
+                                    
+                                    <!-- Favorite button with StarColorConverter -->
+                                    <Button Grid.Column="2" Grid.Row="0"
+                                            BackgroundColor="Transparent"
+                                            BorderColor="Transparent"
+                                            Text="&#xf005;"
+                                            FontFamily="FontAwesome-Solid"
+                                            FontSize="22"
+                                            Padding="4"
+                                            WidthRequest="40"
+                                            HeightRequest="40"
+                                            CornerRadius="20"
+                                            HorizontalOptions="End"
+                                            VerticalOptions="Center"
+                                            TextColor="{Binding IsFavorite, Converter={StaticResource StarColorConverter}}"
+                                            Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:AIModelsViewModel}}, Path=ToggleFavoriteCommand}"
+                                            CommandParameter="{Binding}" />
+                                    
                                     <!-- Description -->
-                                    <Label Grid.Row="0"
-                                           Text="{Binding Description}"
-                                           FontSize="14"
-                                           MaxLines="2"
+                                    <Label Grid.Column="0" Grid.ColumnSpan="3" Grid.Row="1"
+                                           Text="{Binding Description}" 
+                                           FontSize="13" 
                                            LineBreakMode="TailTruncation"
-                                           TextColor="{AppThemeBinding Light={StaticResource SecondaryTextColor}, Dark={StaticResource SecondaryTextColorDark}}"/>
-
-                                    <!-- Capability Badges -->
-                                    <FlexLayout Grid.Row="1"
+                                           MaxLines="2"
+                                           Opacity="0.8" />
+                                    
+                                    <!-- Status badges -->
+                                    <FlexLayout Grid.Column="0" Grid.ColumnSpan="3" Grid.Row="2"
                                                 Direction="Row"
                                                 Wrap="Wrap"
                                                 JustifyContent="Start"
                                                 AlignItems="Center"
-                                                AlignContent="Start"
-                                                Padding="0,2"
-                                                Margin="0">
-
-                                        <!-- Tokens Badge -->
-                                        <Border StrokeShape="RoundRectangle 12"
-                                                BackgroundColor="{AppThemeBinding Light={StaticResource Gray100}, Dark={StaticResource Gray800}}"
-                                                Padding="8,4"
-                                                Margin="0,0,6,6">
-                                            <StackLayout Orientation="Horizontal"
-                                                         Spacing="4">
-                                                <Label Text="&#xf201;"
+                                                AlignContent="Start">
+                                        
+                                        <!-- Selected badge -->
+                                        <Border IsVisible="{Binding IsSelected}"
+                                               BackgroundColor="{StaticResource SelectedBadgeColor}"
+                                               Style="{StaticResource BadgeStyle}">
+                                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="4">
+                                                <Label Grid.Column="0" 
+                                                       Text="&#xf00c;" 
                                                        FontFamily="FontAwesome-Solid"
                                                        FontSize="10"
-                                                       TextColor="{AppThemeBinding Light={StaticResource SecondaryTextColor}, Dark={StaticResource SecondaryTextColorDark}}"
-                                                       VerticalOptions="Center"/>
-
-                                                <Label Text="{Binding MaxTokens, StringFormat='{0:N0} tokens'}"
-                                                       TextColor="{AppThemeBinding Light={StaticResource SecondaryTextColor}, Dark={StaticResource SecondaryTextColorDark}}"
-                                                       FontSize="12"
-                                                       VerticalOptions="Center"/>
-                                            </StackLayout>
+                                                       TextColor="White"
+                                                       VerticalOptions="Center" />
+                                                <Label Grid.Column="1"
+                                                       Text="Current" 
+                                                       Style="{StaticResource BadgeLabelStyle}" />
+                                            </Grid>
                                         </Border>
-
-                                        <!-- Context Window Badge -->
-                                        <Border StrokeShape="RoundRectangle 12"
-                                                BackgroundColor="{AppThemeBinding Light={StaticResource Gray100}, Dark={StaticResource Gray800}}"
-                                                Padding="8,4"
-                                                Margin="0,0,6,6">
-                                            <StackLayout Orientation="Horizontal"
-                                                         Spacing="4">
-                                                <Label Text="&#xf07c;"
+                                        
+                                        <!-- Favorite badge -->
+                                        <Border IsVisible="{Binding IsFavorite}"
+                                               BackgroundColor="{StaticResource FavoriteBadgeColor}"
+                                               Style="{StaticResource BadgeStyle}">
+                                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="4">
+                                                <Label Grid.Column="0" 
+                                                       Text="&#xf005;" 
                                                        FontFamily="FontAwesome-Solid"
                                                        FontSize="10"
-                                                       TextColor="{AppThemeBinding Light={StaticResource SecondaryTextColor}, Dark={StaticResource SecondaryTextColorDark}}"
-                                                       VerticalOptions="Center"/>
-
-                                                <Label Text="{Binding MaxContextWindow, StringFormat='{0:N0} context'}"
-                                                       TextColor="{AppThemeBinding Light={StaticResource SecondaryTextColor}, Dark={StaticResource SecondaryTextColorDark}}"
-                                                       FontSize="12"
-                                                       VerticalOptions="Center"/>
-                                            </StackLayout>
+                                                       TextColor="Black"
+                                                       VerticalOptions="Center" />
+                                                <Label Grid.Column="1"
+                                                       Text="Favorite" 
+                                                       TextColor="Black"
+                                                       Style="{StaticResource BadgeLabelStyle}" />
+                                            </Grid>
                                         </Border>
-
-                                        <!-- Streaming Badge -->
-                                        <Border StrokeShape="RoundRectangle 12"
-                                                BackgroundColor="{AppThemeBinding Light={StaticResource StreamingBadgeBackground}, Dark={StaticResource StreamingBadgeBackgroundDark}}"
-                                                Padding="8,4"
-                                                Margin="0,0,6,6"
-                                                IsVisible="{Binding SupportsStreaming}">
-                                            <StackLayout Orientation="Horizontal"
-                                                         Spacing="4">
-                                                <Label Text="&#xf045;"
+                                        
+                                        <!-- Default badge -->
+                                        <Border IsVisible="{Binding IsDefault}"
+                                               BackgroundColor="{StaticResource DefaultBadgeColor}"
+                                               Style="{StaticResource BadgeStyle}">
+                                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="4">
+                                                <Label Grid.Column="0" 
+                                                       Text="&#xf015;" 
                                                        FontFamily="FontAwesome-Solid"
                                                        FontSize="10"
-                                                       TextColor="{AppThemeBinding Light={StaticResource StreamingBadgeText}, Dark={StaticResource StreamingBadgeTextDark}}"
-                                                       VerticalOptions="Center"/>
-
-                                                <Label Text="STREAMING"
-                                                       TextColor="{AppThemeBinding Light={StaticResource StreamingBadgeText}, Dark={StaticResource StreamingBadgeTextDark}}"
-                                                       FontSize="12"
-                                                       VerticalOptions="Center"/>
-                                            </StackLayout>
+                                                       TextColor="White"
+                                                       VerticalOptions="Center" />
+                                                <Label Grid.Column="1"
+                                                       Text="Default" 
+                                                       Style="{StaticResource BadgeLabelStyle}" />
+                                            </Grid>
                                         </Border>
-
-                                        <!-- Temperature Badge -->
-                                        <Border StrokeShape="RoundRectangle 12"
-                                                BackgroundColor="{AppThemeBinding Light={StaticResource TemperatureBadgeBackground}, Dark={StaticResource TemperatureBadgeBackgroundDark}}"
-                                                Padding="8,4"
-                                                Margin="0,0,6,6">
-                                            <StackLayout Orientation="Horizontal"
-                                                         Spacing="4">
-                                                <Label Text="&#xf2c9;"
+                                        
+                                        <!-- Streaming badge -->
+                                        <Border IsVisible="{Binding SupportsStreaming}"
+                                               BackgroundColor="{StaticResource StreamingBadgeColor}"
+                                               Style="{StaticResource BadgeStyle}">
+                                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="4">
+                                                <Label Grid.Column="0" 
+                                                       Text="&#xf027;" 
                                                        FontFamily="FontAwesome-Solid"
                                                        FontSize="10"
-                                                       TextColor="{AppThemeBinding Light={StaticResource TemperatureText}, Dark={StaticResource TemperatureTextDark}}"
-                                                       VerticalOptions="Center"/>
-
-                                                <Label Text="{Binding DefaultTemperature, StringFormat='Temp {0:F1}'}"
-                                                       TextColor="{AppThemeBinding Light={StaticResource TemperatureText}, Dark={StaticResource TemperatureTextDark}}"
-                                                       FontSize="12"
-                                                       VerticalOptions="Center"/>
-                                            </StackLayout>
+                                                       TextColor="White"
+                                                       VerticalOptions="Center" />
+                                                <Label Grid.Column="1"
+                                                       Text="Streaming" 
+                                                       Style="{StaticResource BadgeLabelStyle}" />
+                                            </Grid>
+                                        </Border>
+                                        
+                                        <!-- Vision badge -->
+                                        <Border IsVisible="{Binding SupportsVision}"
+                                               BackgroundColor="{StaticResource VisionBadgeColor}"
+                                               Style="{StaticResource BadgeStyle}">
+                                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="4">
+                                                <Label Grid.Column="0" 
+                                                       Text="&#xf06e;" 
+                                                       FontFamily="FontAwesome-Solid"
+                                                       FontSize="10"
+                                                       TextColor="White"
+                                                       VerticalOptions="Center" />
+                                                <Label Grid.Column="1"
+                                                       Text="Vision" 
+                                                       Style="{StaticResource BadgeLabelStyle}" />
+                                            </Grid>
+                                        </Border>
+                                        
+                                        <!-- Code badge -->
+                                        <Border IsVisible="{Binding SupportsCodeCompletion}"
+                                               BackgroundColor="{StaticResource CodeCompletionBadgeColor}"
+                                               Style="{StaticResource BadgeStyle}">
+                                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="4">
+                                                <Label Grid.Column="0" 
+                                                       Text="&#xf121;" 
+                                                       FontFamily="FontAwesome-Solid"
+                                                       FontSize="10"
+                                                       TextColor="White"
+                                                       VerticalOptions="Center" />
+                                                <Label Grid.Column="1"
+                                                       Text="Code" 
+                                                       Style="{StaticResource BadgeLabelStyle}" />
+                                            </Grid>
                                         </Border>
                                     </FlexLayout>
-                                </Grid>
-
-                                <!-- Action Bar -->
-                                <Grid Grid.Row="2"
-                                      ColumnDefinitions="Auto,*,Auto"
-                                      ColumnSpacing="12"
-                                      Margin="0,8,0,0">
-
-                                    <!-- Star/Favorite Button - Fixed centering -->
-                                    <Grid Grid.Column="0" 
-                                          HorizontalOptions="Center" 
-                                          VerticalOptions="Center">
-                                        <Label Text="&#xf005;"
-                                               FontFamily="FontAwesome-Solid"
-                                               FontSize="22"
-                                               TextColor="{Binding IsFavourite, Converter={StaticResource DefaultStarColorConverter}}"
-                                               HorizontalTextAlignment="Center"
-                                               VerticalTextAlignment="Center"
-                                               WidthRequest="48" 
-                                               HeightRequest="48"/>
-                                        <Grid.GestureRecognizers>
-                                            <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type vm:AIModelsViewModel}}, Path=ToggleFavoriteCommand}"
-                                                                  CommandParameter="{Binding Id}"/>
-                                        </Grid.GestureRecognizers>
+                                    
+                                    <!-- Action buttons -->
+                                    <Grid Grid.Column="0" Grid.ColumnSpan="3" Grid.Row="3"
+                                          ColumnDefinitions="*,Auto,Auto"
+                                          ColumnSpacing="8">
+                                        
+                                        <!-- Select button -->
+                                        <Button Grid.Column="0"
+                                                Text="Select"
+                                                Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:AIModelsViewModel}}, Path=SelectModelCommand}"
+                                                CommandParameter="{Binding}"
+                                                IsEnabled="{Binding IsAvailable}"
+                                                BackgroundColor="{AppThemeBinding Light=#0078D7, Dark=#0078D7}"
+                                                TextColor="White"
+                                                Style="{StaticResource ActionButtonStyle}"
+                                                HorizontalOptions="Fill" />
+                                        
+                                        <!-- Set default button -->
+                                        <Button Grid.Column="1"
+                                                Text="Default"
+                                                Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:AIModelsViewModel}}, Path=SetDefaultModelCommand}"
+                                                CommandParameter="{Binding}"
+                                                IsEnabled="{Binding IsAvailable}"
+                                                BackgroundColor="Transparent"
+                                                BorderColor="{AppThemeBinding Light=#0078D7, Dark=#0078D7}"
+                                                TextColor="{AppThemeBinding Light=#0078D7, Dark=#0078D7}"
+                                                Style="{StaticResource ActionButtonStyle}"
+                                                WidthRequest="80" />
+                                        
+                                        <!-- Info button -->
+                                        <Button Grid.Column="2"
+                                                Text="&#xf129;"
+                                                FontFamily="FontAwesome-Solid"
+                                                Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:AIModelsViewModel}}, Path=ShowModelInfoCommand}"
+                                                CommandParameter="{Binding}"
+                                                BackgroundColor="Transparent"
+                                                BorderColor="Transparent"
+                                                TextColor="{AppThemeBinding Light=#555555, Dark=#cccccc}"
+                                                WidthRequest="36"
+                                                HeightRequest="36"
+                                                CornerRadius="18"
+                                                FontSize="16"
+                                                Padding="0" />
                                     </Grid>
-
-                                    <!-- SELECT MODEL BUTTON - Fixed colors for light mode -->
-                                    <Border Grid.Column="1"
-                                            Shadow="{StaticResource MediumShadow}"
-                                            StrokeShape="RoundRectangle 10"
-                                            Padding="0"
-                                            Stroke="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray600}}"
-                                            StrokeThickness="1"
-                                            BackgroundColor="{Binding IsSelected, Converter={StaticResource LocalBoolToColorConverter}, ConverterParameter='{StaticResource Primary},{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray700}}'}">
-
-                                        <Grid>
-                                            <!-- Button Text - Fixed text color -->
-                                            <Label Text="{Binding IsSelected, Converter={StaticResource LocalBoolToStringConverter}}"
-                                                   TextColor="{Binding IsSelected, Converter={StaticResource BoolToColorConverter}, 
-                                                            ConverterParameter='{StaticResource PrimaryTextColorDark},{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}'}"
-                                                   FontAttributes="Bold"
-                                                   FontSize="14"
-                                                   HorizontalOptions="Center"
-                                                   VerticalOptions="Center"
-                                                   Margin="0,10"/>
-
-                                            <!-- Button Icon - Fixed icon color -->
-                                            <Label Text="{Binding IsSelected, Converter={StaticResource SelectedIconConverter}}"
-                                                   FontFamily="FontAwesome-Solid"
-                                                   TextColor="{Binding IsSelected, Converter={StaticResource BoolToColorConverter}, 
-                                                            ConverterParameter='{StaticResource PrimaryTextColorDark},{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}'}"
-                                                   FontSize="14"
-                                                   HorizontalOptions="End"
-                                                   VerticalOptions="Center"
-                                                   Margin="0,0,15,0"
-                                                   Opacity="0.8"/>
-                                        </Grid>
-
-                                        <Border.GestureRecognizers>
-                                            <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type vm:AIModelsViewModel}}, Path=SelectModelCommand}"
-                                                                  CommandParameter="{Binding}"/>
-                                        </Border.GestureRecognizers>
-                                    </Border>
-
-                                    <!-- Info Button -->
-                                    <Button Grid.Column="2"
-                                            Text="&#xf05a;"
-                                            FontFamily="FontAwesome-Solid"
-                                            FontSize="20"
-                                            TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}"
-                                            BackgroundColor="{AppThemeBinding Light={StaticResource Gray100}, Dark={StaticResource Gray700}}"
-                                            Command="{Binding Source={RelativeSource AncestorType={x:Type vm:AIModelsViewModel}}, Path=ShowModelInfoCommand}"
-                                            CommandParameter="{Binding}"
-                                            HeightRequest="40"
-                                            WidthRequest="40"
-                                            CornerRadius="20"
-                                            Padding="0"
-                                            BorderWidth="0"
-                                            HorizontalOptions="Center"
-                                            VerticalOptions="Center"/>
                                 </Grid>
-                            </Grid>
-                        </Grid>
-                    </Border>
-                </DataTemplate>
-            </CollectionView.ItemTemplate>
-        </CollectionView>
-
-        <!-- Activity Indicator -->
-        <ActivityIndicator HorizontalOptions="Center"
-                           VerticalOptions="Center"
-                           IsRunning="{Binding IsLoading}"
-                           IsVisible="{Binding IsLoading}"/>
-
-        <!-- No Results Message -->
-        <Label Text="No models found. Try a different search or check your configuration."
-               IsVisible="{Binding ShowNoResults}"
-               HorizontalOptions="Center"
-               VerticalOptions="Center"/>
-
-        <!-- Notification Toast -->
-        <Grid IsVisible="{Binding ShowActionResult}"
-              BackgroundColor="Transparent"
-              InputTransparent="True"
-              VerticalOptions="End"
-              Margin="0,0,0,20">
-
-            <Border x:Name="NotificationBorder"
-                    StrokeShape="RoundRectangle 28"
-                    BackgroundColor="{AppThemeBinding Light=#333333, Dark=#1E1E1E}"
-                    Padding="20,12"
-                    WidthRequest="320"
-                    HorizontalOptions="Center"
-                    Opacity="{Binding NotificationOpacity}"
-                    Scale="{Binding NotificationScale}"
-                    Shadow="{StaticResource MediumShadow}">
-
-                <Grid ColumnDefinitions="Auto,*">
-                    <Label Grid.Column="0"
-                           Text="&#xf058;"
-                           FontFamily="FontAwesome-Solid"
-                           TextColor="{StaticResource Success}"
-                           FontSize="18"
-                           Margin="0,0,12,0"
-                           VerticalOptions="Center"/>
-
-                    <Label Grid.Column="1"
-                           Text="{Binding LastActionResult}"
-                           TextColor="White"
-                           FontSize="15"
-                           VerticalOptions="Center"/>
-                </Grid>
-            </Border>
+                            </Border>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+            </ScrollView>
         </Grid>
+        
+        <!-- Footer with API key management -->
+        <Grid Grid.Row="2" 
+              BackgroundColor="{AppThemeBinding Light=#f5f5f5, Dark=#1e1e1e}" 
+              Padding="16,12"
+              ColumnDefinitions="*,Auto">
+            
+            <Label Grid.Column="0"
+                   Text="Missing API key?" 
+                   VerticalOptions="Center"
+                   FontSize="14"
+                   TextColor="{AppThemeBinding Light=#555555, Dark=#cccccc}" />
+                   
+            <Button Grid.Column="1"
+                    Text="Add API Key" 
+                    Clicked="OnAddApiKeyClicked"
+                    BackgroundColor="{AppThemeBinding Light=#0078D7, Dark=#0078D7}"
+                    TextColor="White"
+                    CornerRadius="8"
+                    FontSize="14"
+                    HeightRequest="36"
+                    Padding="12,0" />
+        </Grid>
+        
+        <!-- Notification toast -->
+        <Border Grid.Row="1" 
+                x:Name="NotificationToast"
+                IsVisible="{Binding ShowActionResult}"
+                BackgroundColor="{AppThemeBinding Light=#333333, Dark=#e0e0e0}"
+                Opacity="{Binding NotificationOpacity}"
+                StrokeThickness="0"
+                StrokeShape="RoundRectangle 12,12,12,12"
+                Margin="0,0,0,20"
+                Padding="16,10"
+                WidthRequest="280"
+                HorizontalOptions="Center"
+                VerticalOptions="End">
+            <Label Text="{Binding LastActionResult}"
+                   TextColor="{AppThemeBinding Light=White, Dark=#333333}"
+                   HorizontalTextAlignment="Center"
+                   VerticalTextAlignment="Center"
+                   FontSize="14" />
+        </Border>
     </Grid>
 </ContentPage>

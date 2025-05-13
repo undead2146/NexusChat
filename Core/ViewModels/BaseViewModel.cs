@@ -2,20 +2,32 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using System;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 
 namespace NexusChat.Core.ViewModels
 {
     /// <summary>
-    /// Base ViewModel providing common functionality for all ViewModels
+    /// Base class for all view models
     /// </summary>
     public abstract partial class BaseViewModel : ObservableObject
     {
+        private string _title;
+
         [ObservableProperty]
         private bool _isBusy;
 
         [ObservableProperty]
         private string _statusMessage;
+
+        /// <summary>
+        /// Gets or sets the page title
+        /// </summary>
+        public string Title
+        {
+            get => _title;
+            set => SetProperty(ref _title, value);
+        }
 
         /// <summary>
         /// Gets whether the ViewModel is not busy
@@ -77,10 +89,10 @@ namespace NexusChat.Core.ViewModels
             try
             {
                 IsBusy = true;
-                
+
                 if (!string.IsNullOrEmpty(initialStatus))
                     StatusMessage = initialStatus;
-                
+
                 await operation();
             }
             catch (Exception ex)
@@ -98,6 +110,14 @@ namespace NexusChat.Core.ViewModels
         partial void OnIsBusyChanged(bool value)
         {
             OnPropertyChanged(nameof(IsNotBusy));
+        }
+
+        /// <summary>
+        /// Easy way to raise property changed with CallerMemberName attribute
+        /// </summary>
+        protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
+        {
+            OnPropertyChanged(new System.ComponentModel.PropertyChangedEventArgs(propertyName));
         }
     }
 }

@@ -13,11 +13,11 @@ namespace NexusChat.Services.AIProviders.Implementations
     /// <summary>
     /// Base class for all AI service implementations
     /// </summary>
-    public abstract class BaseAIService : IAIService
+    public abstract class BaseAIService : IAIProviderService
     {
         protected readonly IApiKeyManager ApiKeyManager;
         protected readonly HttpClient HttpClient;
-        protected readonly ModelCapabilities Capabilities;
+        protected readonly AIModel Model;
         
         /// <summary>
         /// Gets the name of the model
@@ -32,22 +32,22 @@ namespace NexusChat.Services.AIProviders.Implementations
         /// <summary>
         /// Gets whether streaming is supported
         /// </summary>
-        public virtual bool SupportsStreaming => Capabilities?.SupportsStreaming ?? true;
+        public virtual bool SupportsStreaming => Model?.SupportsStreaming ?? true;
         
         /// <summary>
         /// Gets the maximum context window size
         /// </summary>
-        public virtual int MaxContextWindow => Capabilities?.MaxContextWindow ?? 8192;
+        public virtual int MaxContextWindow => Model?.MaxContextWindow ?? 8192;
 
         /// <summary>
         /// Creates a new instance of the base AI service
         /// </summary>
         /// <param name="apiKeyManager">The API key manager</param>
-        protected BaseAIService(IApiKeyManager apiKeyManager, ModelCapabilities capabilities = null)
+        protected BaseAIService(IApiKeyManager apiKeyManager, AIModel model = null)
         {
             ApiKeyManager = apiKeyManager ?? throw new ArgumentNullException(nameof(apiKeyManager));
             HttpClient = new HttpClient();
-            Capabilities = capabilities ?? new ModelCapabilities();
+            Model = model ?? new AIModel();
             
             // Configure common HTTP client settings
             ConfigureHttpClient();
@@ -76,9 +76,9 @@ namespace NexusChat.Services.AIProviders.Implementations
         /// <summary>
         /// Gets the capabilities of the model
         /// </summary>
-        public virtual Task<ModelCapabilities> GetCapabilitiesAsync()
+        public virtual Task<AIModel> GetCapabilitiesAsync()
         {
-            return Task.FromResult(Capabilities);
+            return Task.FromResult(Model);
         }
 
         /// <summary>
@@ -128,6 +128,10 @@ namespace NexusChat.Services.AIProviders.Implementations
                     ModelName = ModelName
                 };
             }
+        }
+
+        public Task<Stream> SendStreamedMessageAsync(string prompt, Action<string> onMessageUpdate, CancellationToken cancellationToken) {
+            throw new NotImplementedException();
         }
     }
 

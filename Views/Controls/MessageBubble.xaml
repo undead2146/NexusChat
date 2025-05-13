@@ -36,12 +36,12 @@
 
     <Grid ColumnDefinitions="Auto,*,Auto" Margin="5" HorizontalOptions="{Binding IsAI, Source={x:Reference this}, Converter={StaticResource BoolToAlignmentConverter}}">
         <!-- Author Icon (only for AI) -->
-        <Frame Grid.Column="0" 
-               CornerRadius="15"
+        <Border Grid.Column="0" 
+               StrokeShape="RoundRectangle 15,15,15,15"
                HeightRequest="30"
                WidthRequest="30"
                Padding="0"
-               IsClippedToBounds="True"
+               StrokeThickness="0"
                BackgroundColor="White"
                Margin="0,0,5,0"
                VerticalOptions="Start"
@@ -52,7 +52,7 @@
                     WidthRequest="26"
                     HorizontalOptions="Center"
                     VerticalOptions="Center" />
-        </Frame>
+        </Border>
 
         <!-- Message Content -->
         <VerticalStackLayout Grid.Column="1" Spacing="5">
@@ -64,27 +64,26 @@
                    IsVisible="{Binding IsAI, Source={x:Reference this}}" />
 
             <!-- Message Bubble -->
-            <Frame x:Name="MessageFrame"
+            <Border x:Name="MessageFrame"
                    Padding="10"
-                   HasShadow="False"
-                   CornerRadius="12"
-                   BorderColor="Transparent">
+                   StrokeThickness="0"
+                   StrokeShape="RoundRectangle 12,12,12,12">
                 
                 <!-- Setup the frame background color -->
-                <Frame.Triggers>
-                    <DataTrigger TargetType="Frame"
+                <Border.Triggers>
+                    <DataTrigger TargetType="Border"
                                  Binding="{Binding IsAI, Source={x:Reference this}}"
                                  Value="True">
                         <Setter Property="BackgroundColor" 
                                 Value="{AppThemeBinding Light={StaticResource AILightBubbleColor}, Dark={StaticResource AIDarkBubbleColor}}" />
                     </DataTrigger>
-                    <DataTrigger TargetType="Frame"
+                    <DataTrigger TargetType="Border"
                                  Binding="{Binding IsAI, Source={x:Reference this}}"
                                  Value="False">
                         <Setter Property="BackgroundColor" 
                                 Value="{AppThemeBinding Light={StaticResource UserLightBubbleColor}, Dark={StaticResource UserDarkBubbleColor}}" />
                     </DataTrigger>
-                </Frame.Triggers>
+                </Border.Triggers>
                 
                 <VerticalStackLayout>
                     <!-- Thinking indicator display -->
@@ -95,7 +94,8 @@
                     <!-- Message Content -->
                     <Label x:Name="ContentLabel"
                            Text="{Binding MessageContent, Source={x:Reference this}}"
-                           LineBreakMode="WordWrap">
+                           LineBreakMode="WordWrap"
+                           TextType="Text">
                         <Label.Triggers>
                             <DataTrigger TargetType="Label"
                                          Binding="{Binding IsAI, Source={x:Reference this}}"
@@ -132,17 +132,30 @@
                             </DataTrigger>
                         </Label.Triggers>
                     </Label>
+                    
+                    <!-- Regenerate button for AI messages -->
+                    <Button Text="&#xf2f9;"
+                           FontFamily="FontAwesome-Solid"
+                           FontSize="14"
+                           Padding="8,2"
+                           Margin="0,4,0,0"
+                           BackgroundColor="Transparent"
+                           TextColor="{AppThemeBinding Light=#999999, Dark=#CCCCCC}"
+                           HorizontalOptions="End"
+                           IsVisible="{Binding IsAI, Source={x:Reference this}}"
+                           Command="{Binding Source={x:Reference this}, Path=RegenerateCommand}"
+                           CommandParameter="{Binding Source={x:Reference this}, Path=Message}" />
                 </VerticalStackLayout>
-            </Frame>
+            </Border>
         </VerticalStackLayout>
 
         <!-- User Icon (only for user messages) -->
-        <Frame Grid.Column="2" 
-               CornerRadius="15"
+        <Border Grid.Column="2" 
+               StrokeShape="RoundRectangle 15,15,15,15"
                HeightRequest="30"
                WidthRequest="30"
                Padding="0"
-               IsClippedToBounds="True"
+               StrokeThickness="0"
                BackgroundColor="{AppThemeBinding Light=#007AFF, Dark=#0A84FF}"
                Margin="5,0,0,0"
                VerticalOptions="Start"
@@ -153,6 +166,6 @@
                    HorizontalOptions="Center"
                    VerticalOptions="Center"
                    FontSize="16" />
-        </Frame>
+        </Border>
     </Grid>
 </ContentView>

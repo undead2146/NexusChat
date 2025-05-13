@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Text;
 using System.Threading;
@@ -9,170 +11,193 @@ using NexusChat.Services.Interfaces;
 namespace NexusChat.Services.AIProviders.Implementations
 {
     /// <summary>
-    /// A dummy AI service for testing and development
+    /// A dummy AI service for testing that doesn't make actual API calls
     /// </summary>
-    public class DummyAIService : IAIService
+    public class DummyAIService : BaseAIService
     {
+        private readonly string _selectedModel;
+        private static readonly Dictionary<string, AIModel> _models = new Dictionary<string, AIModel>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["dummygpt"] = new AIModel 
+            { 
+                ModelName = "dummygpt", 
+                ProviderName = "Dummy", 
+                Description = "Fake model for testing",
+                MaxTokens = 2000,
+                MaxContextWindow = 8000,
+                SupportsStreaming = true,
+                DefaultTemperature = 0.7f,
+                IsAvailable = true
+            }
+        };
+        
         private readonly Random _random = new Random();
-        private readonly string _modelName;
-        private readonly ModelCapabilities _capabilities;
 
-        /// <summary>
-        /// Gets the name of the model
-        /// </summary>
-        public string ModelName => _modelName;
-
-        /// <summary>
-        /// Gets the provider name
-        /// </summary>
-        public string ProviderName => "Dummy";
-
-        /// <summary>
-        /// Gets whether streaming is supported
-        /// </summary>
-        public bool SupportsStreaming => _capabilities.SupportsStreaming;
-
-        /// <summary>
-        /// Gets the maximum context window size
-        /// </summary>
-        public int MaxContextWindow => _capabilities.MaxContextWindow;
-
+        public override string ModelName => _selectedModel;
+        public override string ProviderName => "Dummy";
+        
         /// <summary>
         /// Creates a new instance of DummyAIService
         /// </summary>
-        /// <param name="modelName">The name of the model to simulate</param>
-        public DummyAIService(string modelName = "DummyModel")
+        public DummyAIService(IApiKeyManager apiKeyManager, string modelName = "dummygpt")
+            : base(apiKeyManager, _models.TryGetValue(modelName ?? "dummygpt", out var model) ? model : null)
         {
-            _modelName = modelName;
-            _capabilities = new ModelCapabilities
+            _selectedModel = modelName ?? "dummygpt";
+        }
+        
+        /// <summary>
+        /// Gets capabilities of the selected model
+        /// </summary>
+        public AIModel GetModelCapabilities(string modelName)
+        {
+            if (_models.TryGetValue(modelName, out var model))
             {
-                MaxTokens = 4096,
-                MaxContextWindow = 8192,
-                DefaultTemperature = 0.7f,
-                SupportsCodeCompletion = true,
-                SupportsImageGeneration = false,
-                SupportsFunctionCalling = false,
-                SupportsStreaming = true,
-                SupportedLanguages = new[] { "en" }
-            };
+                return model;
+            }
+            
+            return null;
+        }
+        
+        /// <summary>
+        /// Gets all available models
+        /// </summary>
+        public List<AIModel> GetAvailableModels()
+        {
+            var models = new List<AIModel>();
+            
+            foreach (var entry in _models)
+            {
+                models.Add(entry.Value);
+            }
+            
+            return models;
         }
 
         /// <summary>
         /// Sends a message to the dummy AI service
         /// </summary>
-        public async Task<string> SendMessageAsync(string prompt, CancellationToken cancellationToken)
+        public override async Task<string> SendMessageAsync(string prompt, CancellationToken cancellationToken)
         {
-            // Simulate processing delay
-            int delayMs = _random.Next(500, 2000);
-            await Task.Delay(delayMs, cancellationToken);
-
-            // Handle empty prompts
-            if (string.IsNullOrWhiteSpace(prompt))
-            {
-                return "I didn't receive any input. How can I help you?";
-            }
-
-            // Generate response based on prompt content
-            string lowercasePrompt = prompt.ToLowerInvariant();
-
-            if (cancellationToken.IsCancellationRequested)
-            {
-                return "The operation was canceled.";
-            }
-
-            if (lowercasePrompt.Contains("hello") || lowercasePrompt.Contains("hi"))
-            {
-                return "Hello! I'm a dummy AI assistant. How can I help you today?";
-            }
-            else if (lowercasePrompt.Contains("name"))
-            {
-                return "My name is DummyGPT, a simulated AI assistant for development purposes.";
-            }
-            else if (lowercasePrompt.Contains("weather"))
-            {
-                return "I'm sorry, I can't check the weather as I'm just a dummy assistant for testing.";
-            }
-            else if (lowercasePrompt.Contains("help"))
-            {
-                return "I'm a dummy assistant created for development and testing. I can simulate responses but don't have actual AI capabilities.";
-            }
-            else if (lowercasePrompt.Contains("code") || lowercasePrompt.Contains("programming"))
-            {
-                return "Here's a sample code snippet for testing:\n\n```csharp\npublic class HelloWorld\n{\n    public static void Main()\n    {\n        Console.WriteLine(\"Hello, World!\");\n    }\n}\n```";
-            }
-            else
-            {
-                return $"This is a simulated response from the dummy AI service using model '{ModelName}'. Your input was: \"{prompt}\"";
-            }
+            // Simulate network delay
+            int delay = _random.Next(300, 1500);
+            await Task.Delay(delay, cancellationToken);
+            
+            // Check for cancellation
+            cancellationToken.ThrowIfCancellationRequested();
+            
+            // Generate dummy response
+            string response = GenerateDummyResponse(prompt);
+            
+            Debug.WriteLine($"DummyAIService generated response in {delay}ms");
+            return response;
         }
 
         /// <summary>
-        /// Sends a message to the dummy AI and simulates streaming the response
+        /// Sends a message with streaming response
         /// </summary>
-        public async Task<Stream> SendStreamedMessageAsync(string prompt, CancellationToken cancellationToken, Action<string> onMessageUpdate)
+        public override async Task<Stream> SendStreamedMessageAsync(string prompt, CancellationToken cancellationToken, Action<string> onMessageUpdate)
         {
-            // Generate the complete response first
-            string completeResponse = await SendMessageAsync(prompt, cancellationToken);
+            // Simulate streaming response
+            string[] words = GenerateDummyResponse(prompt).Split(' ');
+            var responseStream = new MemoryStream();
+            var writer = new StreamWriter(responseStream);
             
-            // Split it into chunks to simulate streaming
-            await SimulateStreamingResponse(completeResponse, onMessageUpdate, cancellationToken);
-            
-            // Return the complete response as a stream
-            byte[] responseBytes = Encoding.UTF8.GetBytes(completeResponse);
-            return new MemoryStream(responseBytes);
-        }
-
-        /// <summary>
-        /// Gets the capabilities of the dummy model
-        /// </summary>
-        public Task<ModelCapabilities> GetCapabilitiesAsync()
-        {
-            return Task.FromResult(_capabilities);
-        }
-
-        /// <summary>
-        /// Estimates tokens in the provided text
-        /// </summary>
-        public int EstimateTokens(string text)
-        {
-            if (string.IsNullOrEmpty(text))
-                return 0;
-            
-            // Simple estimation: ~4 characters per token on average
-            return text.Length / 4 + 1;
-        }
-
-        /// <summary>
-        /// Simulates streaming a response by sending it in chunks
-        /// </summary>
-        private async Task SimulateStreamingResponse(string response, Action<string> onMessageUpdate, CancellationToken cancellationToken)
-        {
-            // Split the response into words
-            string[] words = response.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            
-            StringBuilder builder = new StringBuilder();
-            
-            // Send words in chunks of 1-5 words at a time
-            for (int i = 0; i < words.Length; i++)
+            // Process stream in background with word-by-word updates
+            _ = Task.Run(async () =>
             {
-                if (cancellationToken.IsCancellationRequested)
-                    return;
-
-                // Add current word
-                builder.Append(words[i]);
-                if (i < words.Length - 1)
-                    builder.Append(' '); // Add space if not the last word
+                var fullResponse = new StringBuilder();
                 
-                // Send update every 1-5 words or at the end
-                if (i % _random.Next(1, 6) == 0 || i == words.Length - 1)
+                foreach (string word in words)
                 {
-                    onMessageUpdate?.Invoke(builder.ToString());
+                    if (cancellationToken.IsCancellationRequested)
+                        break;
+                        
+                    // Append word to response
+                    fullResponse.Append(word).Append(" ");
+                    onMessageUpdate?.Invoke(fullResponse.ToString());
                     
-                    // Random typing speed
-                    int delay = _random.Next(25, 100);
-                    await Task.Delay(delay, cancellationToken);
+                    // Simulate variable thinking time
+                    await Task.Delay(_random.Next(50, 250), cancellationToken);
                 }
-            }
+                
+                Debug.WriteLine("DummyAIService streaming completed");
+            }, cancellationToken);
+            
+            return responseStream;
         }
+        
+        /// <summary>
+        /// Gets the capabilities of this model
+        /// </summary>
+        public override Task<AIModel> GetCapabilitiesAsync()
+        {
+            if (_models.TryGetValue(_selectedModel, out var model))
+            {
+                return Task.FromResult(model);
+            }
+            
+            // Return default capabilities if model not found
+            return Task.FromResult(new AIModel
+            {
+                ModelName = _selectedModel,
+                ProviderName = "Dummy",
+                MaxTokens = 2000,
+                MaxContextWindow = 8000,
+                SupportsStreaming = true,
+                DefaultTemperature = 0.7f
+            });
+        }
+
+        #region Helper Methods
+
+        /// <summary>
+        /// Generates a dummy response based on the input prompt
+        /// </summary>
+        private string GenerateDummyResponse(string prompt)
+        {
+            if (string.IsNullOrWhiteSpace(prompt))
+                return "I didn't receive a question. Please ask me something.";
+                
+            if (prompt.Contains("hello", StringComparison.OrdinalIgnoreCase) || 
+                prompt.Contains("hi ", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Hello! I'm DummyGPT, a test AI model that doesn't actually make API calls. " +
+                       "I'm here to help with testing the interface without using actual API resources.";
+            }
+            
+            if (prompt.Contains("name", StringComparison.OrdinalIgnoreCase))
+            {
+                return "I'm DummyGPT, a simulated AI assistant used for testing the NexusChat application. " +
+                       "I don't use any actual AI services or make API calls.";
+            }
+            
+            // Default responses for various prompt lengths
+            if (prompt.Length < 20)
+            {
+                return "That's a short question! I'm DummyGPT, simulating a response for testing purposes. " +
+                       "Your actual AI would provide a meaningful answer here based on your input.";
+            }
+            else if (prompt.Length < 50)
+            {
+                return "I notice your question is of medium length. This is a simulated response to test " +
+                       "the chat interface. In a real conversation with an actual AI model, you'd receive " +
+                       "a proper response tailored to your specific question.";
+            }
+            
+            // For longer prompts, generate a multi-paragraph response
+            return "Thank you for your detailed question. As DummyGPT, I'm generating a simulated multi-paragraph " +
+                   "response to help test the chat interface's handling of longer content.\n\n" +
+                   
+                   "In a real implementation, this would be a thoughtful answer from your selected AI model. " +
+                   "The actual response would analyze your question and provide relevant information.\n\n" +
+                   
+                   "This dummy response simply exists to test the UI, scrolling behavior, and message formatting " +
+                   "without making actual API calls or using tokens. It's perfect for development and testing!\n\n" +
+                   
+                   $"Your original prompt was {prompt.Length} characters long, which would be approximately " +
+                   $"{EstimateTokens(prompt)} tokens with a typical tokenizer.";
+        }
+
+        #endregion
     }
 }

@@ -75,10 +75,10 @@
     <Color x:Key="Magenta">#E91E63</Color>
     
     <!-- Text color variables -->
-    <Color x:Key="PrimaryTextColor">#212121</Color>
-    <Color x:Key="PrimaryTextColorDark">White</Color>
-    <Color x:Key="SecondaryTextColor">#757575</Color>
-    <Color x:Key="SecondaryTextColorDark">#BBBBBB</Color>
+    <Color x:Key="PrimaryTextColor">#1B1B1F</Color>
+    <Color x:Key="PrimaryTextColorDark">#E3E2E6</Color>
+    <Color x:Key="SecondaryTextColor">#44474E</Color>
+    <Color x:Key="SecondaryTextColorDark">#C4C6D0</Color>
     <Color x:Key="PrimaryDarkText">#000000</Color>
     <Color x:Key="SecondaryDarkText">#FAFAFA</Color>
 

@@ -1,652 +1,385 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using NexusChat.Services.ApiKeyManagement;
 using NexusChat.Services.Interfaces;
+using DotNetEnv;
 
-namespace NexusChat.Services
+namespace NexusChat.Services.ApiKeyManagement
 {
     /// <summary>
-    /// Service for managing API keys for AI providers
+    /// Manager for API keys used by AI providers
     /// </summary>
     public class ApiKeyManager : IApiKeyManager
     {
-        private readonly Dictionary<string, string> _apiKeys = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        private readonly Dictionary<string, Regex> _keyValidationPatterns = new Dictionary<string, Regex>();
-        private readonly Dictionary<string, KeyMetadata> _keyMetadata = new Dictionary<string, KeyMetadata>(StringComparer.OrdinalIgnoreCase);
-        private readonly SemaphoreSlim _lock = new SemaphoreSlim(1, 1);
-        private readonly IEnvironmentService _environmentService;
-        
-        private const string SECURE_STORAGE_PREFIX = "nexuschat_apikey_";
-        
-        // Environment variable patterns that define our convention
-        private const string MODEL_KEY_PATTERN = @"AI_KEY_([A-Z0-9_]+)(?:_([A-Z0-9_]+))?";
-        private const string MODEL_DEFINITION_PATTERN = @"AI_MODEL_([A-Z0-9_]+)_([A-Z0-9_]+)";
-        
+        private readonly IApiKeyProvider _apiKeyProvider;
+        private Dictionary<string, string> _cachedApiKeys;
+        private readonly SemaphoreSlim _initLock = new SemaphoreSlim(1, 1);
+        private bool _isInitialized = false;
+        private int _initializeAttempts = 0;
+        private const int MAX_INIT_ATTEMPTS = 3;
+
         /// <summary>
         /// Creates a new instance of ApiKeyManager
         /// </summary>
-        public ApiKeyManager(IEnvironmentService environmentService)
+        /// <param name="apiKeyProvider">API key provider for storage operations</param>
+        public ApiKeyManager(IApiKeyProvider apiKeyProvider)
         {
-            _environmentService = environmentService ?? throw new ArgumentNullException(nameof(environmentService));
-            InitializeValidationPatterns();
-            LoadEnvironmentKeys();
+            _apiKeyProvider = apiKeyProvider ?? throw new ArgumentNullException(nameof(apiKeyProvider));
+            _cachedApiKeys = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         }
 
         /// <summary>
-        /// Sets a custom API key for a specific service
+        /// Event triggered when an API key changes
         /// </summary>
-        public async Task<bool> SetCustomApiKeyAsync(string keyName, string apiKey)
-        {
-            if (string.IsNullOrWhiteSpace(keyName) || string.IsNullOrEmpty(apiKey))
-            {
-                return false;
-            }
+        public event EventHandler<string> ApiKeyChanged;
 
-            // Check if the key has a valid format if we have a pattern for it
-            string providerName = GetProviderFromKeyName(keyName);
-            if (!string.IsNullOrEmpty(providerName) && 
-                _keyValidationPatterns.TryGetValue(providerName, out var pattern) && 
-                !pattern.IsMatch(apiKey))
-            {
-                return false;
-            }
+        /// <summary>
+        /// Initializes the API key manager with improved error handling
+        /// </summary>
+        public async Task InitializeAsync()
+        {
+            if (_isInitialized)
+                return;
+                
+            await _initLock.WaitAsync();
             
-            await _lock.WaitAsync();
             try
             {
-                // Store key metadata
-                _keyMetadata[keyName] = new KeyMetadata
-                {
-                    Source = KeySource.UserDefined,
-                    CreatedTime = DateTime.UtcNow,
-                    LastUsedTime = DateTime.UtcNow
-                };
+                if (_isInitialized)
+                    return;
                 
-                // Store the key in memory
-                _apiKeys[keyName] = apiKey;
+                _initializeAttempts++;
+                Debug.WriteLine($"ApiKeyManager: Initializing... (attempt {_initializeAttempts})");
                 
-                // Store the key securely
-                try
+                // Load environment variables if available
+                Env.Load();
+                
+                // Initialize the provider
+                await _apiKeyProvider.InitializeAsync();
+                
+                // Cache common keys for performance
+                await CacheCommonKeysAsync();
+                
+                _isInitialized = true;
+                Debug.WriteLine("ApiKeyManager initialized");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error initializing ApiKeyManager: {ex.Message}");
+                Debug.WriteLine(ex.StackTrace);
+                
+                // Try to initialize again if we haven't exceeded max attempts
+                if (_initializeAttempts < MAX_INIT_ATTEMPTS)
                 {
-                    await SecureStorage.SetAsync(GetSecureStorageKey(keyName), apiKey);
-                    return true;
+                    _isInitialized = false;
                 }
-                catch (Exception ex)
+                else
                 {
-                    Debug.WriteLine($"Error storing API key in secure storage: {ex.Message}");
-                    // If secure storage fails, just use in-memory storage
-                    return true;
+                    // Set initialized to true but with basic functionality
+                    Debug.WriteLine("ApiKeyManager: Max initialization attempts reached, proceeding with limited functionality");
+                    _isInitialized = true;
                 }
             }
             finally
             {
-                _lock.Release();
+                _initLock.Release();
             }
         }
 
         /// <summary>
-        /// Gets an API key by name
+        /// Gets an API key for a provider
         /// </summary>
-        public string GetApiKey(string keyName)
-        {
-            if (string.IsNullOrEmpty(keyName))
-                return null;
-                
-            // First try in-memory cache
-            if (_apiKeys.TryGetValue(keyName, out string key) && !string.IsNullOrEmpty(key))
-            {
-                // Update metadata
-                if (_keyMetadata.TryGetValue(keyName, out var metadata))
-                {
-                    metadata.LastUsedTime = DateTime.UtcNow;
-                    metadata.UseCount++;
-                }
-                return key;
-            }
-            
-            // Try secure storage
-            try
-            {
-                key = SecureStorage.GetAsync(GetSecureStorageKey(keyName)).Result;
-                if (!string.IsNullOrEmpty(key))
-                {
-                    // Cache it
-                    _apiKeys[keyName] = key;
-                    return key;
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error retrieving key from secure storage: {ex.Message}");
-            }
-            
-            // Try environment service as last resort
-            key = _environmentService.GetValue(keyName);
-            
-            // If direct key didn't work, try with AI_KEY_ prefix
-            if (string.IsNullOrEmpty(key) && !keyName.StartsWith(_environmentService.API_KEY_PREFIX, StringComparison.OrdinalIgnoreCase))
-            {
-                key = _environmentService.GetValue($"{_environmentService.API_KEY_PREFIX}{keyName.ToUpperInvariant()}");
-            }
-            
-            // Cache if found
-            if (!string.IsNullOrEmpty(key))
-            {
-                _apiKeys[keyName] = key;
-            }
-            
-            return key;
-        }
-
-        /// <summary>
-        /// Resolves an API key using hierarchical resolution
-        /// </summary>
-        public async Task<string> ResolveApiKeyAsync(string providerName, string modelName = null, string strategyName = "hierarchical")
+        public async Task<string> GetApiKeyForProviderAsync(string providerName)
         {
             if (string.IsNullOrEmpty(providerName))
                 return null;
                 
-            // Try model-specific key first if model name is provided
-            if (!string.IsNullOrEmpty(modelName))
+            try
             {
-                var modelKeyName = GetModelKeyFromNames(providerName, modelName);
-                var modelKey = GetApiKey(modelKeyName);
+                // Ensure initialization
+                await EnsureInitializedAsync();
+                    
+                // Get the environment variable name for this provider
+                string keyName = GetEnvironmentVariableName(providerName);
                 
-                if (!string.IsNullOrEmpty(modelKey))
+                // Check cache first
+                if (_cachedApiKeys.TryGetValue(keyName, out string cachedKey))
                 {
-                    Debug.WriteLine($"Using model-specific key for {providerName}/{modelName}");
-                    return modelKey;
+                    return cachedKey;
                 }
                 
-                // Try environment service directly
-                modelKey = _environmentService.GetModelApiKey(providerName, modelName);
-                if (!string.IsNullOrEmpty(modelKey))
+                // Try environment variables
+                string apiKey = Environment.GetEnvironmentVariable(keyName);
+                
+                // If not in environment, try API key provider
+                if (string.IsNullOrEmpty(apiKey))
                 {
-                    Debug.WriteLine($"Using environment key for {providerName}/{modelName}");
-                    return modelKey;
+                    apiKey = await _apiKeyProvider.GetApiKeyAsync(keyName);
                 }
                 
-                // Try normalized model name (convert slashes to underscores)
-                string normalizedModelName = modelName.Replace('/', '_');
-                string normalizedKeyName = $"{providerName.ToLowerInvariant()}_{normalizedModelName}";
-                string normalizedKey = GetApiKey(normalizedKeyName);
-                
-                if (!string.IsNullOrEmpty(normalizedKey))
+                // Cache if found
+                if (!string.IsNullOrEmpty(apiKey))
                 {
-                    Debug.WriteLine($"Using normalized key for {providerName}/{modelName}");
-                    return normalizedKey;
+                    _cachedApiKeys[keyName] = apiKey;
                 }
+                
+                return apiKey;
             }
-            
-            // Fall back to provider-level key
-            var providerKey = GetApiKey(providerName.ToLowerInvariant());
-            if (!string.IsNullOrEmpty(providerKey))
+            catch (Exception ex)
             {
-                Debug.WriteLine($"Using provider-level key for {providerName}");
-                return providerKey;
+                Debug.WriteLine($"Error getting API key for {providerName}: {ex.Message}");
+                return null;
             }
-            
-            // Try provider with _api_key suffix
-            var providerApiKeyName = $"{providerName.ToLowerInvariant()}_api_key";
-            var providerApiKey = GetApiKey(providerApiKeyName);
-            if (!string.IsNullOrEmpty(providerApiKey))
-            {
-                Debug.WriteLine($"Using {providerApiKeyName} key");
-                return providerApiKey;
-            }
-            
-            // Try environment service for provider key
-            var envKey = _environmentService.GetApiKey(providerName);
-            if (!string.IsNullOrEmpty(envKey))
-            {
-                Debug.WriteLine($"Using environment provider key for {providerName}");
-                return envKey;
-            }
-            
-            return null;
         }
 
         /// <summary>
-        /// Resolves an API key for a specific provider and model
+        /// Gets the API key for a specific model
         /// </summary>
-        /// <param name="providerId">The provider ID</param>
-        /// <param name="modelId">The model ID</param>
-        /// <returns>The resolved API key</returns>
-        public async Task<string> ResolveApiKeyAsync(string providerId, string modelId)
+        public async Task<string> GetModelApiKeyAsync(string providerName, string modelName)
         {
-            // First check for model-specific key
-            var modelSpecificKey = await GetApiKeyAsync($"{providerId}_{modelId}");
-            if (!string.IsNullOrEmpty(modelSpecificKey))
-                return modelSpecificKey;
+            if (string.IsNullOrEmpty(providerName))
+                return null;
                 
-            // Fall back to provider-level key
-            return await GetApiKeyAsync(providerId);
+            try
+            {
+                // Ensure initialized
+                await EnsureInitializedAsync();
+                    
+                // First try model-specific key
+                string modelKeyName = $"AI_KEY_{providerName.ToUpperInvariant()}_{modelName.Replace("-", "_").ToUpperInvariant()}";
+                
+                // Try cache first
+                if (_cachedApiKeys.TryGetValue(modelKeyName, out string cachedModelKey))
+                {
+                    return cachedModelKey;
+                }
+                
+                // Try environment variables
+                string apiKey = Environment.GetEnvironmentVariable(modelKeyName);
+                
+                // If not in environment, try API key provider
+                if (string.IsNullOrEmpty(apiKey))
+                {
+                    apiKey = await _apiKeyProvider.GetApiKeyAsync(modelKeyName);
+                }
+                
+                // If still not found, fall back to provider-level key
+                if (string.IsNullOrEmpty(apiKey))
+                {
+                    return await GetApiKeyForProviderAsync(providerName);
+                }
+                
+                // Cache if found
+                if (!string.IsNullOrEmpty(apiKey))
+                {
+                    _cachedApiKeys[modelKeyName] = apiKey;
+                }
+                
+                return apiKey;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error getting API key for {providerName}/{modelName}: {ex.Message}");
+                return null;
+            }
         }
 
         /// <summary>
-        /// Validates the format of an API key
+        /// Saves an API key
         /// </summary>
-        public bool ValidateApiKeyFormat(string apiKey)
+        public async Task<bool> SaveApiKeyAsync(string keyName, string apiKey)
+        {
+            try
+            {
+                // Ensure initialized
+                await EnsureInitializedAsync();
+                    
+                if (string.IsNullOrEmpty(keyName) || string.IsNullOrEmpty(apiKey))
+                    return false;
+                
+                // Validate key format
+                if (!IsValidApiKeyFormat(apiKey))
+                {
+                    Debug.WriteLine($"Invalid API key format for {keyName}");
+                    return false;
+                }
+                
+                // Save using provider
+                bool success = await _apiKeyProvider.SaveApiKeyAsync(keyName, apiKey);
+                
+                // Update cache if successful
+                if (success)
+                {
+                    _cachedApiKeys[keyName] = apiKey;
+                    
+                    // Notify listeners that an API key has changed
+                    ApiKeyChanged?.Invoke(this, keyName);
+                }
+                
+                return success;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error saving API key {keyName}: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Deletes an API key
+        /// </summary>
+        public async Task<bool> DeleteApiKeyAsync(string keyName)
+        {
+            try
+            {
+                // Ensure initialized
+                await EnsureInitializedAsync();
+                    
+                if (string.IsNullOrEmpty(keyName))
+                    return false;
+                
+                // Delete using provider
+                bool success = await _apiKeyProvider.DeleteApiKeyAsync(keyName);
+                
+                // Remove from cache if successful
+                if (success && _cachedApiKeys.ContainsKey(keyName))
+                {
+                    _cachedApiKeys.Remove(keyName);
+                }
+                
+                return success;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error deleting API key {keyName}: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Validates API key format
+        /// </summary>
+        public bool IsValidApiKeyFormat(string apiKey)
         {
             if (string.IsNullOrWhiteSpace(apiKey))
                 return false;
                 
-            // Generic validation - at least 10 chars, no whitespace
-            if (apiKey.Length < 10 || apiKey.Any(char.IsWhiteSpace))
+            // Check minimum length
+            if (apiKey.Length < 8)
                 return false;
                 
-            // All keys passed basic validation
-            return true;
+            // Check common API key patterns
+            bool isOpenAiFormat = Regex.IsMatch(apiKey, @"^sk-[A-Za-z0-9]{24,}$");  // OpenAI pattern
+            bool isGroqFormat = Regex.IsMatch(apiKey, @"^gsk_[A-Za-z0-9]{16,}$");   // Groq pattern
+            bool isOpenRouterFormat = Regex.IsMatch(apiKey, @"^sk-or-[A-Za-z0-9-]{20,}$"); // OpenRouter pattern
+            bool isGenericFormat = Regex.IsMatch(apiKey, @"^[A-Za-z0-9_\-]{16,}$"); // Generic API key pattern
+            
+            return isOpenAiFormat || isGroqFormat || isOpenRouterFormat || isGenericFormat;
         }
 
         /// <summary>
-        /// Gets the model key from provider and model names
+        /// Gets the appropriate environment variable name for a provider
         /// </summary>
-        public string GetModelKeyFromNames(string providerName, string modelName)
-        {
-            if (string.IsNullOrEmpty(providerName) || string.IsNullOrEmpty(modelName))
-                return null;
-                
-            string normalizedProviderName = NormalizeProviderName(providerName);
-            string normalizedModelName = NormalizeModelName(modelName);
-            
-            // Different formatting options depending on provider
-            switch (normalizedProviderName.ToLowerInvariant())
-            {
-                case "openrouter":
-                    // Format: AI_MODEL_OPENROUTER_MODELNAME
-                    string openRouterModelName = normalizedModelName.Replace('/', '_').Replace('-', '_').ToUpperInvariant();
-                    return $"{_environmentService.MODEL_KEY_PREFIX}{normalizedProviderName.ToUpperInvariant()}_{openRouterModelName}";
-                    
-                default:
-                    // For other providers, use the standardized format: provider_model
-                    string standardModelName = normalizedModelName.Replace('/', '_');
-                    return $"{normalizedProviderName.ToLowerInvariant()}_{standardModelName}";
-            }
-        }
-        
-        /// <summary>
-        /// Normalizes a provider name for consistency
-        /// </summary>
-        public string NormalizeProviderName(string providerName)
+        public string GetEnvironmentVariableName(string providerName)
         {
             if (string.IsNullOrEmpty(providerName))
-                return "Unknown";
-                
-            providerName = providerName.Trim();
-            
-            // Handle common provider name variations
-            switch (providerName.ToLowerInvariant())
-            {
-                case "groq":
-                case "groqi":
-                case "groqapi":
-                    return "Groq";
-                    
-                case "openrouter":
-                case "or":
-                case "openr":
-                    return "OpenRouter";
-                    
-                case "openai":
-                case "oai":
-                    return "OpenAI";
-                    
-                case "anthropic":
-                    return "Anthropic";
-                    
-                case "google":
-                case "gemini":
-                    return "Google";
-                    
-                case "dummy":
-                case "test":
-                case "testing":
-                    return "Dummy";
-                    
-                default:
-                    // Return capitalized version
-                    return char.ToUpper(providerName[0]) + providerName.Substring(1).ToLowerInvariant();
-            }
-        }
-        
-        /// <summary>
-        /// Normalizes a model name for consistency
-        /// </summary>
-        public string NormalizeModelName(string modelName)
-        {
-            if (string.IsNullOrEmpty(modelName))
                 return string.Empty;
                 
-            return modelName.Replace(' ', '-').ToLowerInvariant();
+            return $"AI_KEY_{providerName.ToUpperInvariant()}";
         }
         
         /// <summary>
-        /// Gets all available API keys for a provider
+        /// Caches common API keys for performance
         /// </summary>
-        public List<string> GetAvailableKeysForProvider(string providerName)
+        private async Task CacheCommonKeysAsync()
         {
-            if (string.IsNullOrEmpty(providerName))
-                return new List<string>();
+            string[] commonProviders = { "GROQ", "OPENROUTER", "OPENAI", "ANTHROPIC", "AZURE" };
+            
+            foreach (string provider in commonProviders)
+            {
+                string keyName = $"AI_KEY_{provider}";
                 
-            var keys = new List<string>();
-            string normalizedProvider = providerName.ToLowerInvariant();
-            
-            // Find keys that match the provider name
-            foreach (var key in _apiKeys.Keys)
-            {
-                if (key.StartsWith(normalizedProvider + "_", StringComparison.OrdinalIgnoreCase) ||
-                    key.Equals(normalizedProvider, StringComparison.OrdinalIgnoreCase))
-                {
-                    keys.Add(key);
-                }
-            }
-            
-            // Also check environment variables
-            try
-            {
-                foreach (string key in _environmentService.GetAllEnvironmentVariables().Keys)
-                {
-                    // Check for API_KEY_PROVIDERNAME format
-                    if (key.StartsWith(_environmentService.API_KEY_PREFIX + providerName.ToUpperInvariant(), StringComparison.OrdinalIgnoreCase))
-                    {
-                        var normalizedKey = key.Substring(_environmentService.API_KEY_PREFIX.Length).ToLowerInvariant();
-                        if (!_apiKeys.ContainsKey(normalizedKey))
-                        {
-                            keys.Add(normalizedKey);
-                        }
-                    }
-                    
-                    // Check for AI_MODEL_PROVIDERNAME_ format (for model-specific keys)
-                    if (key.StartsWith(_environmentService.MODEL_KEY_PREFIX + providerName.ToUpperInvariant() + "_", StringComparison.OrdinalIgnoreCase))
-                    {
-                        string[] parts = key.Split('_');
-                        if (parts.Length >= 3)
-                        {
-                            // Format as provider_model
-                            var modelName = string.Join("_", parts.Skip(2));
-                            var normalizedKey = $"{normalizedProvider}_{modelName.ToLowerInvariant()}";
-                            if (!_apiKeys.ContainsKey(normalizedKey))
-                            {
-                                keys.Add(normalizedKey);
-                            }
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error checking environment variables: {ex.Message}");
-            }
-            
-            return keys;
-        }
-        
-        /// <summary>
-        /// Gets a masked version of an API key for display
-        /// </summary>
-        public string GetMaskedKey(string keyName)
-        {
-            var key = GetApiKey(keyName);
-            if (string.IsNullOrEmpty(key))
-                return null;
+                // Try environment first
+                string apiKey = Environment.GetEnvironmentVariable(keyName);
                 
-            // Mask the key - show first 4 and last 4 characters
-            if (key.Length > 8)
-            {
-                return key.Substring(0, 4) + "****" + key.Substring(key.Length - 4);
-            }
-            else
-            {
-                return "********";
+                // If not in environment, try provider
+                if (string.IsNullOrEmpty(apiKey))
+                {
+                    apiKey = await _apiKeyProvider.GetApiKeyAsync(keyName);
+                }
+                
+                // Cache if found
+                if (!string.IsNullOrEmpty(apiKey))
+                {
+                    _cachedApiKeys[keyName] = apiKey;
+                }
             }
         }
 
         /// <summary>
-        /// Extracts the provider name from a key name
+        /// Ensures the manager is initialized
         /// </summary>
-        private string GetProviderFromKeyName(string keyName)
+        private async Task EnsureInitializedAsync()
         {
-            if (string.IsNullOrEmpty(keyName))
-                return string.Empty;
-                
-            // Check if it's in provider_model format
-            int underscoreIndex = keyName.IndexOf('_');
-            if (underscoreIndex > 0)
+            if (!_isInitialized)
             {
-                return keyName.Substring(0, underscoreIndex);
-            }
-            
-            // Check if it's in API_KEY_PROVIDER format
-            if (keyName.StartsWith(_environmentService.API_KEY_PREFIX, StringComparison.OrdinalIgnoreCase))
-            {
-                return keyName.Substring(_environmentService.API_KEY_PREFIX.Length);
-            }
-            
-            // Otherwise, the whole key is the provider name
-            return keyName;
-        }
-        
-        /// <summary>
-        /// Gets the secure storage key for a given key name
-        /// </summary>
-        private string GetSecureStorageKey(string keyName)
-        {
-            return SECURE_STORAGE_PREFIX + keyName.ToLowerInvariant();
-        }
-        
-        /// <summary>
-        /// Initializes the validation patterns for different providers
-        /// </summary>
-        private void InitializeValidationPatterns()
-        {
-            // Add validation patterns for additional providers
-            _keyValidationPatterns["groq"] = new Regex(@"^gsk_[A-Za-z0-9]{32,}$");
-            _keyValidationPatterns["openrouter"] = new Regex(@"^sk-or-v1-[0-9a-f]{64}$");
-            _keyValidationPatterns["openai"] = new Regex(@"^sk-[A-Za-z0-9]{32,}$");
-            _keyValidationPatterns["anthropic"] = new Regex(@"^sk-ant-[A-Za-z0-9]{32,}$");
-            _keyValidationPatterns["google"] = new Regex(@"^[A-Za-z0-9_\-]{30,}$");
-        }
-        
-        /// <summary>
-        /// Loads API keys from environment variables
-        /// </summary>
-        private void LoadEnvironmentKeys()
-        {
-            try
-            {
-                // Initialize environment service
-                _environmentService.InitializeAsync().Wait();
-                
-                // Get API keys with AI_KEY_ prefix
-                var apiKeys = _environmentService.GetAllApiKeys();
-                foreach (var kv in apiKeys)
-                {
-                    string keyName = kv.Key;
-                    
-                    // Normalize names - remove AI_KEY_ prefix if present
-                    if (keyName.StartsWith(_environmentService.API_KEY_PREFIX, StringComparison.OrdinalIgnoreCase))
-                    {
-                        keyName = keyName.Substring(_environmentService.API_KEY_PREFIX.Length).ToLowerInvariant();
-                    }
-                    
-                    _apiKeys[keyName] = kv.Value;
-                    _keyMetadata[keyName] = new KeyMetadata
-                    {
-                        Source = KeySource.Environment,
-                        CreatedTime = DateTime.UtcNow,
-                        LastUsedTime = DateTime.UtcNow
-                    };
-                }
-                
-                // Parse AI_KEY_ pattern keys directly
-                ParseModelSpecificKeys();
-                
-                Debug.WriteLine($"Loaded {_apiKeys.Count} API keys from environment");
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error loading API keys from environment: {ex.Message}");
-            }
-        }
-        
-        /// <summary>
-        /// Parses model-specific keys from environment variables
-        /// </summary>
-        private void ParseModelSpecificKeys()
-        {
-            // Get all environment variables
-            var allVars = _environmentService.GetAllEnvironmentVariables();
-            
-            // Look for AI_KEY pattern keys
-            foreach (string key in allVars.Keys)
-            {
-                var keyMatch = Regex.Match(key, MODEL_KEY_PATTERN);
-                if (keyMatch.Success && keyMatch.Groups.Count >= 3)
-                {
-                    string provider = keyMatch.Groups[1].Value;
-                    string model = keyMatch.Groups.Count > 2 && keyMatch.Groups[2].Success 
-                        ? keyMatch.Groups[2].Value 
-                        : null;
-                    
-                    string value = _environmentService.GetValue(key);
-                    
-                    if (!string.IsNullOrEmpty(value))
-                    {
-                        if (string.IsNullOrEmpty(model))
-                        {
-                            // This is a provider-level key (AI_KEY_PROVIDER)
-                            string normalizedKey = provider.ToLowerInvariant();
-                            _apiKeys[normalizedKey] = value;
-                            _keyMetadata[normalizedKey] = new KeyMetadata
-                            {
-                                Source = KeySource.Environment,
-                                CreatedTime = DateTime.UtcNow,
-                                LastUsedTime = DateTime.UtcNow
-                            };
-                        }
-                        else
-                        {
-                            // This is a model-specific key (AI_KEY_PROVIDER_MODEL)
-                            string normalizedKey = $"{provider.ToLowerInvariant()}_{model.ToLowerInvariant()}";
-                            _apiKeys[normalizedKey] = value;
-                            _keyMetadata[normalizedKey] = new KeyMetadata
-                            {
-                                Source = KeySource.Environment,
-                                CreatedTime = DateTime.UtcNow,
-                                LastUsedTime = DateTime.UtcNow
-                            };
-                        }
-                    }
-                }
-            }
-        }
-        
-        /// <summary>
-        /// Verifies a provider-specific API key format
-        /// </summary>
-        public bool ValidateProviderSpecificKey(string providerName, string apiKey)
-        {
-            if (string.IsNullOrEmpty(providerName) || string.IsNullOrEmpty(apiKey))
-                return false;
-                
-            // Check if we have a specific pattern for this provider
-            if (_keyValidationPatterns.TryGetValue(providerName.ToLowerInvariant(), out var pattern))
-            {
-                return pattern.IsMatch(apiKey);
-            }
-            
-            // Fall back to generic validation
-            return ValidateApiKeyFormat(apiKey);
-        }
-        
-        /// <summary>
-        /// Gets key statistics for diagnostics
-        /// </summary>
-        public Dictionary<string, string> GetKeyStatistics()
-        {
-            var stats = new Dictionary<string, string>
-            {
-                ["TotalKeys"] = _apiKeys.Count.ToString(),
-                ["EnvironmentKeys"] = _keyMetadata.Count(kv => kv.Value.Source == KeySource.Environment).ToString(),
-                ["SecureStorageKeys"] = _keyMetadata.Count(kv => kv.Value.Source == KeySource.SecureStorage).ToString(),
-                ["UserDefinedKeys"] = _keyMetadata.Count(kv => kv.Value.Source == KeySource.UserDefined).ToString()
-            };
-            
-            return stats;
-        }
-        
-        /// <summary>
-        /// Gets all stored API key names
-        /// </summary>
-        private async Task<IEnumerable<string>> GetAllKeysAsync()
-        {
-            try
-            {
-                var result = new List<string>();
-                
-                // Get keys from secure storage
-                // This is a simplified implementation as SecureStorage doesn't provide a way to list all keys
-                // For a real implementation, you might need to maintain a separate list of keys
-                
-                // Try common key patterns
-                foreach (var providerName in new[] { "openai", "groq", "anthropic", "openrouter", "google" })
-                {
-                    string keyName = $"{providerName.ToLowerInvariant()}_api_key";
-                    try
-                    {
-                        var key = await SecureStorage.GetAsync(keyName);
-                        if (!string.IsNullOrEmpty(key))
-                        {
-                            result.Add(keyName);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"Error retrieving key {keyName}: {ex.Message}");
-                    }
-                }
-                
-                return result;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error getting all keys: {ex.Message}");
-                return Enumerable.Empty<string>();
+                await InitializeAsync();
             }
         }
 
         /// <summary>
-        /// Gets all environment variables
-        /// </summary>
-        public Dictionary<string, string> GetAllEnvironmentVariables()
-        {
-            var result = new Dictionary<string, string>();
-            
-            foreach (var key in Environment.GetEnvironmentVariables().Keys)
-            {
-                string keyStr = key.ToString();
-                string value = Environment.GetEnvironmentVariable(keyStr);
-                if (!string.IsNullOrEmpty(value))
-                {
-                    result[keyStr] = value;
-                }
-            }
-            
-            return result;
-        }
-
-        /// <summary>
-        /// Gets an API key asynchronously
+        /// Directly gets an API key by key name
         /// </summary>
         public async Task<string> GetApiKeyAsync(string keyName)
         {
-            return await Task.FromResult(GetApiKey(keyName));
+            try
+            {
+                await EnsureInitializedAsync();
+                
+                if (string.IsNullOrEmpty(keyName))
+                    return null;
+                    
+                // Check cache first
+                if (_cachedApiKeys.TryGetValue(keyName, out string cachedKey))
+                {
+                    return cachedKey;
+                }
+                
+                // Try environment variables
+                string envKey = Environment.GetEnvironmentVariable(keyName);
+                if (!string.IsNullOrEmpty(envKey))
+                {
+                    _cachedApiKeys[keyName] = envKey;
+                    return envKey;
+                }
+                
+                // Try API key provider
+                string apiKey = await _apiKeyProvider.GetApiKeyAsync(keyName);
+                
+                // Cache if found
+                if (!string.IsNullOrEmpty(apiKey))
+                {
+                    _cachedApiKeys[keyName] = apiKey;
+                }
+                
+                return apiKey;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error getting API key {keyName}: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Gets the provider-level API key
+        /// </summary>
+        public async Task<string> GetProviderApiKeyAsync(string providerName)
+        {
+            return await GetApiKeyForProviderAsync(providerName);
         }
     }
 }

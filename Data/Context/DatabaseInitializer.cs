@@ -44,7 +44,7 @@ namespace NexusChat.Data.Context
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error initializing database: {ex.Message}");
-                throw; // Rethrow to allow higher-level error handling
+                throw; 
             }
         }
     }

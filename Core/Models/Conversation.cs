@@ -6,106 +6,77 @@ using SQLiteNetExtensions.Attributes;
 namespace NexusChat.Core.Models
 {
     /// <summary>
-    /// Represents a conversation with an AI model
+    /// Represents a conversation between a user and AI
     /// </summary>
     [Table("Conversations")]
     public class Conversation
     {
         /// <summary>
-        /// Unique identifier for the conversation
+        /// Gets or sets the unique identifier
         /// </summary>
         [PrimaryKey, AutoIncrement]
         public int Id { get; set; }
         
         /// <summary>
-        /// Title of the conversation
-        /// </summary>
-        [MaxLength(100)]
-        public string Title { get; set; }
-        
-        /// <summary>
-        /// User who owns this conversation
+        /// Gets or sets the user ID that owns this conversation
         /// </summary>
         [Indexed]
         [ForeignKey(typeof(User))]
-        public int UserId { get; set; }
+        public int UserId { get; set; } = 1; // Default to user ID 1 to prevent null foreign key issues
         
         /// <summary>
-        /// AI model used for this conversation
+        /// Gets or sets the conversation title
         /// </summary>
-        public int AIModelId { get; set; }
+        [MaxLength(100)]
+        public string Title { get; set; } = "New Chat"; // Set default title
         
         /// <summary>
-        /// Alias property for AIModelId to maintain backward compatibility
-        /// </summary>
-        public int ModelId 
-        {
-            get => AIModelId;
-            set => AIModelId = value;
-        }
-        
-        /// <summary>
-        /// Date when conversation was created
+        /// Gets or sets when the conversation was created
         /// </summary>
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         
         /// <summary>
-        /// Date when conversation was last updated
+        /// Gets or sets when the conversation was last updated
         /// </summary>
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
         
         /// <summary>
-        /// Date when conversation was last updated with a new message
+        /// Gets or sets the category/tag for this conversation
         /// </summary>
-        public DateTime LastMessageDate { get; set; } = DateTime.UtcNow;
+        [MaxLength(50)]
+        public string Category { get; set; }
         
         /// <summary>
-        /// Total number of tokens used in this conversation
-        /// </summary>
-        public int TotalTokensUsed { get; set; }
-        
-        /// <summary>
-        /// Summary of the conversation content (for search and display)
+        /// Gets or sets a brief summary of this conversation
         /// </summary>
         [MaxLength(500)]
         public string Summary { get; set; }
         
         /// <summary>
-        /// Whether the conversation is active or archived
-        /// </summary>
-        public bool IsActive { get; set; } = true;
-        
-        /// <summary>
-        /// Whether the conversation is archived (inverse of IsActive)
-        /// </summary>
-        public bool IsArchived 
-        { 
-            get => !IsActive;
-            set => IsActive = !value;
-        }
-        
-        /// <summary>
-        /// Whether the conversation is marked as favorite
+        /// Gets or sets whether this conversation is a favorite
         /// </summary>
         public bool IsFavorite { get; set; } = false;
         
         /// <summary>
-        /// Optional category/label for the conversation
+        /// Gets or sets whether this conversation is archived
         /// </summary>
-        [MaxLength(50)]
-        public string Category { get; set; }
+        public bool IsArchived { get; set; } = false;
+        
+        /// <summary>
+        /// Gets or sets the model name used in this conversation
+        /// </summary>
+        public string ModelName { get; set; }
+        
+        /// <summary>
+        /// Gets or sets the provider name used in this conversation
+        /// </summary>
+        public string ProviderName { get; set; }
         
         /// <summary>
         /// Navigation property for the user
         /// </summary>
         [ManyToOne]
         public User User { get; set; }
-        
-        /// <summary>
-        /// Navigation property for the AI model
-        /// </summary>
-        [ManyToOne]
-        public AIModel Model { get; set; }
         
         /// <summary>
         /// Navigation property for messages in this conversation
@@ -124,10 +95,9 @@ namespace NexusChat.Core.Models
         /// <summary>
         /// Creates a conversation with basic information
         /// </summary>
-        public Conversation(int userId, int modelId, string title = null)
+        public Conversation(int userId, string title = null)
         {
             UserId = userId;
-            AIModelId = modelId;
             Title = title ?? "New Conversation";
             Messages = new List<Message>();
         }
@@ -138,9 +108,7 @@ namespace NexusChat.Core.Models
         /// <param name="tokensUsed">Number of tokens used in the new message</param>
         public void AddTokens(int tokensUsed)
         {
-            TotalTokensUsed += tokensUsed;
             UpdatedAt = DateTime.UtcNow;
-            LastMessageDate = DateTime.UtcNow;
         }
         
         /// <summary>
@@ -154,17 +122,14 @@ namespace NexusChat.Core.Models
         /// <summary>
         /// Creates a test conversation for development purposes
         /// </summary>
-        public static Conversation CreateTestConversation(int userId = 1, int modelId = 1)
+        public static Conversation CreateTestConversation(int userId = 1)
         {
             return new Conversation
             {
                 UserId = userId,
-                AIModelId = modelId,
                 Title = "Test Conversation",
                 CreatedAt = DateTime.UtcNow.AddHours(-1),
-                UpdatedAt = DateTime.UtcNow,
-                LastMessageDate = DateTime.UtcNow,
-                TotalTokensUsed = 0
+                UpdatedAt = DateTime.UtcNow
             };
         }
     }

@@ -60,7 +60,7 @@
                         <Label Text="{Binding TotalTokensUsed, StringFormat='Tokens: {0}'}" 
                                FontSize="12" TextColor="{AppThemeBinding Light={StaticResource TertiaryTextColor}, Dark={StaticResource TertiaryTextColorDark}}" />
                         <Label Text="|" FontSize="12" />
-                        <Label Text="{Binding IsFavorite, StringFormat='Favorite: {0}'}" 
+                        <Label Text="{Binding IsFavorite, StringFormat='favorite: {0}'}" 
                                FontSize="12" TextColor="{AppThemeBinding Light={StaticResource TertiaryTextColor}, Dark={StaticResource TertiaryTextColorDark}}" />
                     </HorizontalStackLayout>
                 </Grid>

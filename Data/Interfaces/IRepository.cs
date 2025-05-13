@@ -1,95 +1,75 @@
+using System;
 using System.Collections.Generic;
+using System.Linq.Expressions;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace NexusChat.Data.Interfaces
 {
     /// <summary>
-    /// Generic repository interface for data access operations
+    /// Interface for generic repository operations
     /// </summary>
-    /// <typeparam name="T">Entity type</typeparam>
+    /// <typeparam name="T">Entity type for the repository</typeparam>
     public interface IRepository<T> where T : class, new()
     {
         /// <summary>
-        /// Ensures the database table exists for this entity
+        /// Ensures the database is initialized
         /// </summary>
-        /// <param name="cancellationToken">Cancellation token</param>
         Task EnsureDatabaseAsync(CancellationToken cancellationToken = default);
         
         /// <summary>
         /// Gets all entities
         /// </summary>
-        Task<List<T>> GetAllAsync();
-        
-        /// <summary>
-        /// Gets all entities with cancellation support
-        /// </summary>
-        /// <param name="cancellationToken">Cancellation token</param>
-        Task<List<T>> GetAllAsync(CancellationToken cancellationToken);
+        Task<List<T>> GetAllAsync(CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Gets an entity by ID
         /// </summary>
-        /// <param name="id">Entity ID</param>
-        Task<T> GetByIdAsync(int id);
-        
+        Task<T> GetByIdAsync(int id, CancellationToken cancellationToken = default);
+
         /// <summary>
-        /// Gets an entity by ID with cancellation support
+        /// Gets entities by a predicate
         /// </summary>
-        /// <param name="id">Entity ID</param>
-        /// <param name="cancellationToken">Cancellation token</param>
-        Task<T> GetByIdAsync(int id, CancellationToken cancellationToken);
+        Task<List<T>> FindAsync(Expression<Func<T, bool>> predicate);
+
+        /// <summary>
+        /// Gets the first entity matching a predicate
+        /// </summary>
+        Task<T> FirstOrDefaultAsync(Expression<Func<T, bool>> predicate);
 
         /// <summary>
         /// Adds a new entity
         /// </summary>
-        /// <param name="entity">Entity to add</param>
-        Task<int> AddAsync(T entity);
+        Task<int> AddAsync(T entity, CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Adds a new entity with cancellation support
+        /// Updates an existing entity
         /// </summary>
-        /// <param name="entity">Entity to add</param>
-        /// <param name="cancellationToken">Cancellation token</param>
-        Task<int> AddAsync(T entity, CancellationToken cancellationToken);
+        Task<bool> UpdateAsync(T entity);
 
         /// <summary>
-        /// Updates an entity
+        /// Updates an existing entity with cancellation support
         /// </summary>
-        /// <param name="entity">Entity to update</param>
-        Task<int> UpdateAsync(T entity);
-
-        /// <summary>
-        /// Updates an entity with cancellation support
-        /// </summary>
-        /// <param name="entity">Entity to update</param>
-        /// <param name="cancellationToken">Cancellation token</param>
-        Task<int> UpdateAsync(T entity, CancellationToken cancellationToken);
+        Task<bool> UpdateAsync(T entity, CancellationToken cancellationToken);
 
         /// <summary>
         /// Deletes an entity
         /// </summary>
-        /// <param name="entity">Entity to delete</param>
-        Task<int> DeleteAsync(T entity);
+        Task<bool> DeleteAsync(T entity);
 
         /// <summary>
         /// Deletes an entity with cancellation support
         /// </summary>
-        /// <param name="entity">Entity to delete</param>
-        /// <param name="cancellationToken">Cancellation token</param>
-        Task<int> DeleteAsync(T entity, CancellationToken cancellationToken);
+        Task<bool> DeleteAsync(T entity, CancellationToken cancellationToken);
 
         /// <summary>
         /// Deletes an entity by ID
         /// </summary>
-        /// <param name="id">Entity ID</param>
-        Task<int> DeleteAsync(int id);
+        Task<bool> DeleteAsync(int id);
 
         /// <summary>
         /// Deletes an entity by ID with cancellation support
         /// </summary>
-        /// <param name="id">Entity ID</param>
-        /// <param name="cancellationToken">Cancellation token</param>
-        Task<int> DeleteAsync(int id, CancellationToken cancellationToken);
+        Task<bool> DeleteAsync(int id, CancellationToken cancellationToken);
     }
 }

@@ -1,300 +1,347 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using NexusChat.Core.Models;
 using NexusChat.Data.Interfaces;
-using NexusChat.Data.Repositories;
 using NexusChat.Services.Interfaces;
 
 namespace NexusChat.Services
 {
     /// <summary>
-    /// Service that handles chat operations
+    /// Service for handling chat functionality
     /// </summary>
-    public class ChatService
+    public class ChatService : IChatService
     {
         private readonly IMessageRepository _messageRepository;
         private readonly IConversationRepository _conversationRepository;
-        private readonly IAIService _aiService;
+        private readonly IAIProviderFactory _providerFactory; // Correct type
+        private readonly IAIModelManager _modelManager;
 
         /// <summary>
-        /// Initializes a new instance of the ChatService class
+        /// Gets the current AI model being used
         /// </summary>
-        public ChatService(IMessageRepository messageRepository, IConversationRepository conversationRepository, IAIService aiService)
+        public AIModel CurrentModel => _modelManager.CurrentModel;
+
+        /// <summary>
+        /// Occurs when streaming data is received
+        /// </summary>
+        public event EventHandler<string> StreamingDataReceived;
+
+        /// <summary>
+        /// Occurs when the model is changed
+        /// </summary>
+        public event EventHandler<AIModel> ModelChanged;
+
+        /// <summary>
+        /// Creates a new ChatService instance
+        /// </summary>
+        public ChatService(
+            IMessageRepository messageRepository,
+            IConversationRepository conversationRepository,
+            IAIProviderFactory providerFactory, // Using IAIProviderFactory
+            IAIModelManager modelManager)
         {
             _messageRepository = messageRepository ?? throw new ArgumentNullException(nameof(messageRepository));
             _conversationRepository = conversationRepository ?? throw new ArgumentNullException(nameof(conversationRepository));
-            _aiService = aiService ?? throw new ArgumentNullException(nameof(aiService));
+            _providerFactory = providerFactory ?? throw new ArgumentNullException(nameof(providerFactory));
+            _modelManager = modelManager ?? throw new ArgumentNullException(nameof(modelManager));
         }
 
-        /// <summary>
-        /// Loads an existing conversation or creates a new one
-        /// </summary>
-        public async Task<Conversation> LoadOrCreateConversationAsync(int conversationId, int modelId = 1, int userId = 1)
-        {
-            try
-            {
-                Debug.WriteLine("Attempting to load conversation");
-                var conversation = await _conversationRepository.GetByIdAsync(conversationId);
-                
-                if (conversation == null)
-                {
-                    Debug.WriteLine("No conversation found, creating new one");
-                    // Create a new conversation
-                    conversation = new Conversation
-                    {
-                        UserId = userId,
-                        Title = "New Chat",
-                        ModelId = modelId,
-                        CreatedAt = DateTime.Now,
-                        UpdatedAt = DateTime.Now,
-                        TotalTokensUsed = 0
-                    };
-                    
-                    // Save the new conversation
-                    await _conversationRepository.AddAsync(conversation);
-                    Debug.WriteLine($"Created new conversation with ID: {conversation.Id}");
-                }
-                else
-                {
-                    Debug.WriteLine($"Loaded existing conversation with ID: {conversation.Id}");
-                }
-
-                return conversation;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error loading/creating conversation: {ex.Message}");
-                
-                // Create a local conversation object so the UI can still function
-                return new Conversation
-                {
-                    Id = 0, // Temporary ID
-                    UserId = userId,
-                    Title = "Temporary Chat",
-                    ModelId = modelId,
-                    CreatedAt = DateTime.Now,
-                    UpdatedAt = DateTime.Now
-                };
-            }
-        }
-        
         /// <summary>
         /// Gets messages for a conversation
         /// </summary>
-        /// <param name="conversationId">The conversation ID</param>
-        /// <returns>List of messages</returns>
-        public async Task<List<Message>> GetByConversationIdAsync(int conversationId)
+        public async Task<List<Message>> GetMessagesForConversationAsync(int conversationId)
         {
             try
             {
-                return await _messageRepository.GetByConversationIdAsync(conversationId);
+                return await _messageRepository.GetMessagesByConversationAsync(conversationId);
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error getting messages: {ex.Message}");
+                Debug.WriteLine($"Error getting messages for conversation: {ex.Message}");
                 return new List<Message>();
             }
         }
 
         /// <summary>
-        /// Gets messages for a conversation with pagination
+        /// Gets a response from the AI for the given prompt
         /// </summary>
-        public async Task<List<Message>> GetMessageAsync(int conversationId, int limit = 100, int offset = 0)
+        public async Task<string> GetResponseAsync(string prompt, CancellationToken cancellationToken)
         {
             try
             {
-                // Implement pagination
-                var messages = await _messageRepository.GetByConversationIdAsync(conversationId);
-                
-                // Apply pagination
-                if (offset >= 0 && limit > 0)
+                var service = await GetCurrentAIServiceAsync();
+                if (service == null)
                 {
-                    return messages
-                        .Skip(offset)
-                        .Take(limit)
-                        .ToList();
+                    throw new InvalidOperationException("No AI service is available. Please select a model.");
                 }
-                
-                return messages;
+
+                return await service.SendMessageAsync(prompt, cancellationToken);
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error getting paginated messages: {ex.Message}");
-                return new List<Message>();
+                Debug.WriteLine($"Error getting AI response: {ex.Message}");
+                throw;
             }
         }
 
-        // Keep the original method for backward compatibility
-        public async Task<List<Message>> GetMessagesAsync(int conversationId, int limit = 100)
-        {
-            return await GetMessageAsync(conversationId, limit, 0);
-        }
-        
         /// <summary>
-        /// Sends a message to the AI and gets a response
+        /// Gets a streaming response from the AI
         /// </summary>
-        public async Task<string> GetAIResponseAsync(string userMessage, CancellationToken cancellationToken)
+        public async Task<Stream> GetStreamingResponseAsync(string prompt, CancellationToken cancellationToken)
         {
             try
             {
-                // Using a timeout for safety
-                using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                timeoutCts.CancelAfter(TimeSpan.FromSeconds(60)); // 1 minute timeout
-                
-                return await _aiService.SendMessageAsync(userMessage, timeoutCts.Token);
-            }
-            catch (OperationCanceledException)
-            {
-                Debug.WriteLine("AI request was canceled");
-                return null;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"AI response error: {ex.Message}");
-                return null;
-            }
-        }
-        
-        /// <summary>
-        /// Saves a message to the database
-        /// </summary>
-        public async Task<Message> SaveMessageAsync(Message message)
-        {
-            try
-            {
-                if (message.ConversationId <= 0)
+                var service = await GetCurrentAIServiceAsync();
+                if (service == null)
                 {
-                    throw new ArgumentException("ConversationId must be greater than 0");
+                    throw new InvalidOperationException("No AI service is available. Please select a model.");
                 }
-                
-                var messageId = await _messageRepository.AddMessageAsync(message, message.ConversationId);
-                if (messageId > 0) 
-                {
-                    message.Id = messageId;
-                    return message;
-                }
-                return null;
+
+                return await service.SendStreamedMessageAsync(prompt, cancellationToken, OnStreamingUpdate);
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error saving message: {ex.Message}");
-                return message; // Return original message even if save failed
+                Debug.WriteLine($"Error getting AI streaming response: {ex.Message}");
+                throw;
             }
         }
-        
+
         /// <summary>
-        /// Updates a conversation
+        /// Callback for streaming updates
         /// </summary>
-        public async Task<bool> UpdateConversationAsync(Conversation conversation)
+        private void OnStreamingUpdate(string content)
+        {
+            StreamingDataReceived?.Invoke(this, content);
+        }
+
+        /// <summary>
+        /// Changes the current AI model
+        /// </summary>
+        public async Task<bool> ChangeModelAsync(AIModel model)
         {
             try
             {
-                var result = await _conversationRepository.UpdateAsync(conversation);
-                return result > 0; // Convert int to bool
+                bool success = await _modelManager.SetCurrentModelAsync(model);
+                if (success)
+                {
+                    ModelChanged?.Invoke(this, model);
+                }
+                return success;
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error updating conversation: {ex.Message}");
+                Debug.WriteLine($"Error changing model: {ex.Message}");
                 return false;
             }
         }
-        
+
         /// <summary>
-        /// Clears all messages for a conversation
+        /// Gets the estimated token count for a message
         /// </summary>
-        public async Task<int> ClearConversationMessagesAsync(int conversationId)
+        public async Task<int> EstimateTokens(string message)
         {
             try
             {
-                await _messageRepository.EnsureDatabaseAsync(CancellationToken.None);
+                if (string.IsNullOrEmpty(message))
+                    return 0;
+
+                var service = await GetCurrentAIServiceAsync();
+                if (service != null)
+                {
+                    return service.EstimateTokens(message);
+                }
+
+                // Default estimation - ~4 chars per token
+                return message.Length / 4 + 1;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error estimating tokens: {ex.Message}");
+                return message.Length / 4 + 1; // Fallback estimation
+            }
+        }
+
+        /// <summary>
+        /// Deletes all messages for a conversation
+        /// </summary>
+        public async Task<bool> DeleteConversationMessagesAsync(int conversationId)
+        {
+            try
+            {
                 return await _messageRepository.DeleteByConversationIdAsync(conversationId);
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error clearing conversation messages: {ex.Message}");
-                return 0;
-            }
-        }
-        
-        /// <summary>
-        /// Deletes a conversation and its messages
-        /// </summary>
-        public async Task<bool> DeleteConversationAsync(int conversationId)
-        {
-            try
-            {
-                // First ensure both repositories are initialized
-                await _messageRepository.EnsureDatabaseAsync(CancellationToken.None);
-                await _conversationRepository.EnsureDatabaseAsync(CancellationToken.None);
-                
-                // Delete messages
-                await _messageRepository.DeleteByConversationIdAsync(conversationId);
-                
-                // Then delete the conversation
-                int conversationsDeleted = await (_conversationRepository as ConversationRepository).DeleteAsync(conversationId);
-                Debug.WriteLine($"Conversation delete result: {conversationsDeleted} rows affected");
-                
-                return conversationsDeleted > 0;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error deleting conversation: {ex.Message}");
+                Debug.WriteLine($"Error deleting conversation messages: {ex.Message}");
                 return false;
             }
         }
-        
-        /// <summary>
-        /// Generates a title from the first message
-        /// </summary>
-        public string GenerateTitleFromMessage(string message)
-        {
-            try
-            {
-                // Simplified algorithm: take first few words or first sentence
-                string title = message.Split('.')[0]; // First sentence
-                
-                // Limit length
-                if (title.Length > 30)
-                {
-                    title = title.Substring(0, 27) + "...";
-                }
-                
-                return title;
-            }
-            catch
-            {
-                return "New Chat";
-            }
-        }
 
         /// <summary>
-        /// Gets the count of messages in a conversation
+        /// Creates a new conversation
         /// </summary>
-        public async Task<int> GetMessageCountAsync(int conversationId)
+        public async Task<Conversation> CreateConversationAsync(string title, string modelName = null, string providerName = null)
         {
             try
             {
-                return await _messageRepository.GetMessageCountAsync(conversationId);
+                var now = DateTime.UtcNow;
+                var conversation = new Conversation
+                {
+                    Title = title ?? "New Chat",
+                    CreatedAt = now,
+                    UpdatedAt = now,
+                    ModelName = modelName ?? _modelManager.CurrentModel?.ModelName,
+                    ProviderName = providerName ?? _modelManager.CurrentModel?.ProviderName
+                };
+
+                conversation.Id = await _conversationRepository.AddConversationAsync(conversation);
+                return conversation;
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error getting message count: {ex.Message}");
-                return 0;
+                Debug.WriteLine($"Error creating conversation: {ex.Message}");
+                throw;
             }
         }
 
         /// <summary>
-        /// Gets a message by its ID
+        /// Sends a message in a conversation
         /// </summary>
-        public async Task<Message> GetMessageAsync(int messageId)
+        public async Task<Message> SendMessageAsync(int conversationId, string content, CancellationToken cancellationToken = default)
         {
-            // Implement message retrieval logic
-            // This is a placeholder - implement with your repository
-            return await Task.FromResult(new Message { Id = messageId });
+            try
+            {
+                // Validate inputs
+                if (string.IsNullOrWhiteSpace(content))
+                    throw new ArgumentException("Message content cannot be empty", nameof(content));
+
+                // Create user message and save
+                var message = new Message
+                {
+                    ConversationId = conversationId,
+                    AuthorType = "user",
+                    Content = content,
+                    Status = "sent",
+                    SentAt = DateTime.UtcNow
+                };
+
+                int messageId = await _messageRepository.AddAsync(message);
+                message.Id = messageId;
+
+                // Update conversation last activity
+                await _conversationRepository.UpdateLastActivityAsync(conversationId);
+
+                return message;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error sending message: {ex.Message}");
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Sends an AI message in a conversation
+        /// </summary>
+        public async Task<Message> SendAIMessageAsync(int conversationId, string userPrompt, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                // Get existing conversation
+                var conversation = await _conversationRepository.GetByIdAsync(conversationId);
+                if (conversation == null)
+                {
+                    throw new InvalidOperationException($"Conversation with ID {conversationId} not found");
+                }
+
+                // Create initial AI message
+                var aiMessage = new Message
+                {
+                    Content = "",
+                    ConversationId = conversationId,
+                    IsAI = true,
+                    MessageType = "ai",
+                    Status = "thinking",
+                    Timestamp = DateTime.Now
+                };
+
+                // Add to database
+                aiMessage.Id = await _messageRepository.AddAsync(aiMessage);
+
+                // Get AI service for current model
+                var aiService = await GetCurrentAIServiceAsync();
+                if (aiService == null)
+                {
+                    throw new InvalidOperationException("No AI service is configured");
+                }
+
+                // Create callback action for streaming updates
+                Action<string> updateCallback = (string update) =>
+                    UpdateAIMessageContentAsync(aiMessage, update).ConfigureAwait(false);
+
+                // Call with correct parameter order
+                var result = await aiService.SendStreamedMessageAsync(
+                    userPrompt,
+                    cancellationToken,
+                    updateCallback
+                );
+
+                // Update message status
+                aiMessage.Status = "complete";
+                await _messageRepository.UpdateAsync(aiMessage);
+
+                return aiMessage;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error in SendAIMessageAsync: {ex.Message}");
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Updates AI message content during streaming
+        /// </summary>
+        private async Task UpdateAIMessageContentAsync(Message message, string content)
+        {
+            if (message == null || string.IsNullOrEmpty(content))
+                return;
+
+            try
+            {
+                // Update the message content
+                message.Content = content;
+
+                // Update in database
+                await _messageRepository.UpdateAsync(message);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error updating AI message: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Gets the current AI service based on the selected model
+        /// </summary>
+        private async Task<IAIProviderService> GetCurrentAIServiceAsync()
+        {
+            var currentModel = _modelManager.CurrentModel;
+            if (currentModel == null)
+            {
+                Debug.WriteLine("No current model selected, using default");
+                // Use correct method from IAIProviderFactory
+                return _providerFactory.GetDefaultService();
+            }
+
+            // Use correct method from IAIProviderFactory
+            return _providerFactory.GetProviderForModel(currentModel.ProviderName, currentModel.ModelName);
         }
     }
 }

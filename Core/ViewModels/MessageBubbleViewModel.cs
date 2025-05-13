@@ -1,7 +1,10 @@
 using System;
 using System.Diagnostics;
+using System.Text.RegularExpressions;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using NexusChat.Core.Models;
+using System.Windows.Input;
 
 namespace NexusChat.Core.ViewModels
 {
@@ -13,7 +16,17 @@ namespace NexusChat.Core.ViewModels
         private Message? _message;
         private string? _cachedStatusText;
         private bool _cachedHasValidContent;
+        private string? _formattedContent;
         
+        [ObservableProperty]
+        private bool _isStreaming = false;
+        
+        [ObservableProperty]
+        private string _streamingContent = string.Empty;
+        
+        /// <summary>
+        /// Gets or sets the message
+        /// </summary>
         public Message Message
         {
             get => _message;
@@ -23,17 +36,25 @@ namespace NexusChat.Core.ViewModels
                 {
                     // Reset caches
                     _cachedStatusText = null;
+                    _formattedContent = null;
                     
                     // When message changes, notify these properties
                     OnPropertyChanged(nameof(StatusText));
                     OnPropertyChanged(nameof(HasStatus));
                     OnPropertyChanged(nameof(HasValidContent));
+                    OnPropertyChanged(nameof(FormattedContent));
+                    OnPropertyChanged(nameof(IsAI));
                     
                     // Pre-compute values to improve rendering performance
                     _cachedHasValidContent = value != null && !string.IsNullOrWhiteSpace(value.Content);
                 }
             }
         }
+        
+        /// <summary>
+        /// Gets whether the message is from AI
+        /// </summary>
+        public bool IsAI => _message?.IsAI ?? false;
 
         /// <summary>
         /// Gets the formatted status text based on message status
@@ -52,6 +73,25 @@ namespace NexusChat.Core.ViewModels
         }
         
         /// <summary>
+        /// Gets the formatted content with processing for display
+        /// </summary>
+        public string FormattedContent
+        {
+            get
+            {
+                if (_formattedContent != null)
+                    return _formattedContent;
+                    
+                if (_message == null || string.IsNullOrEmpty(_message.Content))
+                    return string.Empty;
+                    
+                // Format content for display
+                _formattedContent = FormatMessageContent(_message.Content);
+                return _formattedContent;
+            }
+        }
+        
+        /// <summary>
         /// Gets whether the message has a status to display
         /// </summary>
         public bool HasStatus => !string.IsNullOrEmpty(StatusText);
@@ -65,11 +105,62 @@ namespace NexusChat.Core.ViewModels
         }
         
         /// <summary>
+        /// Command for regenerating an AI message
+        /// </summary>
+        public ICommand RegenerateCommand { get; set; }
+        
+        /// <summary>
         /// Initializes a new instance of MessageBubbleViewModel
         /// </summary>
         public MessageBubbleViewModel()
         {
             // Initialize with empty state
+            RegenerateCommand = new Command<Message>(OnRegenerateMessage);
+        }
+        
+        /// <summary>
+        /// Handles regenerate message command
+        /// </summary>
+        private void OnRegenerateMessage(Message message)
+        {
+            try
+            {
+                if (message == null || !message.IsAI) return;
+                
+                Debug.WriteLine($"Requesting regeneration of message ID: {message.Id}");
+                // The actual implementation would be in the parent ViewModel
+                // which will be bound to this command
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error in OnRegenerateMessage: {ex.Message}");
+            }
+        }
+        
+        /// <summary>
+        /// Updates content during streaming
+        /// </summary>
+        public void UpdateStreamingContent(string content)
+        {
+            IsStreaming = true;
+            StreamingContent = content;
+        }
+        
+        /// <summary>
+        /// Stops streaming and updates final content
+        /// </summary>
+        public void StopStreaming()
+        {
+            IsStreaming = false;
+            
+            if (_message != null && !string.IsNullOrEmpty(StreamingContent))
+            {
+                _message.Content = StreamingContent;
+                _formattedContent = null;  // Clear cache to force reformatting
+                OnPropertyChanged(nameof(FormattedContent));
+            }
+            
+            StreamingContent = string.Empty;
         }
 
         /// <summary>
@@ -85,12 +176,34 @@ namespace NexusChat.Core.ViewModels
                 
             return Message.Status switch
             {
-                "Sent" => "✓ Sent",
-                "Delivered" => "✓✓ Delivered",
-                "Read" => "✓✓ Read",
-                "Failed" => "⚠️ Failed to send",
+                "sent" => "✓ Sent",
+                "delivered" => "✓✓ Delivered",
+                "read" => "✓✓ Read",
+                "failed" => "⚠️ Failed to send",
                 _ => string.Empty
             };
+        }
+        
+        /// <summary>
+        /// Formats message content for display
+        /// </summary>
+        private string FormatMessageContent(string content)
+        {
+            if (string.IsNullOrEmpty(content))
+                return string.Empty;
+                
+            try
+            {
+                // Replace multiple newlines with just two
+                string formatted = Regex.Replace(content, @"\n{3,}", "\n\n");
+                
+                return formatted;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error formatting message content: {ex.Message}");
+                return content;  // Return original on error
+            }
         }
         
         /// <summary>
@@ -101,6 +214,7 @@ namespace NexusChat.Core.ViewModels
             // Release resources
             _message = null;
             _cachedStatusText = null;
+            _formattedContent = null;
         }
     }
 }

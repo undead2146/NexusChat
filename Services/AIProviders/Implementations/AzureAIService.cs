@@ -1,7 +1,9 @@
+/* 
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Threading;
@@ -10,8 +12,6 @@ using Azure;
 using NexusChat.Core.Models;
 using NexusChat.Services.Interfaces;
 
-/* NOT YET PROPPERLY IMPLEMENTED
- * 
 namespace NexusChat.Services.AIProviders.Implementations
 {
     /// <summary>
@@ -20,7 +20,7 @@ namespace NexusChat.Services.AIProviders.Implementations
     public class AzureAIService : BaseAIService
     {
         private readonly string _selectedModel;
-        private readonly Dictionary<string, ModelCapabilities> _modelConfigs;
+        private readonly Dictionary<string, AIModel> _models;
         private readonly Uri _endpoint = new Uri("https://models.inference.ai.azure.com");
         
         /// <summary>
@@ -37,16 +37,16 @@ namespace NexusChat.Services.AIProviders.Implementations
         /// Gets whether streaming is supported by this model
         /// </summary>
         public override bool SupportsStreaming => 
-            _modelConfigs.TryGetValue(_selectedModel, out var capabilities) 
-                ? capabilities.SupportsStreaming 
+            _models.TryGetValue(_selectedModel, out var model) 
+                ? model.SupportsStreaming 
                 : base.SupportsStreaming;
         
         /// <summary>
         /// Gets the maximum context window for this model
         /// </summary>
         public override int MaxContextWindow => 
-            _modelConfigs.TryGetValue(_selectedModel, out var capabilities) 
-                ? capabilities.MaxContextWindow 
+            _models.TryGetValue(_selectedModel, out var model) 
+                ? model.MaxContextWindow 
                 : base.MaxContextWindow;
 
         /// <summary>
@@ -59,40 +59,152 @@ namespace NexusChat.Services.AIProviders.Implementations
         {
             _selectedModel = modelName ?? "DeepSeek-R1";
             
-            // Initialize model configurations
-            _modelConfigs = new Dictionary<string, ModelCapabilities>(StringComparer.OrdinalIgnoreCase)
+            // Initialize model registry with rich AIModel objects
+            _models = new Dictionary<string, AIModel>(StringComparer.OrdinalIgnoreCase)
             {
-                ["DeepSeek-R1"] = new ModelCapabilities 
+                ["DeepSeek-R1"] = new AIModel
                 { 
+                    ModelName = "DeepSeek-R1",
+                    ProviderName = "Azure",
+                    Description = "DeepSeek R1 - Advanced reasoning and language understanding",
                     MaxTokens = 4096, 
                     MaxContextWindow = 16384, 
                     SupportsStreaming = true,
                     DefaultTemperature = 0.7f,
-                    SupportsCodeCompletion = true
+                    SupportsCodeCompletion = true,
+                    IsAvailable = true
                 },
-                ["Phi-3.5-mini-instruct"] = new ModelCapabilities 
+                ["Phi-3.5-mini-instruct"] = new AIModel
                 {
+                    ModelName = "Phi-3.5-mini-instruct",
+                    ProviderName = "Azure",
+                    Description = "Phi 3.5 Mini - Instruction-tuned small model with large context",
                     MaxTokens = 4096,
                     MaxContextWindow = 131072, 
                     SupportsStreaming = true,
-                    DefaultTemperature = 0.7f
+                    DefaultTemperature = 0.7f,
+                    IsAvailable = true
                 },
-                ["Phi-3.5-vision-instruct"] = new ModelCapabilities 
+                ["Phi-3.5-vision-instruct"] = new AIModel
                 { 
+                    ModelName = "Phi-3.5-vision-instruct",
+                    ProviderName = "Azure",
+                    Description = "Phi 3.5 Vision - Multimodal model with vision capabilities",
                     MaxTokens = 4096, 
                     MaxContextWindow = 131072, 
                     SupportsStreaming = false,
                     DefaultTemperature = 0.7f,
-                    SupportsVision = true
+                    SupportsVision = true,
+                    IsAvailable = true
                 },
-                ["Phi-3-medium-instruct-128k"] = new ModelCapabilities 
+                ["Phi-3-medium-instruct-128k"] = new AIModel
                 { 
+                    ModelName = "Phi-3-medium-instruct-128k",
+                    ProviderName = "Azure",
+                    Description = "Phi 3 Medium - Balanced model with large context window",
                     MaxTokens = 4096, 
                     MaxContextWindow = 131072, 
                     SupportsStreaming = true,
-                    DefaultTemperature = 0.7f
+                    DefaultTemperature = 0.7f,
+                    IsAvailable = true
                 }
             };
+        }
+
+        /// <summary>
+        /// Gets a list of all available models for this provider
+        /// </summary>
+        public IEnumerable<AIModel> GetAvailableModels()
+        {
+            return _models.Values.Where(m => m.IsAvailable);
+        }
+
+        /// <summary>
+        /// Gets model capabilities for a specific model
+        /// </summary>
+        /// <param name="modelName">Name of the model</param>
+        /// <returns>Model capabilities or null if not found</returns>
+        public ModelCapabilities GetModelCapabilities(string modelName)
+        {
+            if (_models.TryGetValue(modelName, out var model))
+            {
+                return new ModelCapabilities
+                {
+                    MaxTokens = model.MaxTokens,
+                    MaxContextWindow = model.MaxContextWindow,
+                    DefaultTemperature = model.DefaultTemperature,
+                    SupportsStreaming = model.SupportsStreaming,
+                    SupportsVision = model.SupportsVision,
+                    SupportsCodeCompletion = model.SupportsCodeCompletion
+                };
+            }
+            
+            return null;
+        }
+
+        /// <summary>
+        /// Gets AIModel information for a specific model
+        /// </summary>
+        /// <param name="modelName">Name of the model</param>
+        /// <returns>AIModel or null if not found</returns>
+        public AIModel GetModel(string modelName)
+        {
+            if (_models.TryGetValue(modelName, out var model))
+            {
+                // Return a clone to prevent modification of the internal dictionary
+                return new AIModel
+                {
+                    ModelName = model.ModelName,
+                    ProviderName = model.ProviderName,
+                    Description = model.Description,
+                    MaxTokens = model.MaxTokens,
+                    MaxContextWindow = model.MaxContextWindow,
+                    SupportsStreaming = model.SupportsStreaming,
+                    DefaultTemperature = model.DefaultTemperature,
+                    SupportsCodeCompletion = model.SupportsCodeCompletion,
+                    SupportsVision = model.SupportsVision,
+                    IsAvailable = model.IsAvailable
+                };
+            }
+            
+            return null;
+        }
+
+        /// <summary>
+        /// Validates if a model is supported by this provider
+        /// </summary>
+        /// <param name="modelName">Name of the model to check</param>
+        /// <returns>True if the model is supported</returns>
+        public bool SupportsModel(string modelName)
+        {
+            return _models.ContainsKey(modelName);
+        }
+
+        /// <summary>
+        /// Gets a fallback model if the requested one is not available
+        /// </summary>
+        /// <returns>Name of a fallback model</returns>
+        public string GetFallbackModel()
+        {
+            // Try first available model in order of preference
+            string[] preferredModels = new[]
+            {
+                "Phi-3.5-mini-instruct",  // Good balance of capabilities and speed
+                "DeepSeek-R1",            // Solid alternative
+                "Phi-3-medium-instruct-128k"  // Another option
+            };
+            
+            foreach (var modelName in preferredModels)
+            {
+                if (_models.TryGetValue(modelName, out var model) && model.IsAvailable)
+                {
+                    return modelName;
+                }
+            }
+            
+            // If none of the preferred models are available, return first available
+            var firstAvailable = _models.Values.FirstOrDefault(m => m.IsAvailable);
+            return firstAvailable?.ModelName ?? "DeepSeek-R1"; // Default fallback
         }
 
         /// <summary>
@@ -112,6 +224,16 @@ namespace NexusChat.Services.AIProviders.Implementations
                     credential,
                     new AzureAIInferenceClientOptions());
                 
+                // Get model parameters (use defaults if not found)
+                float temperature = 0.7f;
+                int maxTokens = 4096;
+                
+                if (_models.TryGetValue(_selectedModel, out var model))
+                {
+                    temperature = model.DefaultTemperature;
+                    maxTokens = Math.Min(model.MaxTokens, 4096);
+                }
+                
                 // Configure the request
                 var requestOptions = new ChatCompletionsOptions()
                 {
@@ -119,13 +241,9 @@ namespace NexusChat.Services.AIProviders.Implementations
                     {
                         new ChatRequestUserMessage(prompt)
                     },
-                    MaxTokens = _modelConfigs.TryGetValue(_selectedModel, out var cap) 
-                        ? Math.Min(cap.MaxTokens, 4096)
-                        : 4096,
+                    MaxTokens = maxTokens,
                     Model = _selectedModel,
-                    Temperature = _modelConfigs.TryGetValue(_selectedModel, out var config) 
-                        ? config.DefaultTemperature
-                        : 0.7f
+                    Temperature = temperature
                 };
                 
                 // Send the request
@@ -157,6 +275,16 @@ namespace NexusChat.Services.AIProviders.Implementations
                     credential,
                     new AzureAIInferenceClientOptions());
                 
+                // Get model parameters (use defaults if not found)
+                float temperature = 0.7f;
+                int maxTokens = 4096;
+                
+                if (_models.TryGetValue(_selectedModel, out var model))
+                {
+                    temperature = model.DefaultTemperature;
+                    maxTokens = Math.Min(model.MaxTokens, 4096);
+                }
+                
                 // Configure the request
                 var requestOptions = new ChatCompletionsOptions()
                 {
@@ -164,13 +292,9 @@ namespace NexusChat.Services.AIProviders.Implementations
                     {
                         new ChatRequestUserMessage(prompt)
                     },
-                    MaxTokens = _modelConfigs.TryGetValue(_selectedModel, out var cap) 
-                        ? Math.Min(cap.MaxTokens, 4096)
-                        : 4096,
+                    MaxTokens = maxTokens,
                     Model = _selectedModel,
-                    Temperature = _modelConfigs.TryGetValue(_selectedModel, out var config) 
-                        ? config.DefaultTemperature
-                        : 0.7f,
+                    Temperature = temperature,
                     AdditionalProperties = {
                         { "stream_options", BinaryData.FromObjectAsJson(new { include_usage=true })}
                     }
@@ -227,17 +351,15 @@ namespace NexusChat.Services.AIProviders.Implementations
             // Try alternative API keys if not found
             if (string.IsNullOrEmpty(apiToken))
             {
-                apiToken = ApiKeyManager.GetApiKey("AZURE_AI_KEY"); 
+                // Use our new model-specific async method but run it synchronously
+                Task<string> task = ApiKeyManager.GetProviderApiKeyAsync("AZURE");
+                task.Wait();
+                apiToken = task.Result;
             }
             
             if (string.IsNullOrEmpty(apiToken))
             {
-                apiToken = ApiKeyManager.GetApiKey("AI_KEY_AZURE");
-            }
-            
-            if (string.IsNullOrEmpty(apiToken))
-            {
-                throw new InvalidOperationException("No Azure AI authentication token found. Please set GITHUB_TOKEN environment variable.");
+                throw new InvalidOperationException("No Azure AI authentication token found. Please check API key configuration.");
             }
             
             return apiToken;
@@ -251,15 +373,15 @@ namespace NexusChat.Services.AIProviders.Implementations
             if (string.IsNullOrEmpty(text))
                 return 0;
                 
-            // Average characters per token varies by model
-            float charsPerToken = 3.8f;
-            
-            if (_selectedModel.Contains("phi"))
+            // Different models have different tokenization ratios
+            if (_selectedModel.Contains("phi", StringComparison.OrdinalIgnoreCase))
             {
-                charsPerToken = 3.5f;  // Phi models tend to have different tokenization
+                // Phi models tend to have different tokenization
+                return (int)(text.Length / 3.5f) + 1;
             }
             
-            return (int)(text.Length / charsPerToken) + 1;
+            // Default estimation
+            return (int)(text.Length / 4f) + 1;
         }
     }
 }

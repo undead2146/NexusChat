@@ -1,0 +1,213 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:viewmodels="clr-namespace:NexusChat.Core.ViewModels"
+             xmlns:models="clr-namespace:NexusChat.Core.Models"
+             xmlns:converters="clr-namespace:NexusChat.Views.Converters"
+             x:DataType="viewmodels:ConversationsPageViewModel"
+             x:Class="NexusChat.Views.Pages.ConversationsPage"
+             Title="Conversations">
+
+    <ContentPage.Resources>
+        <ResourceDictionary>
+            <converters:DateTimeToRelativeDateConverter x:Key="DateTimeToRelativeDateConverter" />
+            <converters:StringEmptyConverter x:Key="StringEmptyConverter" FallbackValue="No message" />
+            
+            <!-- Colors -->
+            <Color x:Key="SelectedItemBackground">#E0F2FE</Color>
+            <Color x:Key="SelectedItemBackgroundDark">#253340</Color>
+            <Color x:Key="HoverBackground">#F0F0F0</Color>
+            <Color x:Key="HoverBackgroundDark">#2A2A2A</Color>
+        </ResourceDictionary>
+    </ContentPage.Resources>
+
+    <Grid RowDefinitions="Auto,*,Auto" 
+          BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceBackground}, Dark={StaticResource SurfaceBackgroundDark}}">
+        
+        <!-- Header -->
+        <Grid Grid.Row="0" 
+              Padding="16" 
+              ColumnDefinitions="*,Auto" 
+              BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceBackground}, Dark={StaticResource SurfaceBackgroundDark}}">
+            
+            <Label Grid.Column="0"
+                   Text="Your Conversations" 
+                   FontSize="18" 
+                   FontAttributes="Bold"
+                   VerticalOptions="Center"
+                   TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}" />
+            
+            <Button Grid.Column="1"
+                    Text="&#xf067;" 
+                    FontFamily="FontAwesome-Solid"
+                    Command="{Binding NewConversationCommand}"
+                    WidthRequest="40"
+                    HeightRequest="40"
+                    CornerRadius="20"
+                    FontSize="16"
+                    Padding="0"
+                    BackgroundColor="{AppThemeBinding Light={StaticResource PrimaryColor}, Dark={StaticResource PrimaryColorDark}}"
+                    TextColor="White" />
+        </Grid>
+
+        <!-- Search Box -->
+        <Grid Grid.Row="1" RowDefinitions="Auto,*">
+            <Frame Grid.Row="0"
+                   Margin="16,0,16,8"
+                   Padding="12,0"
+                   CornerRadius="20"
+                   HasShadow="False"
+                   BorderColor="Transparent"
+                   BackgroundColor="{AppThemeBinding Light=#F0F0F0, Dark=#2D2D2D}">
+                
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                    <Label Grid.Column="0"
+                           Text="&#xf002;"
+                           FontFamily="FontAwesome-Solid"
+                           VerticalOptions="Center"
+                           TextColor="{AppThemeBinding Light=#888888, Dark=#BBBBBB}"
+                           FontSize="14" />
+                    
+                    <Entry Grid.Column="1"
+                           Text="{Binding SearchQuery, Mode=TwoWay}"
+                           Placeholder="Search conversations..."
+                           PlaceholderColor="{AppThemeBinding Light=#999999, Dark=#888888}"
+                           TextColor="{AppThemeBinding Light=#333333, Dark=White}"
+                           BackgroundColor="Transparent"
+                           VerticalOptions="Center"
+                           HeightRequest="40" />
+                </Grid>
+            </Frame>
+
+            <RefreshView Grid.Row="1"
+                         IsRefreshing="{Binding IsRefreshing}"
+                         Command="{Binding RefreshCommand}">
+                
+                <CollectionView ItemsSource="{Binding Conversations}"
+                                SelectionMode="Single"
+                                SelectedItem="{Binding SelectedConversation}"
+                                SelectionChangedCommand="{Binding SelectConversationCommand}"
+                                SelectionChangedCommandParameter="{Binding SelectedConversation}"
+                                EmptyView="No conversations found">
+                    
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="models:Conversation">
+                            <SwipeView>
+                                <SwipeView.RightItems>
+                                    <SwipeItems>
+                                        <SwipeItem Text="Delete"
+                                                   BackgroundColor="Red"
+                                                   Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:ConversationsPageViewModel}}, Path=DeleteConversationCommand}"
+                                                   CommandParameter="{Binding}" />
+                                    </SwipeItems>
+                                </SwipeView.RightItems>
+                                
+                                <Grid Padding="16,12" ColumnDefinitions="Auto,*,Auto">
+                                    <!-- Visual Selected State -->
+                                    <VisualStateManager.VisualStateGroups>
+                                        <VisualStateGroup Name="CommonStates">
+                                            <VisualState Name="Selected">
+                                                <VisualState.Setters>
+                                                    <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource SelectedItemBackground}, Dark={StaticResource SelectedItemBackgroundDark}}" />
+                                                </VisualState.Setters>
+                                            </VisualState>
+                                        </VisualStateGroup>
+                                    </VisualStateManager.VisualStateGroups>
+                                    
+                                    <!-- AI Model Icon (if available) -->
+                                    <Frame Grid.Column="0"
+                                          WidthRequest="36"
+                                          HeightRequest="36"
+                                          CornerRadius="18"
+                                          Padding="0"
+                                          Margin="0,0,10,0"
+                                          BorderColor="Transparent"
+                                          HasShadow="False"
+                                          BackgroundColor="{AppThemeBinding Light=#E0E0E0, Dark=#444444}">
+                                        <Label Text="&#xf233;"
+                                               FontFamily="FontAwesome-Solid"
+                                               HorizontalOptions="Center"
+                                               VerticalOptions="Center"
+                                               FontSize="16"
+                                               TextColor="{AppThemeBinding Light=#666666, Dark=#DDDDDD}" />
+                                    </Frame>
+                                    
+                                    <!-- Conversation Info -->
+                                    <StackLayout Grid.Column="1" Spacing="4" VerticalOptions="Center">
+                                        <Label Text="{Binding Title, Converter={StaticResource StringEmptyConverter}, FallbackValue='New Chat'}"
+                                               FontAttributes="Bold"
+                                               FontSize="14"
+                                               LineBreakMode="TailTruncation"
+                                               TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}" />
+                                               
+                                        <Label Text="{Binding ModelName, StringFormat='Model: {0}'}"
+                                               FontSize="12"
+                                               LineBreakMode="TailTruncation"
+                                               TextColor="{AppThemeBinding Light={StaticResource SecondaryTextColor}, Dark={StaticResource SecondaryTextColorDark}}" />
+                                    </StackLayout>
+                                    
+                                    <!-- Timestamp -->
+                                    <Label Grid.Column="2"
+                                          Text="{Binding UpdatedAt, Converter={StaticResource DateTimeToRelativeDateConverter}}"
+                                          FontSize="12"
+                                          TextColor="{AppThemeBinding Light=#999999, Dark=#888888}"
+                                          VerticalOptions="Center" />
+                                </Grid>
+                            </SwipeView>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                    
+                    <CollectionView.EmptyView>
+                        <StackLayout VerticalOptions="CenterAndExpand"
+                                    HorizontalOptions="CenterAndExpand"
+                                    Padding="20"
+                                    Spacing="12">
+                            <Label Text="&#xf4ad;"
+                                   FontFamily="FontAwesome-Solid"
+                                   FontSize="32"
+                                   TextColor="{AppThemeBinding Light=#CCCCCC, Dark=#555555}"
+                                   HorizontalOptions="Center" />
+                            <Label Text="No conversations yet"
+                                   FontSize="16"
+                                   TextColor="{AppThemeBinding Light=#999999, Dark=#888888}"
+                                   HorizontalOptions="Center" />
+                            <Button Text="Start New Chat"
+                                    Command="{Binding NewConversationCommand}"
+                                    HorizontalOptions="Center"
+                                    BackgroundColor="{AppThemeBinding Light={StaticResource PrimaryColor}, Dark={StaticResource PrimaryColorDark}}"
+                                    TextColor="White"
+                                    CornerRadius="20"
+                                    Padding="16,8" />
+                        </StackLayout>
+                    </CollectionView.EmptyView>
+                </CollectionView>
+            </RefreshView>
+        </Grid>
+        
+        <!-- Bottom Actions -->
+        <Grid Grid.Row="2"
+              Padding="16"
+              ColumnDefinitions="*,*"
+              ColumnSpacing="10"
+              BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceBackground}, Dark={StaticResource SurfaceBackgroundDark}}">
+            
+            <Button Grid.Column="0"
+                    Text="Models"
+                    Command="{Binding NavigateToModelsCommand}"
+                    BackgroundColor="Transparent"
+                    TextColor="{AppThemeBinding Light={StaticResource PrimaryColor}, Dark={StaticResource PrimaryColorDark}}"
+                    BorderColor="{AppThemeBinding Light={StaticResource PrimaryColor}, Dark={StaticResource PrimaryColorDark}}"
+                    BorderWidth="1"
+                    CornerRadius="8" />
+                    
+            <Button Grid.Column="1"
+                    Text="Settings"
+                    Command="{Binding NavigateToSettingsCommand}"
+                    BackgroundColor="Transparent"
+                    TextColor="{AppThemeBinding Light={StaticResource PrimaryColor}, Dark={StaticResource PrimaryColorDark}}"
+                    BorderColor="{AppThemeBinding Light={StaticResource PrimaryColor}, Dark={StaticResource PrimaryColorDark}}"
+                    BorderWidth="1"
+                    CornerRadius="8" />
+        </Grid>
+    </Grid>
+</ContentPage>

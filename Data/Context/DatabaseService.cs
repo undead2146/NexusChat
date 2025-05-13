@@ -173,6 +173,7 @@ namespace NexusChat.Data.Context
                     Debug.WriteLine("AIModels table already exists");
                 }
                 
+                
                 Debug.WriteLine("Database schema verification completed");
             }
             catch (Exception ex)
@@ -206,22 +207,7 @@ namespace NexusChat.Data.Context
                 throw;
             }
         }
-        
-        /// <summary>
-        /// Creates a test user if none exists
-        /// </summary>
-        public async Task CreateTestUserIfNotExists()
-        {
-            // Implementation unchanged
-        }
-        
-        /// <summary>
-        /// Creates default AI models if none exist
-        /// </summary>
-        public async Task CreateDefaultAIModelsIfNotExists()
-        {
-            // Implementation unchanged
-        }
+
 
         /// <summary>
         /// Check if a table exists in the database
@@ -336,6 +322,15 @@ namespace NexusChat.Data.Context
         public SQLiteAsyncConnection GetConnection()
         {
             return _database;  // Assuming _database is the SQLiteAsyncConnection instance
+        }
+
+        /// <summary>
+        /// Gets the SQLite connection asynchronously
+        /// </summary>
+        public async Task<SQLiteAsyncConnection> GetConnectionAsync()
+        {
+            await Initialize();
+            return _database;
         }
     }
 }

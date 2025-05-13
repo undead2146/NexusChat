@@ -15,4 +15,12 @@
         ContentTemplate="{DataTemplate pages:MainPage}"
         FlyoutItemIsVisible="False" />
 
+    <ShellContent
+        ContentTemplate="{DataTemplate pages:ChatPage}"
+        Route="ChatPage" />
+
+    <FlyoutItem Title="Conversations" Route="ConversationsPage">
+        <ShellContent ContentTemplate="{DataTemplate pages:ConversationsPage}" />
+    </FlyoutItem>
+
 </Shell>

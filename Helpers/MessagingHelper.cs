@@ -23,7 +23,7 @@ namespace NexusChat.Helpers
     {
         // Message keys
         public const string AnimateDefaultStar = "AnimateDefaultStar";
-        private const string FavoriteStarAnimationToken = "FavoriteStarAnimation";
+        private const string favoriteStarAnimationToken = "favoriteStarAnimation";
         
         /// <summary>
         /// Sends a request to animate the default star for a model
@@ -39,18 +39,18 @@ namespace NexusChat.Helpers
         /// Send message to animate the favorite star for a model
         /// </summary>
         /// <param name="modelId">The ID of the model to animate</param>
-        public static void SendFavouriteStarAnimation(int modelId)
+        public static void SendFavoriteStarAnimation(int modelId)
         {
             try
             {
-                Debug.WriteLine($"Sending favourite star animation for model {modelId}");
+                Debug.WriteLine($"Sending favorite star animation for model {modelId}");
                 // Fix: Create a proper message instance
                 CommunityToolkit.Mvvm.Messaging.WeakReferenceMessenger.Default.Send(
                     new ModelAnimationMessage(modelId));
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error sending favourite star animation: {ex.Message}");
+                Debug.WriteLine($"Error sending favorite star animation: {ex.Message}");
             }
         }
         
@@ -71,7 +71,7 @@ namespace NexusChat.Helpers
         /// </summary>
         /// <param name="recipient">The recipient object</param>
         /// <param name="handler">The method to call when animation is needed</param>
-        public static void RegisterForFavouriteStarAnimation(object recipient, ModelAnimationHandler handler)
+        public static void RegisterForFavoriteStarAnimation(object recipient, ModelAnimationHandler handler)
         {
             try
             {
@@ -80,11 +80,11 @@ namespace NexusChat.Helpers
                     recipient, 
                     (r, m) => handler(m));
                     
-                Debug.WriteLine($"Registered {recipient} for favourite star animations");
+                Debug.WriteLine($"Registered {recipient} for favorite star animations");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error registering for favourite star animation: {ex.Message}");
+                Debug.WriteLine($"Error registering for favorite star animation: {ex.Message}");
             }
         }
         
@@ -103,18 +103,18 @@ namespace NexusChat.Helpers
         /// Unregister from favorite star animation messages
         /// </summary>
         /// <param name="recipient">The recipient object to unregister</param>
-        public static void UnregisterFromFavouriteStarAnimation(object recipient)
+        public static void UnregisterFromFavoriteStarAnimation(object recipient)
         {
             try
             {
                 // Fix: Use the correct method signature for Unregister
                 CommunityToolkit.Mvvm.Messaging.WeakReferenceMessenger.Default.Unregister<ModelAnimationMessage>(recipient);
                     
-                Debug.WriteLine($"Unregistered {recipient} from favourite star animations");
+                Debug.WriteLine($"Unregistered {recipient} from favorite star animations");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error unregistering from favourite star animation: {ex.Message}");
+                Debug.WriteLine($"Error unregistering from favorite star animation: {ex.Message}");
             }
         }
         
@@ -122,9 +122,9 @@ namespace NexusChat.Helpers
         /// Request animation for a favorite star
         /// This method is used by AIModelItemViewModel
         /// </summary>
-        public static void RequestAnimateFavouriteStar(int modelId)
+        public static void RequestAnimateFavoriteStar(int modelId)
         {
-            SendFavouriteStarAnimation(modelId);
+            SendFavoriteStarAnimation(modelId);
         }
     }
 }

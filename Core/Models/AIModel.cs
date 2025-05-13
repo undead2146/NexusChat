@@ -1,147 +1,149 @@
 using System;
 using SQLite;
-using System.Text.Json.Serialization;
 
 namespace NexusChat.Core.Models
 {
     /// <summary>
-    /// Represents an AI model in the application
+    /// Represents an AI model with its metadata and capabilities
     /// </summary>
     [Table("AIModels")]
     public class AIModel
     {
         /// <summary>
-        /// Unique identifier for the model
+        /// Gets or sets the ID of the model
         /// </summary>
         [PrimaryKey, AutoIncrement]
         public int Id { get; set; }
         
         /// <summary>
-        /// Name of the model (e.g., "gpt-4", "llama3-70b-8192")
+        /// Gets or sets the name of the model
         /// </summary>
         [MaxLength(100)]
         public string ModelName { get; set; }
         
         /// <summary>
-        /// Name of the provider (e.g., "OpenAI", "Groq", "OpenRouter")
+        /// Gets or sets the provider name
         /// </summary>
         [MaxLength(50)]
         public string ProviderName { get; set; }
         
         /// <summary>
-        /// Brief description of the model
+        /// Gets or sets the model description
         /// </summary>
         [MaxLength(500)]
         public string Description { get; set; }
         
         /// <summary>
-        /// Maximum number of tokens the model can process in one request
+        /// Gets or sets the maximum tokens
         /// </summary>
         public int MaxTokens { get; set; }
         
         /// <summary>
-        /// Maximum context window size for the model (input + output tokens)
+        /// Gets or sets the maximum context window
         /// </summary>
         public int MaxContextWindow { get; set; }
         
         /// <summary>
-        /// Default temperature for the model
-        /// </summary>
-        public float DefaultTemperature { get; set; } = 0.7f;
-        
-        /// <summary>
-        /// Whether the model is the default for the user
-        /// </summary>
-        public bool IsDefault { get; set; }
-
-                
-        /// <summary>
-        /// Whether the model is marked as a favourite
-        /// </summary>
-        public bool IsFavourite { get; set; }
-
-
-        /// <summary>
-        /// Indicates whether the model is currently available for use
-        /// </summary>
-        public bool IsAvailable { get; set; } = true;
-
-        /// <summary>
-        /// Whether the model supports streaming responses
+        /// Gets or sets whether streaming is supported
         /// </summary>
         public bool SupportsStreaming { get; set; }
         
         /// <summary>
-        /// Whether the model supports code completion capabilities
+        /// Gets or sets whether vision capabilities are supported
+        /// </summary>
+        public bool SupportsVision { get; set; }
+        
+        /// <summary>
+        /// Gets or sets whether code completion is optimized
         /// </summary>
         public bool SupportsCodeCompletion { get; set; }
         
         /// <summary>
-        /// Whether the model requires a specific API key (versus a provider-level key)
+        /// Gets or sets whether the model is available
         /// </summary>
-        public bool RequiresModelSpecificApiKey { get; set; }
+        public bool IsAvailable { get; set; }
         
         /// <summary>
-        /// Custom API key for this model (if applicable)
+        /// Gets or sets the API key variable name
         /// </summary>
-        public string ApiKey { get; set; }
+        [MaxLength(100)]
+        public string ApiKeyVariable { get; set; }
         
         /// <summary>
-        /// Model capabilities - not stored in database, used for API communication
+        /// Gets or sets the display name
         /// </summary>
-        [JsonIgnore]
-        [Ignore]
-        public ModelCapabilities Capabilities { get; set; }
+        [MaxLength(100)]
+        public string DisplayName { get; set; }
         
         /// <summary>
-        /// Creates capabilities object on-demand for API operations
+        /// Gets or sets the model version
         /// </summary>
-        /// <returns>Model capabilities based on this model's properties</returns>
-
-        public ModelCapabilities GetCapabilities()
+        [MaxLength(50)]
+        public string Version { get; set; }
+        
+        /// <summary>
+        /// Gets or sets the default temperature
+        /// </summary>
+        public float DefaultTemperature { get; set; } = 0.7f;
+        
+        /// <summary>
+        /// Gets or sets whether the model is currently selected
+        /// </summary>
+        public bool IsSelected { get; set; }
+        
+        /// <summary>
+        /// Gets or sets whether the model is a favorite
+        /// </summary>
+        public bool IsFavorite { get; set; }
+        
+        /// <summary>
+        /// Gets or sets whether the model is the default for its provider
+        /// </summary>
+        public bool IsDefault { get; set; }
+        
+        /// <summary>
+        /// Gets or sets the usage count
+        /// </summary>
+        public int UsageCount { get; set; }
+        
+        /// <summary>
+        /// Gets or sets when the model was last used
+        /// </summary>
+        public DateTime? LastUsed { get; set; }
+        
+        /// <summary>
+        /// Gets or sets the display status
+        /// </summary>
+        public string DisplayStatus { get; set; } = "normal";
+        
+        /// <summary>
+        /// Creates a copy of this model
+        /// </summary>
+        public AIModel Clone()
         {
-            return Capabilities ?? (Capabilities = new ModelCapabilities
+            return new AIModel
             {
-                MaxTokens = MaxTokens,
-                MaxContextWindow = MaxContextWindow,
-                DefaultTemperature = DefaultTemperature,
-                SupportsStreaming = SupportsStreaming,
-                SupportsCodeCompletion = SupportsCodeCompletion
-            });
-        }
-        
-        /// <summary>
-        /// Date the model was created in database
-        /// </summary>
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-        
-        /// <summary>
-        /// Date the model was last updated
-        /// </summary>
-        public DateTime? UpdatedAt { get; set; }
-        
-        /// <summary>
-        /// Default constructor
-        /// </summary>
-        public AIModel() { }
-        
-        /// <summary>
-        /// Constructor with basic required fields
-        /// </summary>
-        public AIModel(string modelName, string providerName, string description = null)
-        {
-            ModelName = modelName;
-            ProviderName = providerName;
-            Description = description ?? $"{providerName} {modelName}";
-            CreatedAt = DateTime.UtcNow;
-        }
-        
-        /// <summary>
-        /// String representation for debugging
-        /// </summary>
-        public override string ToString()
-        {
-            return $"{ProviderName} - {ModelName}";
+                Id = this.Id,
+                ModelName = this.ModelName,
+                ProviderName = this.ProviderName,
+                Description = this.Description,
+                MaxTokens = this.MaxTokens,
+                MaxContextWindow = this.MaxContextWindow,
+                SupportsStreaming = this.SupportsStreaming,
+                SupportsVision = this.SupportsVision,
+                SupportsCodeCompletion = this.SupportsCodeCompletion,
+                IsAvailable = this.IsAvailable,
+                ApiKeyVariable = this.ApiKeyVariable,
+                DisplayName = this.DisplayName,
+                Version = this.Version,
+                DefaultTemperature = this.DefaultTemperature,
+                IsSelected = this.IsSelected,
+                IsFavorite = this.IsFavorite,
+                IsDefault = this.IsDefault,
+                UsageCount = this.UsageCount,
+                LastUsed = this.LastUsed,
+                DisplayStatus = this.DisplayStatus
+            };
         }
     }
 }

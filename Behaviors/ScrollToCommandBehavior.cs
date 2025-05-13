@@ -1,15 +1,21 @@
-using Microsoft.Maui.Controls;
-using Microsoft.Maui.Dispatching;
 using System;
-using System.Diagnostics;
-using System.Threading.Tasks;
+using System.Windows.Input;
+using System.Collections.Generic;
+using Microsoft.Maui.Controls;
+using System.Diagnostics; // Add this using directive
+using System.Linq; // Add this using directive
+using NexusChat.Core.Models; // Add the using statement to reference the new class
 
 namespace NexusChat.Behaviors
 {
     public class ScrollToCommandBehavior : Behavior<CollectionView>
     {
         public static readonly BindableProperty ScrollTargetProperty =
-            BindableProperty.Create(nameof(ScrollTarget), typeof(object), typeof(ScrollToCommandBehavior), null, 
+            BindableProperty.Create(
+                nameof(ScrollTarget),
+                typeof(object),
+                typeof(ScrollToCommandBehavior),
+                null,
                 propertyChanged: OnScrollTargetChanged);
 
         public object ScrollTarget
@@ -21,61 +27,75 @@ namespace NexusChat.Behaviors
         private static void OnScrollTargetChanged(BindableObject bindable, object oldValue, object newValue)
         {
             var behavior = (ScrollToCommandBehavior)bindable;
-            if (behavior._collectionView != null && newValue != null)
+
+            if (behavior.AssociatedObject != null && newValue != null)
             {
-                // Use async method to prevent UI thread blocking
-                Task.Run(async () => await behavior.ScrollToItemAsync(newValue));
+                behavior.ScrollToTarget(newValue);
             }
         }
 
-        private CollectionView _collectionView;
-        private IDispatcher _dispatcher;
-
-        protected override void OnAttachedTo(CollectionView bindable)
+        protected override void OnAttachedTo(CollectionView collectionView)
         {
-            base.OnAttachedTo(bindable);
-            _collectionView = bindable;
-            _dispatcher = bindable.Dispatcher;
+            base.OnAttachedTo(collectionView);
+            AssociatedObject = collectionView;
         }
 
-        protected override void OnDetachingFrom(CollectionView bindable)
+        protected override void OnDetachingFrom(CollectionView collectionView)
         {
-            base.OnDetachingFrom(bindable);
-            _collectionView = null;
-            _dispatcher = null;
+            base.OnDetachingFrom(collectionView);
+            AssociatedObject = null;
         }
 
-        private async Task ScrollToItemAsync(object item)
+        private void ScrollToTarget(object target)
         {
+            if (AssociatedObject == null || target == null)
+                return;
+
             try
             {
-                if (_collectionView != null && item != null && _dispatcher != null)
+                // Handle ScrollTargetInfo type
+                if (target is ScrollTargetInfo info)
                 {
-                    // Small delay to allow UI to update before scrolling
-                    await Task.Delay(150);
-                    
-                    // Use dispatcher to ensure we're on the UI thread
-                    await _dispatcher.DispatchAsync(() => {
-                        // Add a try-catch specifically for the ScrollTo operation
-                        try
+                    if (info.ScrollToBottom)
+                    {
+                        // For CollectionView, scroll to last item
+                        if (AssociatedObject.ItemsSource is IEnumerable<object> items)
                         {
-                            _collectionView.ScrollTo(item, 
-                                position: ScrollToPosition.Start,  // Scroll to top of item
-                                animate: true);  // Use animation
-                            
-                            Debug.WriteLine($"Scrolled to item: {item}");
+                            var itemsList = items.ToList();
+                            if (itemsList.Count > 0)
+                            {
+                                AssociatedObject.ScrollTo(itemsList.Count - 1, position: ScrollToPosition.End, animate: info.ShouldAnimate);
+                            }
                         }
-                        catch (Exception ex)
-                        {
-                            Debug.WriteLine($"Error during ScrollTo operation: {ex.Message}");
-                        }
-                    });
+                    }
+                    else if (info.ScrollToIndex.HasValue && info.ScrollToIndex.Value >= 0)
+                    {
+                        AssociatedObject.ScrollTo(info.ScrollToIndex.Value, position: ScrollToPosition.Center, animate: info.ShouldAnimate);
+                    }
+                    return;
+                }
+                
+                // Can scroll to either an item or an index
+                if (target is int index && index >= 0)
+                {
+                    if (AssociatedObject.ItemsSource is IList<object> items && 
+                        index < items.Count)
+                    {
+                        AssociatedObject.ScrollTo(index, position: ScrollToPosition.Center, animate: true);
+                    }
+                }
+                else
+                {
+                    // Try to scroll to the target object
+                    AssociatedObject.ScrollTo(target, position: ScrollToPosition.Center, animate: true);
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error scrolling to item: {ex.Message}");
+                Debug.WriteLine($"Error scrolling to target: {ex.Message}");
             }
         }
+
+        public CollectionView AssociatedObject { get; private set; }
     }
 }

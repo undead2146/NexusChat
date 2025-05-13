@@ -37,8 +37,6 @@ namespace NexusChat
                 // Register message bubble styles
                 RegisterMessageBubbleStyles();
                 
-                // CRITICAL: Initialize theme system immediately
-                // This must happen before creating the Shell to ensure proper theme application
                 ThemeManager.Initialize();
                 Debug.WriteLine("App: ThemeManager initialized directly");
                 
@@ -70,6 +68,14 @@ namespace NexusChat
                     MainPage = new AppShell(navService);
                 }
             }
+        }
+
+        protected override void OnStart()
+        {
+            base.OnStart();
+            
+            // Initialize the ServiceLocator with the app's service provider
+            ServiceLocator.Initialize(IPlatformApplication.Current.Services);
         }
 
         /// <summary>

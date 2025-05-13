@@ -1,105 +1,48 @@
+using System;
 using System.Collections.Generic;
-using System.Threading;
 using System.Threading.Tasks;
 using NexusChat.Core.Models;
 
 namespace NexusChat.Data.Interfaces
 {
     /// <summary>
-    /// Repository interface for Conversation data access operations
+    /// Repository interface for Conversation data access
     /// </summary>
     public interface IConversationRepository : IRepository<Conversation>
     {
         /// <summary>
-        /// Gets conversations for a specific user
+        /// Gets all conversations
         /// </summary>
-        /// <param name="userId">The user identifier</param>
-        /// <param name="limit">Maximum number of conversations to return (for pagination)</param>
-        /// <param name="offset">Starting offset (for pagination)</param>
-        /// <param name="cancellationToken">Optional cancellation token</param>
-        /// <returns>List of conversations for the user</returns>
-        Task<List<Conversation>> GetByUserIdAsync(
-            int userId, 
-            int limit = 50, 
-            int offset = 0, 
-            CancellationToken cancellationToken = default);
-            
-        /// <summary>
-        /// Gets conversations for a specific user
-        /// </summary>
-        /// <param name="userId">The user identifier</param>
-        /// <returns>List of conversations for the user</returns>
-        Task<List<Conversation>> GetByUserIdAsync(int userId);
-
-        /// <summary>
-        /// Gets conversations for a specific user
-        /// </summary>
-        /// <param name="userId">The user identifier</param>
-        /// <param name="cancellationToken">Cancellation token</param>
-        /// <returns>List of conversations for the user</returns>
-        Task<List<Conversation>> GetByUserIdAsync(int userId, CancellationToken cancellationToken);
+        Task<List<Conversation>> GetAllConversationsAsync();
         
         /// <summary>
-        /// Gets favorite conversations for a user
+        /// Gets a conversation by ID
         /// </summary>
-        /// <param name="userId">The user identifier</param>
-        /// <param name="cancellationToken">Optional cancellation token</param>
-        /// <returns>List of favorite conversations</returns>
-        Task<List<Conversation>> GetFavoritesAsync(int userId, CancellationToken cancellationToken = default);
+        Task<Conversation> GetConversationByIdAsync(int id);
         
         /// <summary>
-        /// Gets conversations by category
+        /// Gets recent conversations
         /// </summary>
-        /// <param name="userId">The user identifier</param>
-        /// <param name="category">The category name</param>
-        /// <param name="cancellationToken">Optional cancellation token</param>
-        /// <returns>List of conversations in the category</returns>
-        Task<List<Conversation>> GetByCategoryAsync(
-            int userId, 
-            string category, 
-            CancellationToken cancellationToken = default);
-
+        Task<List<Conversation>> GetRecentAsync(int limit = 10);
+        
         /// <summary>
-        /// Gets active conversations
+        /// Adds a conversation
         /// </summary>
-        /// <returns>List of active conversations</returns>
-        Task<List<Conversation>> GetActiveConversationsAsync();
-
+        Task<int> AddConversationAsync(Conversation conversation);
+        
         /// <summary>
-        /// Gets active conversations
+        /// Updates a conversation
         /// </summary>
-        /// <param name="cancellationToken">Cancellation token</param>
-        /// <returns>List of active conversations</returns>
-        Task<List<Conversation>> GetActiveConversationsAsync(CancellationToken cancellationToken);
-
+        Task<bool> UpdateConversationAsync(Conversation conversation);
+        
         /// <summary>
-        /// Gets conversations by model ID
+        /// Deletes a conversation
         /// </summary>
-        /// <param name="modelId">The model identifier</param>
-        /// <returns>List of conversations for the model</returns>
-        Task<List<Conversation>> GetByModelIdAsync(int modelId);
-
+        Task<bool> DeleteConversationAsync(int id);
+        
         /// <summary>
-        /// Gets conversations by model ID
+        /// Updates the last activity of a conversation
         /// </summary>
-        /// <param name="modelId">The model identifier</param>
-        /// <param name="cancellationToken">Cancellation token</param>
-        /// <returns>List of conversations for the model</returns>
-        Task<List<Conversation>> GetByModelIdAsync(int modelId, CancellationToken cancellationToken);
-
-        /// <summary>
-        /// Searches conversations by text
-        /// </summary>
-        /// <param name="searchText">Text to search for</param>
-        /// <returns>List of matching conversations</returns>
-        Task<List<Conversation>> SearchAsync(string searchText);
-
-        /// <summary>
-        /// Searches conversations by text
-        /// </summary>
-        /// <param name="searchText">Text to search for</param>
-        /// <param name="cancellationToken">Cancellation token</param>
-        /// <returns>List of matching conversations</returns>
-        Task<List<Conversation>> SearchAsync(string searchText, CancellationToken cancellationToken);
+        Task<bool> UpdateLastActivityAsync(int conversationId);
     }
 }

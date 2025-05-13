@@ -1,6 +1,5 @@
 using Microsoft.Maui.Controls.Shapes;
 using System.Diagnostics;
-
 namespace NexusChat.Views.Controls
 {
     public partial class ThinkingIndicator : ContentView
@@ -9,14 +8,36 @@ namespace NexusChat.Views.Controls
         private bool _isDisposed = false;
         private const int ANIMATION_DURATION = 500; // milliseconds
 
+        // Primary property - use this as the main control mechanism
         public static readonly BindableProperty IsActiveProperty =
             BindableProperty.Create(nameof(IsActive), typeof(bool), typeof(ThinkingIndicator), false,
                 propertyChanged: OnIsActiveChanged);
 
+        // Legacy property - keep for backward compatibility
+        public static readonly BindableProperty IsAnimatingProperty =
+            BindableProperty.Create(nameof(IsAnimating), typeof(bool), typeof(ThinkingIndicator), false,
+                propertyChanged: OnIsAnimatingChanged);
+
+        /// <summary>
+        /// Gets or sets whether the indicator is active (primary property)
+        /// </summary>
         public bool IsActive
         {
             get => (bool)GetValue(IsActiveProperty);
             set => SetValue(IsActiveProperty, value);
+        }
+
+        /// <summary>
+        /// Gets or sets whether the indicator is animating (alias for IsActive)
+        /// </summary>
+        /// <remarks>
+        /// This property is provided for backward compatibility.
+        /// Use <see cref="IsActive"/> for new code.
+        /// </remarks>
+        public bool IsAnimating
+        {
+            get => (bool)GetValue(IsAnimatingProperty);
+            set => SetValue(IsAnimatingProperty, value);
         }
 
         public ThinkingIndicator()
@@ -43,6 +64,12 @@ namespace NexusChat.Views.Controls
             {
                 var isActive = (bool)newValue;
                 
+                // Keep IsAnimating in sync with IsActive
+                if (control.IsAnimating != isActive)
+                {
+                    control.IsAnimating = isActive;
+                }
+                
                 MainThread.BeginInvokeOnMainThread(() => {
                     try
                     {
@@ -62,151 +89,101 @@ namespace NexusChat.Views.Controls
                 });
             }
         }
-
-        private void StartAnimationLoop()
+        
+        private static void OnIsAnimatingChanged(BindableObject bindable, object oldValue, object newValue)
         {
-            if (_isAnimating || _isDisposed) return;
-            
-            _isAnimating = true;
-            Debug.WriteLine("Starting thinking animation");
-
-            // Use a more efficient single animation approach
-            MainThread.BeginInvokeOnMainThread(async () => {
-                try
+            if (bindable is ThinkingIndicator control && oldValue != newValue)
+            {
+                var isAnimating = (bool)newValue;
+                
+                // Keep IsActive in sync with IsAnimating
+                if (control.IsActive != isAnimating)
                 {
-                    // Keep track of animation state in a local variable
-                    bool isActive = IsActive;
-                    bool localAnimating = _isAnimating;
-                    
-                    // Stop if we're no longer animating or active
-                    if (!isActive || !localAnimating || _isDisposed) return;
-                    
-                    // Animation cycle
-                    while (isActive && localAnimating && !_isDisposed && IsActive && _isAnimating)
-                    {
-                        // Animate each dot with a time offset
-                        AnimateDotOnce(Dot1, 0);
-                        AnimateDotOnce(Dot2, 150);
-                        AnimateDotOnce(Dot3, 300);
-                        
-                        // Wait for one complete cycle
-                        await Task.Delay(750);
-                        
-                        // Update our tracking variables
-                        isActive = IsActive;
-                        localAnimating = _isAnimating;
-                    }
+                    control.IsActive = isAnimating;
                 }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"Error in animation loop: {ex.Message}");
-                    _isAnimating = false;
-                }
-            });
+                
+                // The actual animation handling happens in OnIsActiveChanged
+            }
         }
-
-        private async void AnimateDotOnce(Ellipse dot, int delayMs)
+        
+        private bool _animationRunning = false;
+        
+        public void StartAnimationLoop()
         {
-            if (dot == null || _isDisposed) return;
+            if (_animationRunning || _isDisposed)
+                return;
+                
+            _animationRunning = true;
+            _isAnimating = true;
+            
+            // Start animation loops for all dots
+            AnimateDot(Dot1, 0);
+            AnimateDot(Dot2, ANIMATION_DURATION / 3);
+            AnimateDot(Dot3, (ANIMATION_DURATION / 3) * 2);
+        }
+        
+        public void StopAnimationLoop()
+        {
+            _animationRunning = false;
+            _isAnimating = false;
+            
+            // Reset all dots
+            ResetDot(Dot1);
+            ResetDot(Dot2);
+            ResetDot(Dot3);
+        }
+        
+        private async void AnimateDot(Ellipse dot, int delay)
+        {
+            if (_isDisposed) return;
             
             try
             {
-                // Initial delay
-                if (delayMs > 0)
-                    await Task.Delay(delayMs);
-                
-                if (_isDisposed || !_isAnimating || !IsActive) return;
-                
-                // Simple up and down animation 
-                await dot.TranslateTo(0, -5, 250, Easing.SinOut);
-                
-                if (_isDisposed || !_isAnimating || !IsActive) return;
-                
-                await dot.TranslateTo(0, 0, 250, Easing.SinIn);
+                if (delay > 0)
+                    await System.Threading.Tasks.Task.Delay(delay);
+
+                while (_animationRunning && !_isDisposed)
+                {
+                    // Scale up
+                    await dot.ScaleTo(1.5, ANIMATION_DURATION / 2, Easing.SinOut);
+                    
+                    // Scale down
+                    await dot.ScaleTo(1.0, ANIMATION_DURATION / 2, Easing.SinIn);
+                }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"AnimateDotOnce error: {ex.Message}");
+                Debug.WriteLine($"Animation error: {ex.Message}");
             }
         }
         
-        private void StopAnimationLoop()
+        private void ResetDot(Ellipse dot)
         {
-            _isAnimating = false;
-            Debug.WriteLine("Stopping thinking animation");
-            
-            // Reset dots to original position immediately
-            MainThread.BeginInvokeOnMainThread(() =>
+            try
             {
-                try
-                {
-                    if (!_isDisposed)
-                    {
-                        if (Dot1 != null) 
-                        {
-                            Dot1.CancelAnimations();
-                            Dot1.TranslationY = 0;
-                        }
-                        
-                        if (Dot2 != null) 
-                        {
-                            Dot2.CancelAnimations();
-                            Dot2.TranslationY = 0;
-                        }
-                        
-                        if (Dot3 != null) 
-                        {
-                            Dot3.CancelAnimations();
-                            Dot3.TranslationY = 0;
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"Error resetting dots: {ex.Message}");
-                }
-            });
+                dot.Scale = 1.0;
+                dot.AbortAnimation("ScaleTo");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error resetting dot: {ex.Message}");
+            }
         }
         
-        protected override void OnParentSet()
+        protected override void OnHandlerChanged()
         {
-            base.OnParentSet();
+            base.OnHandlerChanged();
             
-            // Start animation if we're active and parent is set
-            if (Parent != null && IsActive && !_isAnimating)
+            // Start animation if control is created in active state
+            if (IsActive && Handler != null)
             {
                 StartAnimationLoop();
             }
         }
-
-        protected override void OnHandlerChanging(HandlerChangingEventArgs args)
-        {
-            base.OnHandlerChanging(args);
-            
-            if (args.NewHandler == null)
-            {
-                Cleanup();
-            }
-        }
         
-        private void Cleanup()
+        protected  void OnDisappearing()
         {
-            _isDisposed = true;
-            _isAnimating = false;
-            
-            // Explicitly reset all animations
-            MainThread.BeginInvokeOnMainThread(() => {
-                try
-                {
-                    Dot1?.CancelAnimations();
-                    Dot2?.CancelAnimations();
-                    Dot3?.CancelAnimations();
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"Error cleaning up animations: {ex.Message}");
-                }
-            });
+            _animationRunning = false;
         }
     }
 }

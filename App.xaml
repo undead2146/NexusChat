@@ -20,7 +20,6 @@
             <!-- Converters -->
             <converters:BoolToAlignmentConverter x:Key="BoolToAlignmentConverter" />
             <converters:BoolToColorConverter x:Key="BoolToColorConverter" />
-            <converters:BoolToObjectConverter x:Key="BoolToObjectConverter" />
             <converters:BoolToStringConverter x:Key="BoolToStringConverter" />
             <converters:ComponentToIconConverter x:Key="ComponentToIconConverter" />
             <converters:DateTimeToTimeStringConverter x:Key="DateTimeToTimeStringConverter" />

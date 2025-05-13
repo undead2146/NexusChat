@@ -1,326 +1,339 @@
 using System;
+using System.Diagnostics;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Maui.Controls;
-using System.Diagnostics;
-using System.Threading;
 using NexusChat.Core.Models;
 using NexusChat.Core.ViewModels;
-using System.Linq;
-using System.Collections.Specialized;
+using NexusChat.Helpers;
+using NexusChat.Views.Pages;
+using NexusChat.Services.Interfaces;
 
 namespace NexusChat.Views.Pages
 {
     /// <summary>
-    /// Page for chat interactions with AI
+    /// Main chat page that shows conversation with AI
     /// </summary>
     public partial class ChatPage : ContentPage
     {
         private readonly ChatViewModel _viewModel;
-        private bool _isFirstAppearance = true;
+        private readonly INavigationService _navigationService;
         private bool _isScrolling = false;
-        private const double SCROLL_THRESHOLD = 50; // Pixels from top to trigger loading more
-        private bool _scrollToNewlyLoadedMessages = false;
-        private int _previousItemCount = 0;
-        private bool _userHasScrolled = false; // Flag to track if user has scrolled
-        private Timer _scrollTriggerTimer; // Add a timer field for scroll debouncing
-        
+        private bool _isAnimating = false;
+
         /// <summary>
-        /// Initializes a new instance of ChatPage with injected ViewModel
+        /// Creates a new instance of ChatPage
         /// </summary>
-        public ChatPage(ChatViewModel viewModel)
+        /// <param name="viewModel">ViewModel for this page</param>
+        public ChatPage(ChatViewModel viewModel, INavigationService navigationService)
         {
-            try
-            {
-                InitializeComponent();
-                _viewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
-                BindingContext = _viewModel;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error in ChatPage constructor: {ex}");
-            }
+            InitializeComponent();
+            _viewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
+            _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
+            BindingContext = _viewModel;
+            
+            Debug.WriteLine($"ChatPage constructor - BindingContext set to: {BindingContext?.GetType().Name ?? "null"}");
+            
+            RegisterEventHandlers();
+            
+            // Initialize sidebar as closed
+            SidebarContainer.TranslationX = -300;
+            MainContent.TranslationX = 0;
+            SidebarOverlay.IsVisible = false;
+            SidebarOverlay.Opacity = 0;
         }
-        
+
+        /// <summary>
+        /// Registers all event handlers for UI elements
+        /// </summary>
+        private void RegisterEventHandlers()
+        {
+            // Listen for scroll target changes from the ViewModel
+            _viewModel.PropertyChanged += (sender, e) => {
+                if (e.PropertyName == nameof(_viewModel.ScrollTarget) && _viewModel.ScrollTarget != null)
+                {
+                    ScrollToTargetAsync(_viewModel.ScrollTarget);
+                }
+                
+                if (e.PropertyName == nameof(_viewModel.IsSidebarOpen))
+                {
+                    HandleSidebarStateChange();
+                }
+            };
+        }
+
+        /// <summary>
+        /// Called when the page appears
+        /// </summary>
         protected override async void OnAppearing()
         {
-            try
-            {
-                base.OnAppearing();
-                
-                // Check if we already have data
-                if (_viewModel?.CurrentConversation == null)
-                {
-                    // Initialize ViewModel
-                    await _viewModel.InitializeAsync();
-                }
-                
-                // Subscribe to collection changes
-                if (_viewModel?.Messages != null)
-                {
-                    _viewModel.Messages.CollectionChanged -= Messages_CollectionChanged;
-                    _viewModel.Messages.CollectionChanged += Messages_CollectionChanged;
-                    Debug.WriteLine("Subscribed to Messages collection changes");
-                    _previousItemCount = _viewModel.Messages.Count;
-                }
-                
-                if (_isFirstAppearance)
-                {
-                    // Initial scroll to bottom
-                    await Task.Delay(300);
-                    await ScrollToBottomAsync(false);
-                    _isFirstAppearance = false;
-                    
-                    // Reset user scroll flag
-                    _userHasScrolled = false;
-                    
-                    // Remove auto-focus on entry field
-                    // await MainThread.InvokeOnMainThreadAsync(() => MessageEntry?.Focus());
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error in ChatPage OnAppearing: {ex}");
-            }
+            base.OnAppearing();
+            
+            Debug.WriteLine("ChatPage.OnAppearing");
+            _viewModel.OnAppearing();
+            
+            // Initialize the page
+            await InitializePageAsync();
+            
+            // Load the sidebar content
+            LoadSidebarContent();
         }
         
+        /// <summary>
+        /// Called when the page disappears
+        /// </summary>
         protected override void OnDisappearing()
         {
-            try
-            {
-                _scrollTriggerTimer?.Dispose();
-                _scrollTriggerTimer = null;
+            base.OnDisappearing();
+            _viewModel.OnDisappearing();
+        }
+        
+        /// <summary>
+        /// Loads the conversations page into the sidebar
+        /// </summary>
+        private void LoadSidebarContent() {
+            try {
+                Debug.WriteLine("Loading conversations page into sidebar");
                 
-                // Unsubscribe from events first
-                if (_viewModel?.Messages != null)
-                {
-                    _viewModel.Messages.CollectionChanged -= Messages_CollectionChanged;
-                    Debug.WriteLine("Unsubscribed from Messages collection changes");
+                // Get the ConversationsPageViewModel from DI
+                var conversationsViewModel = Handler?.MauiContext?.Services?.GetService(typeof(ConversationsPageViewModel)) as ConversationsPageViewModel;
+                if (conversationsViewModel == null) {
+                    Debug.WriteLine("Failed to resolve ConversationsPageViewModel");
+                    throw new InvalidOperationException("ConversationsPageViewModel could not be resolved.");
                 }
+
+                // Create the conversations page
+                var conversationsPage = new ConversationsPage(conversationsViewModel);
                 
-                // Clean up viewmodel resources
-                _viewModel?.Cleanup();
+                // Important: Need to set the proper parent to initialize the page properly
+                conversationsPage.Parent = this;
                 
-                // Call base implementation
-                base.OnDisappearing();
+                // Set the content of the sidebar to the conversations page content
+                SidebarContent.Content = conversationsPage.Content;
+                
+                // Ensure the ViewModel is initialized
+                conversationsViewModel.OnAppearing();
+                
+                // Handle conversation selection to close the sidebar and navigate
+                conversationsViewModel.PropertyChanged += (sender, e) => {
+                    if (e.PropertyName == nameof(conversationsViewModel.SelectedConversation) && 
+                        conversationsViewModel.SelectedConversation != null) {
+                        Debug.WriteLine("Conversation selected from sidebar");
+                        
+                        // Close sidebar when conversation is selected
+                        _viewModel.IsSidebarOpen = false;
+                    }
+                };
+                
+                Debug.WriteLine("Sidebar content loaded successfully");
             }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error in ChatPage OnDisappearing: {ex}");
-                base.OnDisappearing();
+            catch (Exception ex) {
+                Debug.WriteLine($"Error loading sidebar content: {ex.Message}");
+                Debug.WriteLine($"Stack trace: {ex.StackTrace}");
+                
+                // Fallback - display simple alternative
+                SidebarContent.Content = new VerticalStackLayout {
+                    Padding = new Thickness(20),
+                    Children = {
+                        new Label { 
+                            Text = "Recent Conversations",
+                            FontSize = 18,
+                            Margin = new Thickness(0, 0, 0, 20)
+                        },
+                        new Button {
+                            Text = "New Chat",
+                            Command = new Command(async () => {
+                                await _navigationService.NavigateToAsync("chat");
+                                _viewModel.IsSidebarOpen = false;
+                            })
+                        }
+                    }
+                };
             }
         }
         
-        private async void Messages_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
+        /// <summary>
+        /// Handles the sidebar state change
+        /// </summary>
+        private async void HandleSidebarStateChange()
         {
+            if (_isAnimating) return;
+            
+            bool isSidebarOpen = _viewModel.IsSidebarOpen;
+            Debug.WriteLine($"Sidebar state changed: {(isSidebarOpen ? "Open" : "Closed")}");
+            
+            _isAnimating = true;
+            
             try
             {
-                // Handle newly loaded older messages (inserted at the beginning)
-                if (e.Action == NotifyCollectionChangedAction.Add && e.NewStartingIndex == 0 && _scrollToNewlyLoadedMessages)
+                if (isSidebarOpen)
                 {
-                    _scrollToNewlyLoadedMessages = false;
-                    int newItemsCount = _viewModel.Messages.Count - _previousItemCount;
-                    
-                    // Give the UI time to update
-                    await Task.Delay(150);
-                    
-                    // Scroll to the first item that was previously at the top
-                    if (newItemsCount > 0 && MessageScrollView != null)
-                    {
-                        // Scroll to the message that was previously at index 0
-                        await ScrollToPositionAsync(newItemsCount, animate: false);
-                    }
-                    
-                    _previousItemCount = _viewModel.Messages.Count;
-                    return;
-                }
-                
-                // Handle new messages added at the end (normal case)
-                if (e.Action != NotifyCollectionChangedAction.Add || e.NewStartingIndex == 0) return;
-                
-                // Get the added items
-                var newItems = e.NewItems;
-                if (newItems == null || newItems.Count == 0) return;
-
-                // If we're already scrolling, we'll wait longer to avoid overlapping scrolls
-                if (_isScrolling)
-                {
-                    Debug.WriteLine("Already scrolling - delaying this scroll operation");
-                    await Task.Delay(300);
+                    // Show the sidebar with animation
+                    await AnimationHelpers.ShowSidebarAsync(SidebarContainer, MainContent, SidebarOverlay);
                 }
                 else
                 {
-                    // Short delay to let UI update
-                    await Task.Delay(100);
+                    // Hide the sidebar with animation
+                    await AnimationHelpers.HideSidebarAsync(SidebarContainer, MainContent, SidebarOverlay);
                 }
-                
-                // Update the previous count
-                _previousItemCount = _viewModel.Messages.Count;
-                
-                // Single scroll after batch of operations
-                await ScrollToBottomAsync(animate: true);
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error handling collection change: {ex}");
+                Debug.WriteLine($"Error during sidebar animation: {ex.Message}");
+                
+                // Fallback to using visual states directly in case of animation errors
+                VisualStateManager.GoToState(this, isSidebarOpen ? "SidebarOpen" : "SidebarClosed");
+            }
+            finally
+            {
+                _isAnimating = false;
             }
         }
-
+        
         /// <summary>
-        /// Scrolls to the bottom of the chat
+        /// Initializes the page
         /// </summary>
-        private async Task ScrollToBottomAsync(bool animate = true)
+        private async Task InitializePageAsync()
         {
-            if (_isScrolling)
+            try
             {
-                Debug.WriteLine("Scroll operation already in progress - skipping");
+                // Ensure conversation exists
+                await _viewModel.EnsureConversationExistsAsync();
+                
+                // Wait for UI to fully render
+                await Task.Delay(200);
+                await ScrollToBottomIfNeededAsync();
+                
+                // Log state for debugging
+                Debug.WriteLine($"After initialization - Conversation: {_viewModel.CurrentConversation?.Id ?? -1}, " +
+                    $"Title: '{_viewModel.CurrentConversation?.Title ?? "null"}', " +
+                    $"HasMessages: {_viewModel.HasMessages}, MessagesCount: {_viewModel.Messages?.Count}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error in InitializePageAsync: {ex.Message}");
+            }
+        }
+        
+        /// <summary>
+        /// Handles the Editor Completed event (when Enter key is pressed)
+        /// </summary>
+        private void OnEditorCompleted(object sender, EventArgs e)
+        {
+            Debug.WriteLine("Editor completed (Enter pressed)");
+            
+            if (_viewModel.CanSendMessage)
+            {
+                // Execute the SendMessage command directly from the viewmodel
+                _viewModel.SendMessageCommand.Execute(null);
+            }
+        }
+        
+        /// <summary>
+        /// Handles the Send button click - Properly implemented
+        /// </summary>
+        private async void OnSendButtonClicked(object sender, EventArgs e)
+        {
+            Debug.WriteLine("Send button clicked directly");
+            
+            if (_viewModel == null)
+            {
+                Debug.WriteLine("ViewModel is null, cannot send message");
                 return;
             }
             
-            _isScrolling = true;
+            if (!_viewModel.CanSendMessage)
+            {
+                Debug.WriteLine("Cannot send message: CanSendMessage is false");
+                return;
+            }
             
             try
             {
-                if (MessageScrollView == null)
-                {
-                    Debug.WriteLine("ScrollView is null - can't scroll");
-                    return;
-                }
+                // Force hide keyboard
+                MessageEditor.Unfocus();
                 
-                // Single smooth scrolling approach with better timing
-                await MainThread.InvokeOnMainThreadAsync(async () =>
-                {
-                    try
-                    {
-                        // Give layout time to settle before scrolling
-                        await Task.Delay(100);
-                        
-                        // Force layout to ensure accurate content size
-                        MessageScrollView.ForceLayout();
-                        
-                        // Calculate exact scroll position
-                        double y = Math.Max(0, MessageScrollView.ContentSize.Height - MessageScrollView.Height);
-                        
-                        // Single smooth scroll operation
-                        await MessageScrollView.ScrollToAsync(0, y, animate);
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"Error during scroll operation: {ex.Message}");
-                    }
-                });
+                // Execute the SendMessageCommand directly
+                await _viewModel.SendMessage();
+                
+                Debug.WriteLine("Message sent successfully via OnSendButtonClicked");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error in ScrollToBottomAsync: {ex}");
-            }
-            finally
-            {
-                // Longer delay before allowing more scrolling to prevent bouncing
-                await Task.Delay(200);
-                _isScrolling = false;
+                Debug.WriteLine($"Error sending message: {ex.Message}");
+                Debug.WriteLine($"Stack trace: {ex.StackTrace}");
             }
         }
         
         /// <summary>
-        /// Scrolls to a specific position in the chat
+        /// Scrolls to a specific target in the message list
         /// </summary>
-        private async Task ScrollToPositionAsync(int index, bool animate = true)
+        private async Task ScrollToTargetAsync(object target)
         {
-            if (_isScrolling) return;
-            
-            _isScrolling = true;
-            
+            if (target == null || MessageCollectionView == null || _isScrolling)
+                return;
+                
             try
             {
-                // Ensure we have a valid index
-                if (index < 0 || _viewModel.Messages.Count <= index)
-                {
-                    Debug.WriteLine($"Invalid scroll index: {index}, message count: {_viewModel.Messages.Count}");
-                    return;
-                }
-                
-                await MainThread.InvokeOnMainThreadAsync(async () =>
-                {
-                    try
-                    {
-                        // Get the position of the item
-                        var message = _viewModel.Messages[index];
-                        
-                        // Use CollectionView to scroll to the item
-                        MessageList.ScrollTo(message, position: ScrollToPosition.Start, animate: animate);
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"Error scrolling to position: {ex.Message}");
-                    }
-                });
-                
+                _isScrolling = true;
                 await Task.Delay(100);
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error in ScrollToPositionAsync: {ex}");
+                
+                await MainThread.InvokeOnMainThreadAsync(() =>
+                {
+                    try
+                    {
+                        if (target is Message message)
+                        {
+                            MessageCollectionView.ScrollTo(message, position: ScrollToPosition.MakeVisible, animate: true);
+                        }
+                        else
+                        {
+                            MessageCollectionView.ScrollTo(target, position: ScrollToPosition.MakeVisible, animate: true);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Error scrolling to target: {ex.Message}");
+                    }
+                });
             }
             finally
             {
-                await Task.Delay(200);
                 _isScrolling = false;
             }
         }
         
         /// <summary>
-        /// Handles scroll events to detect when to load more messages
+        /// Scrolls to the bottom of the message list if needed
         /// </summary>
-        private void MessageScrollView_Scrolled(object sender, ScrolledEventArgs e)
+        private async Task ScrollToBottomIfNeededAsync()
         {
-            try
+            if (_viewModel.HasMessages)
             {
-                // Skip immediately if loading is in progress
-                if (_viewModel.IsLoadingMore)
-                    return;
-                
-                // Mark that user has scrolled at least once, but don't count the very first scroll event
-                if (!_userHasScrolled)
+                try
                 {
-                    _userHasScrolled = true;
-                    Debug.WriteLine("First scroll detected - ignoring as automatic");
-                    return; // Skip the initial scroll which is caused by layout
-                }
-                
-                // Detect if we're near the top
-                bool isNearTop = e.ScrollY < SCROLL_THRESHOLD;
-                
-                // Only attempt auto-loading if we're not in initial load and user has intentionally scrolled
-                if (isNearTop && !_viewModel.IsLoadingMore && _viewModel.CanLoadMore && _userHasScrolled)
-                {
-                    // Don't trigger immediately to avoid unintended loads
-                    if (_scrollTriggerTimer != null)
-                    {
-                        _scrollTriggerTimer.Dispose();
-                    }
+                    await Task.Delay(100);
                     
-                    _scrollTriggerTimer = new Timer(_ => 
+                    await MainThread.InvokeOnMainThreadAsync(() =>
                     {
-                        if (isNearTop && !_viewModel.IsLoadingMore && _viewModel.CanLoadMore)
+                        try
                         {
-                            MainThread.BeginInvokeOnMainThread(() => 
+                            var lastMessage = _viewModel.Messages.LastOrDefault();
+                            if (lastMessage != null)
                             {
-                                Debug.WriteLine($"Auto-loading more messages: ScrollY={e.ScrollY}");
-                                _scrollToNewlyLoadedMessages = true;
-                                _previousItemCount = _viewModel.Messages.Count;
-                                _viewModel.LoadMoreMessagesCommand.Execute(null);
-                            });
+                                MessageCollectionView.ScrollTo(lastMessage, position: ScrollToPosition.End, animate: true);
+                            }
                         }
-                    }, null, 300, Timeout.Infinite); // 300ms debounce
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"Error scrolling to bottom: {ex.Message}");
+                        }
+                    });
                 }
-                
-                // Show/hide scroll to bottom button based on scroll position
-                double distanceFromBottom = MessageScrollView.ContentSize.Height - (e.ScrollY + MessageScrollView.Height);
-                _viewModel.ShowScrollToBottom = distanceFromBottom > 200;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error in MessageScrollView_Scrolled: {ex}");
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Error in ScrollToBottomIfNeededAsync: {ex.Message}");
+                }
             }
         }
     }

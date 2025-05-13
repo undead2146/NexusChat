@@ -1,19 +1,21 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Threading.Tasks;
-using System.Windows.Input;
 using System.Diagnostics;
+using System.Linq;
+using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using NexusChat.Core.Models;
 using NexusChat.Helpers;
-using NexusChat.Views.Pages.DevTools;
-using Microsoft.Maui.Controls;
-using NexusChat.Tests;
-using NexusChat.Views.Pages;
-using NexusChat.Core.ViewModels.DevTools;
 using NexusChat.Services;
 using NexusChat.Services.Interfaces;
-using NexusChat.Core.Models;
+using NexusChat.Views.Pages.DevTools;
+using Microsoft.Maui.Controls;
+using NexusChat.Views.Pages;
+using NexusChat.Core.ViewModels.DevTools;
+using NexusChat.Data.Interfaces;
+using System.Windows.Input;
 
 namespace NexusChat.Core.ViewModels
 {
@@ -23,9 +25,10 @@ namespace NexusChat.Core.ViewModels
     public partial class MainPageViewModel : BaseViewModel, IDisposable
     {
         private readonly INavigationService _navigationService;
-        private MiniGameHelper _miniGameHelper;
-        private Grid _mainGrid;
-        private Button _counterButton;
+        private readonly IAIModelRepository _modelRepository;
+        private MiniGameHelper? _miniGameHelper; // Made nullable
+        private Grid? _mainGrid; // Made nullable
+        private Button? _counterButton; // Made nullable
         private bool _isNavigating;
         private bool _isNavigatingToThemes;
         private bool _isThemeEventSubscribed = false;
@@ -50,19 +53,41 @@ namespace NexusChat.Core.ViewModels
         private ObservableCollection<FavoriteModelItem> _favoriteModels = new();
         
         [ObservableProperty]
-        private bool _hasNoFavoriteModels = true;
+        private bool _hasNofavoriteModels = true;
 
         [ObservableProperty]
         private bool _isDarkTheme = false;
+
+        [ObservableProperty]
+        private string _modelSelectionMessage = "Choose your AI companion or browse all available models";
+
+        // Initialize all command properties to prevent nullability warnings
+        public IRelayCommand ToggleThemeCommand { get; }
+        public IRelayCommand<FavoriteModelItem?> SelectModelCommand { get; }
+        public ICommand? ModelDebugCommand { get; } // Made nullable as it's not initialized
+        public IRelayCommand HomeCommand { get; }
+        public IRelayCommand NewChatCommand { get; }
+        public IRelayCommand ProfileCommand { get; }
+        public ICommand ChatsCommand { get; }
+        public ICommand ModelsCommand { get; }
+        public ICommand SettingsCommand { get; }
+        public ICommand StartNewChatCommand { get; }
+        public IAsyncRelayCommand NavigateToThemesCommand { get; }
+        public IAsyncRelayCommand CounterClickCommand { get; }
+        public IAsyncRelayCommand RunModelTestsCommand { get; }
+        public IAsyncRelayCommand ViewDatabaseCommand { get; }
+
+        public bool HasfavoriteModels => FavoriteModels?.Count > 0;
         
         /// <summary>
         /// Initializes a new instance of the MainPageViewModel class
         /// </summary>
-        public MainPageViewModel(INavigationService navigationService)
+        public MainPageViewModel(INavigationService navigationService, IAIModelRepository modelRepository)
         {
             try 
             {
                 _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
+                _modelRepository = modelRepository ?? throw new ArgumentNullException(nameof(modelRepository));
                 
                 // Initialize commands with defensive null checks
                 HomeCommand = new RelayCommand(ShowHomeAlert);
@@ -82,10 +107,10 @@ namespace NexusChat.Core.ViewModels
                 
                 // Added command for theme toggling with safety check
                 ToggleThemeCommand = new RelayCommand(HandleToggleThemeSafe);
-                SelectModelCommand = new RelayCommand<FavoriteModelItem>(HandleModelSelected);
+                SelectModelCommand = new RelayCommand<FavoriteModelItem?>(HandleModelSelected);
                 
                 // Initialize placeholder favorite models - must happen before bindings
-                HasNoFavoriteModels = true;
+                HasNofavoriteModels = true;
                 
                 // Set default values for properties that might be accessed before initialization
                 IsDarkTheme = false;
@@ -94,6 +119,9 @@ namespace NexusChat.Core.ViewModels
                 
                 // Defer theme initialization until page appears
                 // InitializeThemeAsync() will be called from InitializeUI
+
+                // Load favorite models asynchronously
+                LoadfavoriteModelsAsync().FireAndForget();
             }
             catch (Exception ex)
             {
@@ -102,7 +130,7 @@ namespace NexusChat.Core.ViewModels
                 IsDarkTheme = false;
                 ThemeIconText = "\uf185";
                 CurrentThemeText = "Light";
-                HasNoFavoriteModels = true;
+                HasNofavoriteModels = true;
             }
         }
 
@@ -214,7 +242,7 @@ namespace NexusChat.Core.ViewModels
         /// <summary>
         /// Safe handler for theme changes
         /// </summary>
-        private void OnThemeChanged(object sender, bool isDark)
+        private void OnThemeChanged(object? sender, bool isDark)
         {
             try
             {
@@ -326,7 +354,7 @@ namespace NexusChat.Core.ViewModels
         /// <summary>
         /// Handles selection of a model
         /// </summary>
-        private void HandleModelSelected(FavoriteModelItem model)
+        private void HandleModelSelected(FavoriteModelItem? model)
         {
             if (model == null) return;
             
@@ -346,96 +374,126 @@ namespace NexusChat.Core.ViewModels
         }
         
         /// <summary>
-        /// Command to toggle between light and dark themes
+        /// Loads favorite models asynchronously
         /// </summary>
-        public IRelayCommand ToggleThemeCommand { get; private set; }
+        private async Task LoadfavoriteModelsAsync()
+        {
+            try
+            {
+                // Clear existing
+                FavoriteModels.Clear();
+                
+                // Get favorites from model manager
+                var favorites = await _modelRepository.GetFavoriteModelsAsync();
+                
+                if (favorites.Any())
+                {
+                    foreach (var model in favorites.Take(6)) // Limit to 6 models for UI
+                    {
+                        // Create view model for each favorite model with correct type
+                        FavoriteModels.Add(new FavoriteModelItem
+                        {
+                            Id = model.Id,
+                            Name = model.ModelName,
+                            Provider = model.ProviderName,
+                            ColorHex = GetColorForProvider(model.ProviderName)
+                        });
+                    }
+                }
+                
+                // Update the observable property with the computed result
+                HasNofavoriteModels = !HasfavoriteModels;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error loading favorite models: {ex.Message}");
+            }
+        }
 
         /// <summary>
-        /// Command to select a model
+        /// Gets the color associated with a provider
         /// </summary>
-        public IRelayCommand<FavoriteModelItem> SelectModelCommand { get; }
+        private string GetColorForProvider(string? provider)
+        {
+            return provider?.ToLowerInvariant() switch
+            {
+                "groq" => "#5E35B1",
+                "openrouter" => "#1976D2",
+                "anthropic" => "#00796B",
+                "openai" => "#388E3C",
+                "azure" => "#0078D4",
+                _ => "#607D8B"
+            };
+        }
 
-        #region Commands
+        // Helper method to safely get current page
+        private Page? GetCurrentPage()
+        {
+            try
+            {
+                // Use alternative approach to get the current window
+                var window = Application.Current?.Windows?.FirstOrDefault();
+                if (window != null)
+                {
+                    return window.Page;
+                }
+                return null;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error getting current page: {ex.Message}");
+                return null;
+            }
+        }
 
-        /// <summary>
-        /// Command to navigate to home screen
-        /// </summary>
-        public IRelayCommand HomeCommand { get; }
-
-        /// <summary>
-        /// Command to start new chat
-        /// </summary>
-        public IRelayCommand NewChatCommand { get; }
-
-        /// <summary>
-        /// Command to view profile
-        /// </summary>
-        public IRelayCommand ProfileCommand { get; }
-
-        /// <summary>
-        /// Command to show chats list
-        /// </summary>
-        public ICommand ChatsCommand { get; }
-
-        /// <summary>
-        /// Command to show models list
-        /// </summary>
-        public ICommand ModelsCommand { get; }
-
-        /// <summary>
-        /// Command to show settings
-        /// </summary>
-        public ICommand SettingsCommand { get; }
-        
-        /// <summary>
-        /// Command to initiate a new chat
-        /// </summary>
-        public ICommand StartNewChatCommand { get; }
-
-        /// <summary>
-        /// Command to navigate to theme test page
-        /// </summary>
-        public IAsyncRelayCommand NavigateToThemesCommand { get; }
-
-        /// <summary>
-        /// Command for counter button click
-        /// </summary>
-        public IAsyncRelayCommand CounterClickCommand { get; }
-        
-        /// <summary>
-        /// Command to run model tests
-        /// </summary>
-        public IAsyncRelayCommand RunModelTestsCommand { get; }
-        
-        /// <summary>
-        /// Command to view the database
-        /// </summary>
-        public IAsyncRelayCommand ViewDatabaseCommand { get; }
-
-        #endregion
+        // Helper method to safely display alert
+        private async Task DisplayAlertAsync(string title, string message, string cancel)
+        {
+            var page = GetCurrentPage();
+            if (page != null)
+            {
+                await page.DisplayAlert(title, message, cancel);
+            }
+            else
+            {
+                Debug.WriteLine($"Could not display alert: {title} - {message}");
+            }
+        }
         
         #region Alert Handlers
         
-        private void ShowHomeAlert()
+        private async void ShowHomeAlert()
         {
-            Application.Current.MainPage.DisplayAlert("Home", "You're already on the home page", "OK");
+            await DisplayAlertAsync("Home", "You're already on the home page", "OK");
         }
         
-        private void ShowNewChatAlert()
+        private async void ShowNewChatAlert()
         {
-            Application.Current.MainPage.DisplayAlert("Coming Soon", "New chat functionality will be available in a future update", "OK");
+            await DisplayAlertAsync("Coming Soon", "New chat functionality will be available in a future update", "OK");
         }
         
-        private void ShowProfileAlert()
+        private async void ShowProfileAlert()
         {
-            Application.Current.MainPage.DisplayAlert("Coming Soon", "User profile functionality will be available in a future update", "OK");
+            await DisplayAlertAsync("Coming Soon", "User profile functionality will be available in a future update", "OK");
         }
         
-        private void ShowChatsAlert()
+        private async void ShowChatsAlert()
         {
-            Application.Current.MainPage.DisplayAlert("Chats", "Chat list will be available in a future update", "OK");
+            await DisplayAlertAsync("Chats", "Chat list will be available in a future update", "OK");
         }
         
+        private void ShowSettingsAlert()
+        {
+            DisplayAlertAsync("Settings", "Settings page will be available in a future update", "OK").FireAndForget();
+        }
+        
+        #endregion
+        
+        #region Click Handlers
+        
+        /// <summary>
+        /// Handles the show models button click
+        /// </summary>
         private async Task HandleShowModels()
         {
             Debug.WriteLine("MainPageViewModel: HandleShowModels start");
@@ -455,22 +513,13 @@ namespace NexusChat.Core.ViewModels
                 }
                 catch (Exception innerEx) {
                     Debug.WriteLine($"Fallback navigation also failed: {innerEx.Message}");
-                    await Application.Current.MainPage.DisplayAlert(
+                    await DisplayAlertAsync(
                         "Navigation Error", 
                         "Could not navigate to Models Page. Please try again.", 
                         "OK");
                 }
             }
         }
-        
-        private void ShowSettingsAlert()
-        {
-            Application.Current.MainPage.DisplayAlert("Settings", "Settings page will be available in a future update", "OK");
-        }
-        
-        #endregion
-        
-        #region Click Handlers
         
         /// <summary>
         /// Handles the start new chat button click
@@ -479,19 +528,34 @@ namespace NexusChat.Core.ViewModels
         {
             try
             {
-                _isNavigating = true;
-                // Navigate to ChatPage with better error handling
-                await Shell.Current.GoToAsync("ChatPage");
+                // Create a new conversation object
+                var newConversation = new Conversation
+                {
+                    Title = "New Chat",
+                    CreatedAt = DateTime.Now,
+                    UpdatedAt = DateTime.Now
+                };
+                
+                // Navigate to chat page
+                var parameters = new Dictionary<string, object>
+                {
+                    { "conversation", newConversation }
+                };
+                
+                await Shell.Current.GoToAsync("//ChatPage", parameters);
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Navigation error: {ex.Message}");
-                await Application.Current.MainPage.DisplayAlert("Error", 
-                    $"Could not start a new chat: {ex.Message}", "OK");
-            }
-            finally
-            {
-                _isNavigating = false;
+                Debug.WriteLine($"Navigation error to ChatPage: {ex.Message}");
+                
+                // Provide more detailed error information for debugging
+                if (ex.InnerException != null)
+                {
+                    Debug.WriteLine($"Inner Exception: {ex.InnerException.Message}");
+                    Debug.WriteLine($"Stack Trace: {ex.InnerException.StackTrace}");
+                }
+                
+                await DisplayAlertAsync("Error", "Could not open chat page. Please check your network connection and try again.", "OK");
             }
         }
         
@@ -510,6 +574,7 @@ namespace NexusChat.Core.ViewModels
                 await _miniGameHelper.HandleClick();
             }
         }
+        
         #endregion
         
         #region Navigation Handlers
@@ -529,7 +594,7 @@ namespace NexusChat.Core.ViewModels
             catch (Exception ex)
             {
                 Debug.WriteLine($"Navigation error to {route}: {ex.Message}");
-                await Application.Current.MainPage.DisplayAlert("Navigation Error", 
+                await DisplayAlertAsync("Navigation Error", 
                     $"Could not navigate to {route}: {ex.Message}", "OK");
             }
             finally
@@ -562,7 +627,7 @@ namespace NexusChat.Core.ViewModels
                 Debug.WriteLine($"Error in HandleNavigateToThemes: {ex.Message}");
                 
                 // Alert user with clearer error message
-                await Application.Current.MainPage.DisplayAlert(
+                await DisplayAlertAsync(
                     "Navigation Failed", 
                     "Could not open component library page.", 
                     "OK");
@@ -592,7 +657,7 @@ namespace NexusChat.Core.ViewModels
                 Debug.WriteLine($"Error in HandleRunModelTests: {ex.Message}");
                 
                 // Show error alert when navigation fails
-                await Application.Current.MainPage.DisplayAlert(
+                await DisplayAlertAsync(
                     "Navigation Error", 
                     $"Could not navigate to Model Testing Page: {ex.Message}", 
                     "OK");
@@ -676,7 +741,7 @@ namespace NexusChat.Core.ViewModels
         /// <summary>
         /// Cleans up resources when the view disappears
         /// </summary>
-        public void Cleanup()
+        public override void Cleanup()
         {
             try 
             {
@@ -749,11 +814,11 @@ namespace NexusChat.Core.ViewModels
     /// <summary>
     /// Represents a favorite model item displayed on the home page
     /// </summary>
-    public class FavoriteModelItem
+    public class FavoriteModelItem // Fixed class name casing
     {
         public int Id { get; set; }
-        public string Name { get; set; }
-        public string Provider { get; set; }
-        public string ColorHex { get; set; }
+        public required string Name { get; set; } // Added required modifier
+        public required string Provider { get; set; } // Added required modifier
+        public required string ColorHex { get; set; } // Added required modifier
     }
 }

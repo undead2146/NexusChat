@@ -46,12 +46,12 @@
                     </Frame>
                 </Grid>
                 
-                <!-- Start Chat Panel - Simplified -->
+                <!-- Start Chat Panel - Enhanced with better favorites display -->
                 <Frame Padding="0"
                        HasShadow="False"
                        BorderColor="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray600}}"
                        CornerRadius="16">
-                    <Grid RowDefinitions="Auto,Auto">
+                    <Grid RowDefinitions="Auto,Auto,Auto">
                         <!-- Simple header instead of gradient -->
                         <Grid Grid.Row="0"
                               BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
@@ -62,64 +62,74 @@
                                    FontSize="20"/>
                         </Grid>
                             
+                        <!-- favorite Models area - NEW PROMINENT SECTION -->
+                        <Grid Grid.Row="1" 
+                              BackgroundColor="{AppThemeBinding Light=#FFF5E6, Dark=#332200}" 
+                              Padding="16,12" 
+                              IsVisible="{Binding HasfavoriteModels}">
+                            <VerticalStackLayout Spacing="8">
+                                <Label Text="Your favorite Models"
+                                       FontFamily="OpenSansSemiBold"
+                                       FontSize="16"
+                                       TextColor="{AppThemeBinding Light=#CC7700, Dark=#FFCC66}"/>
+                                       
+                                <!-- Enhanced favorite Models Display -->
+                                <CollectionView ItemsSource="{Binding favoriteModels}"
+                                                HeightRequest="120"
+                                                SelectionMode="None">
+                                    <CollectionView.ItemsLayout>
+                                        <GridItemsLayout Orientation="Vertical" 
+                                                         Span="2" 
+                                                         HorizontalItemSpacing="10" 
+                                                         VerticalItemSpacing="10"/>
+                                    </CollectionView.ItemsLayout>
+                                    
+                                    <CollectionView.ItemTemplate>
+                                        <DataTemplate>
+                                            <Frame Padding="12,10"
+                                                   CornerRadius="10"
+                                                   Margin="0"
+                                                   BackgroundColor="{Binding ColorHex}"
+                                                   HasShadow="True">
+                                                <Grid RowDefinitions="Auto,*" RowSpacing="4">
+                                                    <Label Text="{Binding Name}"
+                                                           FontFamily="OpenSansBold"
+                                                           FontSize="14"
+                                                           TextColor="White"
+                                                           LineBreakMode="TailTruncation"/>
+                                                           
+                                                    <Label Grid.Row="1"
+                                                           Text="{Binding Provider}"
+                                                           FontFamily="OpenSansRegular"
+                                                           FontSize="12"
+                                                           TextColor="#FFFFFFAA"
+                                                           LineBreakMode="TailTruncation"/>
+                                                </Grid>
+                                                <Frame.GestureRecognizers>
+                                                    <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:MainPageViewModel}}, Path=SelectModelCommand}"
+                                                                          CommandParameter="{Binding .}"/>
+                                                </Frame.GestureRecognizers>
+                                            </Frame>
+                                        </DataTemplate>
+                                    </CollectionView.ItemTemplate>
+                                </CollectionView>
+                            </VerticalStackLayout>
+                        </Grid>
+                            
                         <!-- Content area -->
-                        <VerticalStackLayout Grid.Row="1" 
-                                           Padding="20" 
-                                           Spacing="20"
-                                           BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}">
+                        <VerticalStackLayout Grid.Row="2" 
+                                          Padding="20" 
+                                          Spacing="20"
+                                          BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}">
                                 
-                            <!-- Model selection area -->
-                            <Label Text="Choose your AI companion"
-                                 FontFamily="OpenSansSemiBold"
-                                 FontSize="16"
-                                 TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}"/>
-                                
-                            <!-- Simplified model selection -->
-                            <HorizontalStackLayout Spacing="12" Margin="0,0,0,12">
-                                <!-- Claude Model -->
-                                <Frame HasShadow="False"
-                                     BorderColor="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray600}}"
-                                     BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}"
-                                     Padding="16,12"
-                                     CornerRadius="12">
-                                    <VerticalStackLayout>
-                                        <Label Text="Claude 3"
-                                             FontFamily="OpenSansBold"
-                                             FontSize="16"
-                                             TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}"/>
-                                        <Label Text="Anthropic"
-                                             FontFamily="OpenSansRegular"
-                                             FontSize="12"
-                                             TextColor="{AppThemeBinding Light={StaticResource SecondaryTextColor}, Dark={StaticResource SecondaryTextColorDark}}"/>
-                                    </VerticalStackLayout>
-                                    <Frame.GestureRecognizers>
-                                        <TapGestureRecognizer Command="{Binding StartNewChatCommand}"/>
-                                    </Frame.GestureRecognizers>
-                                </Frame>
-                                            
-                                <!-- GPT Model -->
-                                <Frame HasShadow="False"
-                                     BorderColor="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray600}}"
-                                     BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}"
-                                     Padding="16,12"
-                                     CornerRadius="12">
-                                    <VerticalStackLayout>
-                                        <Label Text="GPT-4"
-                                             FontFamily="OpenSansBold"
-                                             FontSize="16"
-                                             TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}"/>
-                                        <Label Text="OpenAI"
-                                             FontFamily="OpenSansRegular"
-                                             FontSize="12"
-                                             TextColor="{AppThemeBinding Light={StaticResource SecondaryTextColor}, Dark={StaticResource SecondaryTextColorDark}}"/>
-                                    </VerticalStackLayout>
-                                    <Frame.GestureRecognizers>
-                                        <TapGestureRecognizer Command="{Binding StartNewChatCommand}"/>
-                                    </Frame.GestureRecognizers>
-                                </Frame>
-                            </HorizontalStackLayout>
-                                
-                            <!-- Action Buttons - Simplified -->
+                            <!-- Model selection message -->
+                            <Label Text="{Binding ModelSelectionMessage}"
+                                  FontFamily="OpenSansRegular"
+                                  FontSize="14"
+                                  TextColor="{AppThemeBinding Light={StaticResource SecondaryTextColor}, Dark={StaticResource SecondaryTextColorDark}}"
+                                  IsVisible="{Binding HasNofavoriteModels}"/>
+
+                            <!-- Action Buttons -->
                             <Grid ColumnDefinitions="*,*" ColumnSpacing="16">
                                 <!-- Browse Models button -->
                                 <Button Grid.Column="0"
@@ -295,6 +305,13 @@
                                         
                             <Button Text="DB View"
                                   Command="{Binding ViewDatabaseCommand}"
+                                  BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                  TextColor="White"
+                                  CornerRadius="8"
+                                  HeightRequest="36"/>
+
+                            <Button Text="Model Debug"
+                                  Command="{Binding ModelDebugCommand}"
                                   BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
                                   TextColor="White"
                                   CornerRadius="8"

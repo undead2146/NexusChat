@@ -5,176 +5,209 @@
              xmlns:converters="clr-namespace:NexusChat.Views.Converters"
              xmlns:viewmodels="clr-namespace:NexusChat.Core.ViewModels"
              xmlns:models="clr-namespace:NexusChat.Core.Models"
+             xmlns:behaviors="clr-namespace:NexusChat.Behaviors"
+             xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
+             xmlns:mauiBehaviors="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
              x:Class="NexusChat.Views.Pages.ChatPage"
-             Shell.NavBarIsVisible="False">
-             
+             x:DataType="viewmodels:ChatViewModel"
+             Shell.NavBarIsVisible="False"
+             x:Name="ChatPageRoot">
 
     <ContentPage.Resources>
         <ResourceDictionary>
             <converters:InvertedBoolConverter x:Key="InvertedBoolConverter" />
             <converters:StringEmptyConverter x:Key="StringEmptyConverter" FallbackValue="New Chat" />
+            <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+            <converters:NotNullConverter x:Key="NotNullConverter" />
+            
+            <!-- Define essential colors directly in this file to prevent reference errors -->
+            <Color x:Key="PlaceholderColor">#999999</Color>
+            <Color x:Key="ChatBackgroundColor">#FFFFFF</Color>
+            <Color x:Key="ChatBackgroundColorDark">#121212</Color>
+            <Color x:Key="HeaderBackgroundColor">#F3F3F3</Color>
+            <Color x:Key="HeaderBackgroundColorDark">#1E1E1E</Color>
+            <Color x:Key="CardBackgroundColor">#FFFFFF</Color>
+            <Color x:Key="CardBackgroundColorDark">#2D2D2D</Color>
+            
+            <!-- Sidebar animation values -->
+            <x:Double x:Key="SidebarWidth">300</x:Double>
         </ResourceDictionary>
     </ContentPage.Resources>
 
-    <Grid RowDefinitions="Auto, *, Auto" RowSpacing="0">
-        <!-- Header Bar with improved colors -->
-        <Grid Grid.Row="0" 
-              ColumnDefinitions="Auto,*,Auto,Auto" 
-              BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceBackground}, Dark={StaticResource SurfaceBackgroundDark}}"
-              Padding="12,10"
-              HeightRequest="56"
-              ColumnSpacing="12">
+    <!-- Visual state manager for sidebar open/close states -->
+    <VisualStateManager.VisualStateGroups>
+        <VisualStateGroup Name="SidebarStates">
+            <VisualState Name="SidebarOpen">
+                <VisualState.Setters>
+                    <Setter Property="TranslationX" Value="0" TargetName="SidebarContainer" />
+                    <Setter Property="IsVisible" Value="True" TargetName="SidebarOverlay" />
+                    <Setter Property="TranslationX" Value="300" TargetName="MainContent" />
+                </VisualState.Setters>
+            </VisualState>
+            <VisualState Name="SidebarClosed">
+                <VisualState.Setters>
+                    <Setter Property="TranslationX" Value="-300" TargetName="SidebarContainer" />
+                    <Setter Property="IsVisible" Value="False" TargetName="SidebarOverlay" />
+                    <Setter Property="TranslationX" Value="0" TargetName="MainContent" />
+                </VisualState.Setters>
+            </VisualState>
+        </VisualStateGroup>
+    </VisualStateManager.VisualStateGroups>
 
-            <!-- Back Button -->
-            <Button Grid.Column="0"
-                    Text="&#xf053;" 
-                    FontFamily="FontAwesome-Solid"
-                    FontSize="16"
-                    Command="{Binding GoBackCommand}"
-                    WidthRequest="40"
-                    HeightRequest="40"
-                    CornerRadius="20"
-                    Padding="0"
-                    BackgroundColor="Transparent"
-                    BorderColor="Transparent"
-                    TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Primary}}"/>
+    <!-- Main Layout with Flyout Sidebar -->
+    <Grid>
+        <!-- Sidebar Background Overlay -->
+        <BoxView x:Name="SidebarOverlay"
+                 IsVisible="False"
+                 Color="#000000"
+                 Opacity="0.4">
+            <BoxView.GestureRecognizers>
+                <TapGestureRecognizer Command="{Binding ToggleSidebarCommand}" />
+            </BoxView.GestureRecognizers>
+        </BoxView>
 
-            <!-- Title -->
-            <Label Grid.Column="1" 
-                   Text="{Binding CurrentConversation.Title, Converter={StaticResource StringEmptyConverter}}" 
-                   FontAttributes="Bold"
-                   FontSize="16"
-                   VerticalOptions="Center"
-                   HorizontalOptions="Start" />
-
-            <!-- Edit Title Button (Pencil Icon) -->
-            <Button Grid.Column="2"
-                    Text="&#xf303;" 
-                    FontFamily="FontAwesome-Solid"
-                    FontSize="14"
-                    Command="{Binding EditTitleCommand}"
-                    WidthRequest="40"
-                    HeightRequest="40"
-                    CornerRadius="20"
-                    Padding="0"
-                    BackgroundColor="Transparent"
-                    BorderColor="Transparent"
-                    TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Primary}}"/>
-
-            <!-- Menu Button -->
-            <Button Grid.Column="3"
-                    Text="&#xf142;" 
-                    FontFamily="FontAwesome-Solid"
-                    FontSize="16"
-                    Command="{Binding ChatOptionsCommand}"
-                    WidthRequest="40"
-                    HeightRequest="40"
-                    CornerRadius="20"
-                    Padding="0"
-                    BackgroundColor="Transparent"
-                    BorderColor="Transparent"
-                    TextColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource Secondary}}" />
+        <!-- Sidebar (ConversationsPage) -->
+        <Grid x:Name="SidebarContainer"
+              WidthRequest="{StaticResource SidebarWidth}"
+              HorizontalOptions="Start"
+              TranslationX="-300">
+            <!-- We'll load the sidebar content programmatically -->
+            <ContentView x:Name="SidebarContent" />
         </Grid>
 
-        <!-- Message List -->
-        <Grid Grid.Row="1" Margin="10,5">
-            <!-- Fix LoadingMoreGrid with proper colors -->
-            <Grid x:Name="LoadingMoreGrid" 
-                  VerticalOptions="Start" 
-                  HorizontalOptions="Center"
-                  IsVisible="{Binding IsLoadingMore}"
-                  Padding="0,5"
-                  HeightRequest="40">
-                <ActivityIndicator IsRunning="{Binding IsLoadingMore}"
-                                Color="{StaticResource Primary}"
-                                HorizontalOptions="Center"
-                                VerticalOptions="Center"
-                                WidthRequest="25"
-                                HeightRequest="25" />
-                <Label Text="Loading..."
-                      TextColor="{AppThemeBinding Light={StaticResource SecondaryTextColor}, Dark={StaticResource SecondaryTextColorDark}}"
-                      HorizontalOptions="Center" 
-                      VerticalOptions="Center" 
-                      Margin="35,0,0,0" />
-            </Grid>
+        <!-- Main Chat UI -->
+        <Grid x:Name="MainContent"
+              RowDefinitions="Auto, *, Auto" RowSpacing="0" 
+              BackgroundColor="{AppThemeBinding Light={StaticResource ChatBackgroundColor}, Dark={StaticResource ChatBackgroundColorDark}}"
+              ScaleX="1" ScaleY="1" TranslationX="0">
             
-            <ScrollView x:Name="MessageScrollView" 
-                        HorizontalScrollBarVisibility="Never"
-                        VerticalScrollBarVisibility="Default"
-                        Scrolled="MessageScrollView_Scrolled"
-                        Margin="0,10,0,5">
-                <Grid RowDefinitions="Auto,*">
-                    <!-- Fix Load More button colors -->
-                    <Button Grid.Row="0"
-                            Text="Load More Messages" 
-                            Command="{Binding LoadMoreMessagesCommand}"
-                            IsVisible="{Binding ShowLoadMoreButton}"
-                            Opacity="0.8"
-                            Margin="0,10,0,5"
-                            BackgroundColor="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray700}}"
-                            TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}"
-                            BorderColor="Transparent"
-                            CornerRadius="20"
-                            FontSize="13"
-                            HorizontalOptions="Center"
-                            Padding="15,8" />
-                    
-                    <!-- Messages List -->
-                    <CollectionView Grid.Row="1" 
-                                  ItemsSource="{Binding Messages}"
-                                  x:Name="MessageList"
-                                  ItemSizingStrategy="MeasureAllItems">
-                        <CollectionView.EmptyView>
-                            <StackLayout HorizontalOptions="Center" VerticalOptions="Center">
-                                <Label Text="Start a conversation!"
-                                       TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}"
-                                       HorizontalOptions="Center"/>
-                            </StackLayout>
-                        </CollectionView.EmptyView>
-                        
-                        <CollectionView.ItemTemplate>
-                            <DataTemplate x:DataType="models:Message">
-                                <controls:MessageBubble Message="{Binding}" />
-                            </DataTemplate>
-                        </CollectionView.ItemTemplate>
-                    </CollectionView>
+            <!-- Chat Header -->
+            <controls:ChatHeader 
+                Grid.Row="0"
+                Title="{Binding CurrentConversation.Title, Converter={StaticResource StringEmptyConverter}}"
+                CurrentModelName="{Binding CurrentModelName}"
+                MenuCommand="{Binding ToggleSidebarCommand}"
+                SwitchModelCommand="{Binding ChangeModelCommand}"
+                OptionsCommand="{Binding ShowMenuCommand}" />
+
+            <!-- Message List -->
+            <Grid Grid.Row="1" Margin="10,5">
+                <!-- Loading More Grid -->
+                <Grid x:Name="LoadingMoreGrid" 
+                      VerticalOptions="Start"
+                      HeightRequest="40"
+                      IsVisible="{Binding IsLoadingMoreMessages}">
+                    <BoxView BackgroundColor="{AppThemeBinding Light={StaticResource CardBackgroundColor}, Dark={StaticResource CardBackgroundColorDark}}"
+                             CornerRadius="20"
+                             Opacity="0.7" />
+                    <Label Text="Loading more messages..."
+                           HorizontalOptions="Center"
+                           VerticalOptions="Center"
+                           FontSize="14"
+                           TextColor="{AppThemeBinding Light=#666666, Dark=#CCCCCC}" />
                 </Grid>
-            </ScrollView>
-        </Grid>
+                
+                <ScrollView x:Name="MessageScrollView" 
+                          VerticalOptions="Fill"
+                          VerticalScrollBarVisibility="Default">
+                    <StackLayout Spacing="8" Padding="0,8,0,8">
+                        <!-- Empty state message -->
+                        <StackLayout IsVisible="{Binding HasMessages, Converter={StaticResource InvertedBoolConverter}}"
+                                   VerticalOptions="CenterAndExpand"
+                                   HorizontalOptions="CenterAndExpand"
+                                   Margin="0,40,0,0">
+                            <Label Text="No messages yet"
+                                 TextColor="{AppThemeBinding Light=#999999, Dark=#888888}"
+                                 FontSize="16"
+                                 HorizontalOptions="Center" />
+                            <Label Text="Start a conversation by typing below"
+                                 TextColor="{AppThemeBinding Light=#999999, Dark=#888888}"
+                                 FontSize="14"
+                                 HorizontalOptions="Center" />
+                        </StackLayout>
+                        
+                        <!-- Messages -->
+                        <CollectionView x:Name="MessageCollectionView" 
+                                      ItemsSource="{Binding Messages}"
+                                      ItemsUpdatingScrollMode="KeepLastItemInView"
+                                      IsVisible="{Binding HasMessages}">
+                            <CollectionView.Behaviors>
+                                <behaviors:ScrollToCommandBehavior ScrollTarget="{Binding ScrollTarget}"/>
+                            </CollectionView.Behaviors>
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate x:DataType="models:Message">
+                                    <controls:MessageBubble Message="{Binding}" 
+                                                          RegenerateCommand="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:ChatViewModel}}, Path=RegenerateMessageCommand}" />
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+                        
+                        <!-- Thinking indicator -->
+                        <controls:ThinkingIndicator 
+                            IsVisible="{Binding IsThinking}"
+                            IsActive="{Binding IsThinking}"
+                            HorizontalOptions="Start"
+                            Margin="12,8,0,4" />
+                    </StackLayout>
+                </ScrollView>
 
-        <!-- Fix Input Area with consistent colors -->
-        <Grid Grid.Row="2"
-              ColumnDefinitions="*, Auto"
-              Padding="12,10,12,16"
-              BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceBackground}, Dark={StaticResource SurfaceBackgroundDark}}">
-            
-            <!-- Text Input -->
-            <Frame Grid.Column="0"
-                   BorderColor="{AppThemeBinding Light={StaticResource BorderColor}, Dark={StaticResource BorderColorDark}}"
-                   CornerRadius="20"
-                   Padding="15,0"
-                   HasShadow="False">
-                <Editor x:Name="MessageEntry"
-                        Text="{Binding MessageText}"
-                        Placeholder="Type a message..."
-                        FontSize="14"
-                        AutoSize="TextChanges"
-                        MaximumHeightRequest="100" />
-            </Frame>
+                <!-- Scroll to bottom button -->
+                <Button Text="&#xf13a;"
+                      FontFamily="FontAwesome-Solid"
+                      Command="{Binding ScrollToBottomCommand}"
+                      IsVisible="{Binding ShowScrollToBottom}"
+                      VerticalOptions="End"
+                      HorizontalOptions="End"
+                      WidthRequest="40"
+                      HeightRequest="40"
+                      CornerRadius="20"
+                      Padding="0"
+                      Margin="0,0,5,5"
+                      BackgroundColor="{AppThemeBinding Light=#CCCCCC, Dark=#444444}"
+                      TextColor="{AppThemeBinding Light=#333333, Dark=White}"
+                      FontSize="16" />
+            </Grid>
 
-            <!-- Send Button -->
-            <Button Grid.Column="1"
-                    Text="&#xf1d8;"
-                    FontFamily="FontAwesome-Solid"
-                    FontSize="16"
-                    Command="{Binding SendMessageCommand}"
-                    IsEnabled="{Binding IsAITyping, Converter={StaticResource InvertedBoolConverter}}"
-                    CornerRadius="20"
-                    WidthRequest="45"
-                    HeightRequest="45"
-                    Margin="5,0,0,0" 
-                    BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Primary}}"
-                    TextColor="White" />
+            <!-- Input Area -->
+            <Grid Grid.Row="2"
+                  ColumnDefinitions="*, Auto"
+                  Padding="12,10,12,16"
+                  BackgroundColor="{AppThemeBinding Light={StaticResource HeaderBackgroundColor}, Dark={StaticResource HeaderBackgroundColorDark}}">
+
+                <!-- Text input -->
+                <Border Grid.Column="0"
+                       StrokeShape="RoundRectangle 20,20,20,20"
+                       Padding="12,0"
+                       StrokeThickness="0"
+                       BackgroundColor="{AppThemeBinding Light=White, Dark=#2D2D2D}">
+                    <Editor x:Name="MessageEditor"
+                          Text="{Binding Message, Mode=TwoWay}"
+                          Placeholder="Type your message..."
+                          PlaceholderColor="{StaticResource PlaceholderColor}"
+                          TextColor="{AppThemeBinding Light=#333333, Dark=White}"
+                          BackgroundColor="Transparent"
+                          AutoSize="TextChanges"
+                          MaximumHeightRequest="120"
+                          VerticalOptions="Center"
+                          Completed="OnEditorCompleted" />
+                </Border>
+                
+                <!-- Send button - Fixed binding to ensure it works -->
+                <Button Grid.Column="1"
+                      Text="&#xf1d8;"
+                      FontFamily="FontAwesome-Solid"
+                      x:Name="SendButton"
+                      Command="{Binding SendMessageCommand}"
+                      Clicked="OnSendButtonClicked"
+                      IsEnabled="{Binding CanSendMessage}"
+                      WidthRequest="50"
+                      HeightRequest="50"
+                      CornerRadius="20"
+                      Margin="8,0,0,0"
+                      BackgroundColor="{AppThemeBinding Light=#0078D7, Dark=#0078D7}"
+                      TextColor="White"
+                      FontSize="18" />
+            </Grid>
         </Grid>
     </Grid>
 </ContentPage>

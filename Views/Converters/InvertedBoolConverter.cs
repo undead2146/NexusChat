@@ -9,20 +9,24 @@ namespace NexusChat.Views.Converters
     /// </summary>
     public class InvertedBoolConverter : IValueConverter
     {
-        /// <summary>
-        /// Converts a boolean to its inverse
-        /// </summary>
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            return value is bool boolValue ? !boolValue : value;
+            if (value is bool boolValue)
+            {
+                return !boolValue;
+            }
+            
+            return true;
         }
 
-        /// <summary>
-        /// Converts back from inverse to original boolean
-        /// </summary>
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            return value is bool boolValue ? !boolValue : value;
+            if (value is bool boolValue)
+            {
+                return !boolValue;
+            }
+            
+            return false;
         }
     }
 }
