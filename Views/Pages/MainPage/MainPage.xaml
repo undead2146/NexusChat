@@ -7,9 +7,12 @@
              x:Class="NexusChat.Views.Pages.MainPage"
              x:Name="MainPageRoot"
              x:DataType="viewmodels:MainPageViewModel"
+             Title="NexusChat"
+             Shell.NavBarIsVisible="False"
+             Shell.TabBarIsVisible="False"
              BackgroundColor="{AppThemeBinding Light={StaticResource Background}, Dark={StaticResource BackgroundDark}}">
     
-    <Grid x:Name="MainGrid" RowDefinitions="*,Auto">
+    <Grid Padding="{OnPlatform iOS='0,47,0,34', Android='0,0,0,0', Default='0,0,0,0'}" RowDefinitions="*,Auto">
         <ScrollView Grid.Row="0">
             <!-- Simple background instead of gradient which might cause issues -->
             <VerticalStackLayout Padding="16,24,16,16" Spacing="18">

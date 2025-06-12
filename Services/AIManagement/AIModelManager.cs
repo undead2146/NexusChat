@@ -632,6 +632,12 @@ namespace NexusChat.Services.AIManagement
                 var discoveredModels = await _modelDiscoveryService.DiscoverProviderModelsAsync(providerName);
                 Debug.WriteLine($"AIModelManager: Discovered {discoveredModels.Count} models for provider {providerName}");
                 
+                if (discoveredModels.Count == 0)
+                {
+                    Debug.WriteLine($"AIModelManager: No models discovered for {providerName}");
+                    return false;
+                }
+                
                 // Get existing models to avoid duplicates
                 var existingModels = await _modelRepository.GetByProviderAsync(providerName);
                 var existingModelNames = existingModels
@@ -659,7 +665,7 @@ namespace NexusChat.Services.AIManagement
                 }
                 
                 Debug.WriteLine($"AIModelManager: Added {addedCount} new models for provider {providerName}");
-                return true;
+                return addedCount > 0;
             }
             catch (Exception ex)
             {

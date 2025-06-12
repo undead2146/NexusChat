@@ -94,16 +94,11 @@ namespace NexusChat.Services.AIProviders.Implementations
 
                 // Model definitions previously in AIModelDiscoveryService.CreateGroqModelsAsync
                 // and GroqAIService.GetAvailableModels()
-                models.Add(CreateModelInternal("llama-3.1-70b-versatile", "Llama 3.1 70B Versatile", "Latest and most capable Llama model with improved reasoning", 131072, 131072));
-                models.Add(CreateModelInternal("llama-3.1-8b-instant", "Llama 3.1 8B Instant", "Fast and efficient model for quick responses", 131072, 131072)); // Corrected context from 8192
+                models.Add(CreateModelInternal("llama-3.1-8b-instant", "Llama 3.1 8B Instant", "Fast and efficient model for quick responses", 131072, 131072)); 
                 models.Add(CreateModelInternal("gemma2-9b-it", "Gemma 2 9B IT", "Google's Gemma model optimized for instruction following", 8192, 8192));
                 models.Add(CreateModelInternal("llama3-70b-8192", "Llama 3 70B (Legacy)", "Powerful model with large context window", 8192, 8192)); // Kept for compatibility
                 models.Add(CreateModelInternal("mixtral-8x7b-32768", "Mixtral 8x7B", "High performance mixture of experts model", 32768, 32768));
                 models.Add(CreateModelInternal("gemma-7b-it", "Gemma 7B IT", "Google's Gemma 7B instruction-tuned model", 8192, 8192));
-                // Legacy Llama 3 models
-                models.Add(CreateModelInternal("llama3-8b-8192", "Llama 3 8B", "Meta's Llama 3 8B model - balanced speed and quality", 4096, 8192));
-                models.Add(CreateModelInternal("llama-3-70b-chat", "Llama 3 70B Chat", "Llama 3 70B - top performance conversational model", 4096, 8192));
-                models.Add(CreateModelInternal("llama-3-8b-chat", "Llama 3 8B Chat", "Llama 3 8B - efficient conversational model", 4096, 8192));
                 
                 // Gemma 2 models
                 models.Add(CreateModelInternal("gemma-2-27b-it", "Gemma 2 27B IT", "Google's Gemma 2 27B instruction-tuned model", 4096, 8192));

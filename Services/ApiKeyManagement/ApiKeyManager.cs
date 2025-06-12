@@ -40,6 +40,11 @@ namespace NexusChat.Services.ApiKeyManagement
         public event EventHandler<string> ApiKeyChanged;
 
         /// <summary>
+        /// Event fired when an API key is successfully saved
+        /// </summary>
+        public event EventHandler<string> ApiKeySaved;
+
+        /// <summary>
         /// Initializes the API key manager with pre-caching 
         /// </summary>
         public async Task InitializeAsync()
@@ -354,6 +359,9 @@ namespace NexusChat.Services.ApiKeyManagement
                     // Notify listeners
                     ApiKeyChanged?.Invoke(this, providerName);
                     Debug.WriteLine($"ApiKeyManager: Saved provider key for {providerName}");
+                    
+                    // Fire event to notify listeners
+                    ApiKeySaved?.Invoke(this, providerName);
                 }
                 
                 return success;

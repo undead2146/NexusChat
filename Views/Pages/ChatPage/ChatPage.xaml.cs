@@ -6,9 +6,7 @@ using Microsoft.Maui.Controls;
 using NexusChat.Core.Models;
 using NexusChat.Core.ViewModels;
 using NexusChat.Helpers;
-using NexusChat.Views.Pages;
 using NexusChat.Services.Interfaces;
-using NexusChat.Views.Controls;
 
 namespace NexusChat.Views.Pages
 {
@@ -17,7 +15,7 @@ namespace NexusChat.Views.Pages
     /// </summary>
     public partial class ChatPage : ContentPage
     {
-        private ChatViewModel? _viewModel;
+        private readonly ChatViewModel _viewModel;
         private readonly INavigationService _navigationService;
         private bool _isScrolling = false;
         private bool _isAnimating = false;
@@ -36,12 +34,24 @@ namespace NexusChat.Views.Pages
             Debug.WriteLine($"ChatPage constructor - BindingContext set to: {BindingContext?.GetType().Name ?? "null"}");
             
             RegisterEventHandlers();
+            ConfigureStatusBar();
             
             // Initialize sidebar as closed
             SidebarContainer.TranslationX = -300;
             MainContent.TranslationX = 0;
             SidebarOverlay.IsVisible = false;
             SidebarOverlay.Opacity = 0;
+        }
+
+        /// <summary>
+        /// Configures status bar and safe area behavior
+        /// </summary>
+        private void ConfigureStatusBar()
+        {
+#if ANDROID
+            Microsoft.Maui.Controls.PlatformConfiguration.AndroidSpecific.Application.SetWindowSoftInputModeAdjust(
+                this, Microsoft.Maui.Controls.PlatformConfiguration.AndroidSpecific.WindowSoftInputModeAdjust.Resize);
+#endif
         }
 
         /// <summary>
@@ -71,6 +81,16 @@ namespace NexusChat.Views.Pages
             base.OnAppearing();
             
             Debug.WriteLine("ChatPage.OnAppearing");
+            
+            // Configure for immersive experience
+#if IOS
+            var statusBarManager = Microsoft.Maui.Controls.Application.Current?.Handler?.PlatformView;
+            if (statusBarManager != null)
+            {
+                // Handle iOS status bar
+            }
+#endif
+
             _viewModel.OnAppearing();
             
             // Initialize the page
@@ -90,36 +110,35 @@ namespace NexusChat.Views.Pages
         }
         
         /// <summary>
-        /// Loads the conversations page into the sidebar
+        /// Loads the conversations sidebar content
         /// </summary>
-        private void LoadSidebarContent() {
-            try {
-                Debug.WriteLine("Loading conversations page into sidebar");
+        private void LoadSidebarContent() 
+        {
+            try 
+            {
+                Debug.WriteLine("Loading conversations sidebar content");
                 
-                // Get the ConversationsPageViewModel from DI
-                var conversationsViewModel = Handler?.MauiContext?.Services?.GetService(typeof(ConversationsPageViewModel)) as ConversationsPageViewModel;
-                if (conversationsViewModel == null) {
-                    Debug.WriteLine("Failed to resolve ConversationsPageViewModel");
-                    throw new InvalidOperationException("ConversationsPageViewModel could not be resolved.");
+                // Get the ConversationsSidebarViewModel from DI or create one
+                var conversationsSidebarViewModel = Handler?.MauiContext?.Services?.GetService(typeof(ConversationsSidebarViewModel)) as ConversationsSidebarViewModel;
+                if (conversationsSidebarViewModel == null) 
+                {
+                    Debug.WriteLine("Failed to resolve ConversationsSidebarViewModel, using fallback");
+                    CreateFallbackSidebar();
+                    return;
                 }
 
-                // Create the conversations page
-                var conversationsPage = new ConversationsPage(conversationsViewModel);
-                
-                // Important: Need to set the proper parent to initialize the page properly
-                conversationsPage.Parent = this;
-                
-                // Set the content of the sidebar to the conversations page content
-                SidebarContent.Content = conversationsPage.Content;
-                
-                // Ensure the ViewModel is initialized
-                conversationsViewModel.OnAppearing();
+                // Set the sidebar content binding context
+                SidebarContent.BindingContext = conversationsSidebarViewModel;
                 
                 // Handle conversation selection to close the sidebar and navigate
-                conversationsViewModel.PropertyChanged += (sender, e) => {
-                    if (e.PropertyName == nameof(conversationsViewModel.SelectedConversation) && 
-                        conversationsViewModel.SelectedConversation != null) {
+                conversationsSidebarViewModel.PropertyChanged += (sender, e) => {
+                    if (e.PropertyName == nameof(conversationsSidebarViewModel.SelectedConversation) && 
+                        conversationsSidebarViewModel.SelectedConversation != null) 
+                    {
                         Debug.WriteLine("Conversation selected from sidebar");
+                        
+                        // Load the selected conversation
+                        _viewModel.LoadConversation(conversationsSidebarViewModel.SelectedConversation);
                         
                         // Close sidebar when conversation is selected
                         _viewModel.IsSidebarOpen = false;
@@ -128,29 +147,39 @@ namespace NexusChat.Views.Pages
                 
                 Debug.WriteLine("Sidebar content loaded successfully");
             }
-            catch (Exception ex) {
+            catch (Exception ex) 
+            {
                 Debug.WriteLine($"Error loading sidebar content: {ex.Message}");
                 Debug.WriteLine($"Stack trace: {ex.StackTrace}");
                 
-                // Fallback - display simple alternative
-                SidebarContent.Content = new VerticalStackLayout {
-                    Padding = new Thickness(20),
-                    Children = {
-                        new Label { 
-                            Text = "Recent Conversations",
-                            FontSize = 18,
-                            Margin = new Thickness(0, 0, 0, 20)
-                        },
-                        new Button {
-                            Text = "New Chat",
-                            Command = new Command(async () => {
-                                await _navigationService.NavigateToAsync("chat");
-                                _viewModel.IsSidebarOpen = false;
-                            })
-                        }
-                    }
-                };
+                CreateFallbackSidebar();
             }
+        }
+
+        /// <summary>
+        /// Creates a fallback sidebar when the main sidebar fails to load
+        /// </summary>
+        private void CreateFallbackSidebar()
+        {
+            // Fallback - display simple alternative
+            SidebarContent.Content = new VerticalStackLayout 
+            {
+                Padding = new Thickness(20),
+                Children = {
+                    new Label { 
+                        Text = "Recent Conversations",
+                        FontSize = 18,
+                        Margin = new Thickness(0, 0, 0, 20)
+                    },
+                    new Button {
+                        Text = "New Chat",
+                        Command = new Command(async () => {
+                            await _viewModel.InitializeNewConversationAsync();
+                            _viewModel.IsSidebarOpen = false;
+                        })
+                    }
+                }
+            };
         }
         
         /// <summary>
@@ -170,20 +199,49 @@ namespace NexusChat.Views.Pages
                 if (isSidebarOpen)
                 {
                     // Show the sidebar with animation
-                    await AnimationHelpers.ShowSidebarAsync(SidebarContainer, MainContent, SidebarOverlay);
+                    SidebarOverlay.IsVisible = true;
+                    SidebarContainer.IsVisible = true;
+                    
+                    await Task.WhenAll(
+                        SidebarContainer.TranslateTo(0, 0, 300, Easing.CubicOut),
+                        MainContent.TranslateTo(300, 0, 300, Easing.CubicOut),
+                        SidebarOverlay.FadeTo(0.5, 300, Easing.Linear)
+                    );
                 }
                 else
                 {
                     // Hide the sidebar with animation
-                    await AnimationHelpers.HideSidebarAsync(SidebarContainer, MainContent, SidebarOverlay);
+                    await Task.WhenAll(
+                        SidebarContainer.TranslateTo(-300, 0, 300, Easing.CubicIn),
+                        MainContent.TranslateTo(0, 0, 300, Easing.CubicIn),
+                        SidebarOverlay.FadeTo(0, 300, Easing.Linear)
+                    );
+                    
+                    SidebarOverlay.IsVisible = false;
+                    SidebarContainer.IsVisible = false;
                 }
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error during sidebar animation: {ex.Message}");
                 
-                // Fallback to using visual states directly in case of animation errors
-                VisualStateManager.GoToState(this, isSidebarOpen ? "SidebarOpen" : "SidebarClosed");
+                // Fallback - set positions directly
+                if (isSidebarOpen)
+                {
+                    SidebarContainer.TranslationX = 0;
+                    MainContent.TranslationX = 300;
+                    SidebarOverlay.Opacity = 0.5;
+                    SidebarOverlay.IsVisible = true;
+                    SidebarContainer.IsVisible = true;
+                }
+                else
+                {
+                    SidebarContainer.TranslationX = -300;
+                    MainContent.TranslationX = 0;
+                    SidebarOverlay.Opacity = 0;
+                    SidebarOverlay.IsVisible = false;
+                    SidebarContainer.IsVisible = false;
+                }
             }
             finally
             {
@@ -231,7 +289,7 @@ namespace NexusChat.Views.Pages
         }
         
         /// <summary>
-        /// Handles the Send button click - Properly implemented
+        /// Handles the Send button click
         /// </summary>
         private async void OnSendButtonClicked(object sender, EventArgs e)
         {
@@ -337,76 +395,31 @@ namespace NexusChat.Views.Pages
                 }
             }
         }
-        
-        private void CreateSidebar()
+
+        /// <summary>
+        /// Handles conversation selection from sidebar
+        /// </summary>
+        private void OnConversationSelected(object sender, Conversation conversation)
         {
-            try
-            {
-                var sidebarViewModel = ServiceHelper.GetService<ConversationsSidebarViewModel>();
-                
-                SidebarContent.BindingContext = sidebarViewModel;
-                
-                if (SidebarContent is ConversationsSidebar sidebar)
-                {
-                    sidebar.ConversationSelected += OnConversationSelected;
-                    sidebar.ConversationCreated += OnConversationCreated;
-                    sidebar.ConversationDeleted += OnConversationDeleted;
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error creating sidebar: {ex.Message}");
-            }
-        }
-        
-        private void OnConversationSelected(Conversation conversation)
-        {
-            try
-            {
-                Debug.WriteLine($"ChatPage: Conversation selected - {conversation.Title}");
-                
-                if (_viewModel != null)
-                {
-                    _viewModel.LoadConversation(conversation);
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error handling conversation selection: {ex.Message}");
-            }
+            _viewModel.LoadConversation(conversation);
         }
 
-        private void OnConversationCreated(Conversation conversation)
+        /// <summary>
+        /// Handles conversation creation from sidebar
+        /// </summary>
+        private async void OnConversationCreated(object sender, EventArgs e)
         {
-            try
-            {
-                Debug.WriteLine($"ChatPage: New conversation created - {conversation.Title}");
-                
-                if (_viewModel != null)
-                {
-                    _viewModel.LoadConversation(conversation);
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error handling conversation creation: {ex.Message}");
-            }
+            await _viewModel.InitializeNewConversationAsync();
         }
 
-        private void OnConversationDeleted(Conversation conversation)
+        /// <summary>
+        /// Handles conversation deletion from sidebar
+        /// </summary>
+        private void OnConversationDeleted(object sender, Conversation conversation)
         {
-            try
+            if (_viewModel.CurrentConversation?.Id == conversation.Id)
             {
-                Debug.WriteLine($"ChatPage: Conversation deleted - {conversation.Title}");
-                
-                if (_viewModel != null)
-                {
-                    _viewModel.ClearCurrentConversation();
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error handling conversation deletion: {ex.Message}");
+                _viewModel.ClearCurrentConversation();
             }
         }
     }

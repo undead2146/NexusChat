@@ -31,6 +31,8 @@ namespace NexusChat.Core.ViewModels
                 HasError = false;
                 ErrorMessage = string.Empty;
                 
+                Debug.WriteLine("AIModelsViewModel: Starting LoadModelsAsync");
+                
                 // Clear existing models immediately
                 await MainThread.InvokeOnMainThreadAsync(() =>
                 {
@@ -41,6 +43,8 @@ namespace NexusChat.Core.ViewModels
                 // Get models from service - service handles API key filtering
                 var models = await _modelManager.GetAllModelsAsync().ConfigureAwait(false);
                 
+                Debug.WriteLine($"AIModelsViewModel: Retrieved {models?.Count ?? 0} models from model manager");
+                
                 if (models?.Count > 0)
                 {
                     Debug.WriteLine($"Loading {models.Count} models with valid API keys");
@@ -50,13 +54,16 @@ namespace NexusChat.Core.ViewModels
                     
                     // Update refresh timestamp after successful loading
                     _lastModelRefresh = DateTime.Now;
+                    
+                    Debug.WriteLine($"AIModelsViewModel: Successfully loaded {Models.Count} models into UI");
                 }
                 else
                 {
+                    Debug.WriteLine("AIModelsViewModel: No models found or models list is empty");
                     await MainThread.InvokeOnMainThreadAsync(() =>
                     {
                         ShowNoResults = true;
-                        ErrorMessage = "No API keys configured. Add an API key to see available models.";
+                        ErrorMessage = "No models found. Make sure you have API keys configured and try refreshing.";
                     });
                 }
             }
@@ -67,6 +74,7 @@ namespace NexusChat.Core.ViewModels
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error in LoadModelsAsync: {ex.Message}");
+                Debug.WriteLine($"Stack trace: {ex.StackTrace}");
                 await MainThread.InvokeOnMainThreadAsync(() =>
                 {
                     HasError = true;
@@ -102,6 +110,13 @@ namespace NexusChat.Core.ViewModels
 
             Debug.WriteLine($"Loading {sortedModels.Count} models incrementally");
             
+            // Clear collections at start
+            await MainThread.InvokeOnMainThreadAsync(() =>
+            {
+                Models.Clear();
+                FilteredModels.Clear();
+            });
+            
             for (int i = 0; i < sortedModels.Count; i++)
             {
                 if (cancellationToken.IsCancellationRequested)
@@ -111,24 +126,37 @@ namespace NexusChat.Core.ViewModels
                 
                 try
                 {
-                    // Add model to UI on main thread
+                    // Add model to both collections immediately on main thread
                     await MainThread.InvokeOnMainThreadAsync(() =>
                     {
                         Models.Add(model);
-                        Debug.WriteLine($"Added model {i + 1}/{sortedModels.Count}: {model.ModelName}");
+                        
+                        // Apply filters to this single model and add to FilteredModels if it passes
+                        bool passesFilter = true;
+                        
+                        if (ShowFavoritesOnly && !model.IsFavorite)
+                        {
+                            passesFilter = false;
+                        }
+                        
+                        if (passesFilter && !string.IsNullOrWhiteSpace(SearchText))
+                        {
+                            string searchLower = SearchText.ToLowerInvariant();
+                            passesFilter = (model.ModelName?.ToLowerInvariant().Contains(searchLower) == true) ||
+                                          (model.ProviderName?.ToLowerInvariant().Contains(searchLower) == true) ||
+                                          (model.Description?.ToLowerInvariant().Contains(searchLower) == true);
+                        }
+                        
+                        if (passesFilter)
+                        {
+                            FilteredModels.Add(model);
+                        }
+                        
+                        Debug.WriteLine($"Added model {i + 1}/{sortedModels.Count}: {model.ModelName} (Filtered: {FilteredModels.Count})");
                     });
                     
-                    // Apply filters less frequently for better performance
-                    if (i % 10 == 0 || i == sortedModels.Count - 1)
-                    {
-                        await MainThread.InvokeOnMainThreadAsync(() =>
-                        {
-                            ApplyFiltersToCurrentModels();
-                        });
-                    }
-                    
-                    // Very small delay to allow UI updates
-                    await Task.Delay(10, cancellationToken);
+                    // Longer delay to make the incremental loading visible
+                    await Task.Delay(50, cancellationToken);
                 }
                 catch (Exception ex)
                 {
@@ -136,13 +164,55 @@ namespace NexusChat.Core.ViewModels
                 }
             }
             
-            // Final filter application
+            // Final update of ShowNoResults
             await MainThread.InvokeOnMainThreadAsync(() =>
             {
-                ApplyFiltersToCurrentModels();
+                ShowNoResults = FilteredModels.Count == 0 && !IsLoading;
             });
             
-            Debug.WriteLine($"Incremental loading completed. {Models.Count} models loaded.");
+            Debug.WriteLine($"Incremental loading completed. {Models.Count} models loaded, {FilteredModels.Count} filtered models shown.");
+        }
+
+        /// <summary>
+        /// Apply filters to current models and update FilteredModels collection
+        /// </summary>
+        private void ApplyFiltersAndUpdateFilteredModels()
+        {
+            try
+            {
+                var filteredModels = Models.AsEnumerable();
+                
+                if (ShowFavoritesOnly)
+                {
+                    filteredModels = filteredModels.Where(m => m.IsFavorite);
+                }
+                
+                if (!string.IsNullOrWhiteSpace(SearchText))
+                {
+                    string searchLower = SearchText.ToLowerInvariant();
+                    filteredModels = filteredModels.Where(m => 
+                        (m.ModelName?.ToLowerInvariant().Contains(searchLower) == true) ||
+                        (m.ProviderName?.ToLowerInvariant().Contains(searchLower) == true) ||
+                        (m.Description?.ToLowerInvariant().Contains(searchLower) == true));
+                }
+
+                var filteredList = filteredModels.ToList();
+                
+                // Update FilteredModels collection
+                FilteredModels.Clear();
+                foreach (var model in filteredList)
+                {
+                    FilteredModels.Add(model);
+                }
+                
+                ShowNoResults = FilteredModels.Count == 0 && !IsLoading;
+                
+                Debug.WriteLine($"Applied filters: {Models.Count} total models -> {FilteredModels.Count} filtered models");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error applying filters: {ex.Message}");
+            }
         }
 
         /// <summary>
@@ -271,42 +341,7 @@ namespace NexusChat.Core.ViewModels
         /// </summary>
         private void ApplyFiltersToCurrentModels()
         {
-            try
-            {
-                var filteredModels = Models.AsEnumerable();
-                
-                if (ShowFavoritesOnly)
-                {
-                    filteredModels = filteredModels.Where(m => m.IsFavorite);
-                }
-                
-                if (!string.IsNullOrWhiteSpace(SearchText))
-                {
-                    string searchLower = SearchText.ToLowerInvariant();
-                    filteredModels = filteredModels.Where(m => 
-                        (m.ModelName?.ToLowerInvariant().Contains(searchLower) == true) ||
-                        (m.ProviderName?.ToLowerInvariant().Contains(searchLower) == true) ||
-                        (m.Description?.ToLowerInvariant().Contains(searchLower) == true));
-                }
-
-                var filteredList = filteredModels.ToList();
-                
-                // Update collection if filtering changed the results
-                if (filteredList.Count != Models.Count)
-                {
-                    Models.Clear();
-                    foreach (var model in filteredList)
-                    {
-                        Models.Add(model);
-                    }
-                }
-                
-                ShowNoResults = Models.Count == 0 && !IsLoading;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error applying filters: {ex.Message}");
-            }
+            ApplyFiltersAndUpdateFilteredModels();
         }
         #endregion
 

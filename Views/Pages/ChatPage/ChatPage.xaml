@@ -5,18 +5,21 @@
              xmlns:controls="clr-namespace:NexusChat.Views.Controls"
              x:Class="NexusChat.Views.Pages.ChatPage"
              x:DataType="viewmodels:ChatViewModel"
-             Title="Chat">
+             Title="Chat"
+             Shell.NavBarIsVisible="False"
+             Shell.TabBarIsVisible="False">
 
     <Grid>
-        <!-- Main chat content -->
+        <!-- Main chat content with safe area handling -->
         <Grid x:Name="MainContent" RowDefinitions="Auto,*,Auto">
-            <!-- Header -->
+            <!-- Header with safe area top padding -->
             <controls:ChatHeader Grid.Row="0"
                                 Title="{Binding Title}"
                                 CurrentModelName="{Binding CurrentModelName}"
                                 MenuCommand="{Binding ToggleSidebarCommand}"
                                 SwitchModelCommand="{Binding ChangeModelCommand}"
-                                OptionsCommand="{Binding ShowMenuCommand}" />
+                                OptionsCommand="{Binding ShowMenuCommand}"
+                                Padding="{OnPlatform iOS='0,47,0,0', Android='0,0,0,0', Default='0,0,0,0'}" />
             
             <!-- Messages -->
             <CollectionView x:Name="MessageCollectionView"
@@ -31,10 +34,10 @@
                 </CollectionView.ItemTemplate>
             </CollectionView>
             
-            <!-- Input Area -->
+            <!-- Input Area with safe area bottom padding -->
             <Grid Grid.Row="2" 
                   ColumnDefinitions="*,Auto" 
-                  Padding="12"
+                  Padding="{OnPlatform iOS='12,12,12,34', Android='12,12,12,12', Default='12'}"
                   BackgroundColor="{AppThemeBinding Light=#ffffff, Dark=#2d2d2d}">
                 <Editor x:Name="MessageEditor"
                         Grid.Column="0"
@@ -51,12 +54,13 @@
             </Grid>
         </Grid>
 
-        <!-- Sidebar -->
+        <!-- Sidebar with safe area handling -->
         <Grid x:Name="SidebarContainer"
               WidthRequest="300"
               HorizontalOptions="Start"
               BackgroundColor="{AppThemeBinding Light=#ffffff, Dark=#2d2d2d}"
-              IsVisible="{Binding IsSidebarVisible}">
+              IsVisible="{Binding IsSidebarOpen}"
+              Padding="{OnPlatform iOS='0,47,0,34', Android='0,0,0,0', Default='0,0,0,0'}">
             <controls:ConversationsSidebar x:Name="SidebarContent" />
         </Grid>
 
@@ -64,7 +68,7 @@
         <BoxView x:Name="SidebarOverlay"
                  BackgroundColor="Black"
                  Opacity="0.5"
-                 IsVisible="{Binding IsSidebarVisible}">
+                 IsVisible="{Binding IsSidebarOpen}">
             <BoxView.GestureRecognizers>
                 <TapGestureRecognizer Command="{Binding ToggleSidebarCommand}" />
             </BoxView.GestureRecognizers>

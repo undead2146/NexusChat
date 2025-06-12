@@ -27,8 +27,21 @@ namespace NexusChat.Views.Pages
             
             BindingContext = _viewModel;
             
+            ConfigureStatusBar();
+            
             // Subscribe to scroll to model requests
             _viewModel.ScrollToModelRequested += OnScrollToModelRequested;
+        }
+
+        /// <summary>
+        /// Configures status bar and safe area behavior
+        /// </summary>
+        private void ConfigureStatusBar()
+        {
+#if ANDROID
+            Microsoft.Maui.Controls.PlatformConfiguration.AndroidSpecific.Application.SetWindowSoftInputModeAdjust(
+                this, Microsoft.Maui.Controls.PlatformConfiguration.AndroidSpecific.WindowSoftInputModeAdjust.Resize);
+#endif
         }
 
         /// <summary>
@@ -37,6 +50,14 @@ namespace NexusChat.Views.Pages
         protected override async void OnAppearing()
         {
             base.OnAppearing();
+            
+#if IOS
+            var statusBarManager = Microsoft.Maui.Controls.Application.Current?.Handler?.PlatformView;
+            if (statusBarManager != null)
+            {
+                // Handle iOS status bar
+            }
+#endif
             
             // The PageAppearing command will handle all initialization
             if (BindingContext is AIModelsViewModel viewModel)

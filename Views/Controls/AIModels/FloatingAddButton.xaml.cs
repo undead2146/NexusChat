@@ -26,6 +26,10 @@ namespace NexusChat.Views.Controls
         public FloatingAddButton()
         {
             InitializeComponent();
+            
+            // Ensure the ContentView can receive touch events
+            BackgroundColor = Colors.Transparent;
+            InputTransparent = false;
         }
     }
 }

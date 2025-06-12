@@ -1,17 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- From MAUI Colors.xaml -->
-    <color name="maui_primary">#512BD4</color> <!-- Corresponds to Primary -->
-    <color name="maui_primary_dark">#3700B3</color> <!-- Corresponds to PrimaryDark -->
-    <color name="maui_secondary">#DFD8F7</color> <!-- Corresponds to Secondary -->
+    <!-- Primary brand colors -->
+    <color name="colorPrimary">#2196F3</color>
+    <color name="colorPrimaryDark">#1976D2</color>
+    <color name="colorAccent">#03DAC5</color>
+    
+    <!-- MAUI default colors -->
     <color name="maui_white">#FFFFFF</color>
     <color name="maui_black">#000000</color>
-
-    <!-- Android Theme Colors (referencing MAUI colors) -->
-    <color name="colorPrimary">@color/maui_primary</color>
-    <color name="colorPrimaryDark">@color/maui_primary_dark</color>
-    <color name="colorAccent">@color/maui_secondary</color> <!-- Using MAUI Secondary as Accent -->
-
-    <!-- Splash Screen Color -->
-    <color name="maui_splash_color">@color/maui_primary</color> 
+    
+    <!-- Splash screen colors -->
+    <color name="maui_splash_color">#2196F3</color>
 </resources>

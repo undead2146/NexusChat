@@ -534,13 +534,13 @@ namespace NexusChat.Core.ViewModels
                     UpdatedAt = DateTime.Now
                 };
                 
-                // Navigate to chat page
+                // Navigate to chat page - use relative routing instead of absolute
                 var parameters = new Dictionary<string, object>
                 {
                     { "conversation", newConversation }
                 };
                 
-                await Shell.Current.GoToAsync("//ChatPage", parameters);
+                await Shell.Current.GoToAsync("ChatPage", parameters);
             }
             catch (Exception ex)
             {

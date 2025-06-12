@@ -84,10 +84,11 @@ namespace NexusChat.Core.ViewModels
         private object? _scrollTarget;
 
         [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(IsSidebarVisible))]
         private bool _isSidebarOpen;
 
-        [ObservableProperty]
-        private bool isSidebarVisible;
+        // Remove the separate IsSidebarVisible property and use IsSidebarOpen for both
+        public bool IsSidebarVisible => IsSidebarOpen;
         
         public bool IsEmpty => !HasMessages;
         public bool IsNotLoadingMore => !IsLoadingMoreMessages;
@@ -822,8 +823,8 @@ namespace NexusChat.Core.ViewModels
         public void ToggleSidebar()
         {
             Debug.WriteLine("ToggleSidebar command executed");
-            IsSidebarVisible = !IsSidebarVisible;
-            Debug.WriteLine($"Sidebar is now {(IsSidebarVisible ? "open" : "closed")}");
+            IsSidebarOpen = !IsSidebarOpen;
+            Debug.WriteLine($"Sidebar is now {(IsSidebarOpen ? "open" : "closed")}");
         }
 
         /// <summary>
@@ -908,7 +909,9 @@ namespace NexusChat.Core.ViewModels
             }
         }
 
-
+        /// <summary>
+        /// Loads a specific conversation
+        /// </summary>
         public void LoadConversation(Conversation conversation)
         {
             try
@@ -925,13 +928,21 @@ namespace NexusChat.Core.ViewModels
             }
         }
 
+        /// <summary>
+        /// Clears the current conversation
+        /// </summary>
         public void ClearCurrentConversation()
         {
             CurrentConversation = null;
             Messages.Clear();
             Title = "Chat";
+            HasMessages = false;
+            HasConversation = false;
         }
 
+        /// <summary>
+        /// Loads messages for a specific conversation
+        /// </summary>
         private async void LoadMessagesForConversation(int conversationId)
         {
             try
@@ -945,6 +956,7 @@ namespace NexusChat.Core.ViewModels
                     {
                         Messages.Add(msg);
                     }
+                    HasMessages = Messages.Count > 0;
                 });
             }
             catch (Exception ex)

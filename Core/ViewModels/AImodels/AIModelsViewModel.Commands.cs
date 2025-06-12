@@ -255,9 +255,16 @@ namespace NexusChat.Core.ViewModels
                         // Refresh existing keys display
                         await UpdateExistingApiKeys();
                         
-                        // Refresh models to show new provider's models
+                        // Clear model cache to force fresh discovery
                         _lastModelRefresh = DateTime.MinValue;
+                        
+                        // Trigger model discovery for the new provider
+                        await DiscoverAndLoadProviderModels(provider);
+                        
+                        // Refresh models to show new provider's models
                         await LoadModelsAsync();
+                        
+                        Debug.WriteLine($"After API key save: Models.Count = {Models.Count}, FilteredModels.Count = {FilteredModels.Count}");
                     }
                     else
                     {
@@ -269,6 +276,36 @@ namespace NexusChat.Core.ViewModels
             {
                 Debug.WriteLine($"Error saving API key: {ex.Message}");
                 ShowNotification($"Error saving API key: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Discovers and loads models for a specific provider
+        /// </summary>
+        private async Task DiscoverAndLoadProviderModels(string provider)
+        {
+            try
+            {
+                Debug.WriteLine($"AIModelsViewModel: Discovering models for {provider} after API key save");
+                
+                // Use the model manager to discover models for this provider
+                bool discoverySuccess = await _modelManager.DiscoverAndLoadProviderModelsAsync(provider);
+                
+                if (discoverySuccess)
+                {
+                    Debug.WriteLine($"AIModelsViewModel: Successfully discovered models for {provider}");
+                    ShowNotification($"Discovered models for {provider}");
+                }
+                else
+                {
+                    Debug.WriteLine($"AIModelsViewModel: No new models found for {provider}");
+                    ShowNotification($"No new models found for {provider}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error discovering models for {provider}: {ex.Message}");
+                ShowNotification($"Error discovering models for {provider}");
             }
         }
 
@@ -395,7 +432,7 @@ namespace NexusChat.Core.ViewModels
                     Debug.WriteLine("Filtering existing models in memory");
                     await MainThread.InvokeOnMainThreadAsync(() =>
                     {
-                        ApplyFiltersToCurrentModels();
+                        ApplyFiltersAndUpdateFilteredModels();
                     });
                     return;
                 }
@@ -410,6 +447,7 @@ namespace NexusChat.Core.ViewModels
                     {
                         HasError = false;
                         ShowNoResults = true;
+                        FilteredModels.Clear();
                     });
                     
                     ShowNotification("No models found. Try refreshing to load models.");
@@ -418,7 +456,8 @@ namespace NexusChat.Core.ViewModels
                 
                 Debug.WriteLine($"Got {allModels.Count} models from database");
                 
-                await ApplyFiltersAndUpdate(allModels);
+                // Use incremental loading for better UX
+                await LoadModelsIncrementally(allModels, CancellationToken.None);
             }
             catch (Exception ex)
             {
@@ -432,7 +471,18 @@ namespace NexusChat.Core.ViewModels
             ShowFavoritesOnly = !ShowFavoritesOnly;
             Debug.WriteLine($"Toggled favorites filter: {ShowFavoritesOnly}");
             
-            await FilterModels();
+            // Re-apply filters to existing models
+            if (Models.Count > 0)
+            {
+                await MainThread.InvokeOnMainThreadAsync(() =>
+                {
+                    ApplyFiltersAndUpdateFilteredModels();
+                });
+            }
+            else
+            {
+                await FilterModels();
+            }
         }
         #endregion
 
@@ -558,6 +608,15 @@ namespace NexusChat.Core.ViewModels
             {
                 Debug.WriteLine($"Error in GoToSettings: {ex.Message}");
             }
+        }
+        #endregion
+
+        #region Model Management Commands
+        [RelayCommand]
+        private async Task AddModel()
+        {
+            // This should show the API key overlay since adding models requires API keys
+            await DisplayApiKeyOverlay();
         }
         #endregion
     }

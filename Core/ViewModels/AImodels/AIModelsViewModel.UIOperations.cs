@@ -49,9 +49,19 @@ namespace NexusChat.Core.ViewModels
                 
                 await MainThread.InvokeOnMainThreadAsync(async () =>
                 {
-                    await Models.ReplaceAllAsync(filteredModels);
-                    ShowNoResults = Models.Count == 0;
+                    // Update both Models and FilteredModels
+                    await Models.ReplaceAllAsync(sourceModels);
+                    
+                    FilteredModels.Clear();
+                    foreach (var model in filteredModels)
+                    {
+                        FilteredModels.Add(model);
+                    }
+                    
+                    ShowNoResults = FilteredModels.Count == 0;
                     HasError = false;
+                    
+                    Debug.WriteLine($"Filter update: {sourceModels.Count} source -> {Models.Count} models -> {FilteredModels.Count} filtered");
                 });
             }
             catch (Exception ex)

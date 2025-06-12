@@ -30,6 +30,10 @@ namespace NexusChat.Core.ViewModels
         private bool _isInitialLoad = true;
 
         private Dictionary<string, bool> _animationStates = new Dictionary<string, bool>();
+        
+        // Incremental loading configuration
+        private readonly int _incrementalLoadingDelay = 50; // milliseconds between each model
+        private readonly int _batchSize = 1; // Load one model at a time for smooth animation
         #endregion
 
         #region Observable Properties
@@ -49,6 +53,9 @@ namespace NexusChat.Core.ViewModels
         private string _searchText = string.Empty;
 
         [ObservableProperty]
+        private bool _showFavoritesOnly = false;
+
+        [ObservableProperty]
         private bool _isLoading;
 
         [ObservableProperty]
@@ -62,9 +69,6 @@ namespace NexusChat.Core.ViewModels
 
         [ObservableProperty]
         private bool _showNoResults;
-
-        [ObservableProperty]
-        private bool _showFavoritesOnly;
 
         [ObservableProperty]
         private bool _showActionResult;
@@ -82,13 +86,13 @@ namespace NexusChat.Core.ViewModels
         private bool _isRefreshing;
 
         [ObservableProperty]
-        private bool _showApiKeyOverlay;
+        private bool _showApiKeyOverlay = false;
 
         [ObservableProperty]
-        private double _refreshButtonRotation = 0;
+        private double _refreshButtonRotation = 0.0;
 
         [ObservableProperty]
-        private List<string> _existingApiKeys = new List<string>();
+        private List<string> _existingApiKeys = new();
 
         [ObservableProperty]
         private ObservableCollection<AIModel> _filteredModels = new();

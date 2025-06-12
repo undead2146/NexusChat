@@ -10,6 +10,7 @@
         <ResourceDictionary>
             <converters:InvertedBoolConverter x:Key="InvertedBoolConverter" />
             <converters:DateTimeToRelativeDateConverter x:Key="DateTimeToRelativeDateConverter" />
+            <converters:NotNullConverter x:Key="NotNullConverter" />
         </ResourceDictionary>
     </ContentView.Resources>
     
@@ -41,16 +42,7 @@
                     ToolTipProperties.Text="Refresh conversations">
                 <Button.Triggers>
                     <DataTrigger TargetType="Button" Binding="{Binding IsRefreshing}" Value="True">
-                        <DataTrigger.EnterActions>
-                            <Trigger>
-                                <Setter Property="Rotation" Value="360" />
-                            </Trigger>
-                        </DataTrigger.EnterActions>
-                        <DataTrigger.ExitActions>
-                            <Trigger>
-                                <Setter Property="Rotation" Value="0" />
-                            </Trigger>
-                        </DataTrigger.ExitActions>
+                        <Setter Property="Rotation" Value="180" />
                     </DataTrigger>
                 </Button.Triggers>
             </Button>

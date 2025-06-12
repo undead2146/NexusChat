@@ -30,13 +30,26 @@ namespace NexusChat.Data.Repositories
         /// </summary>
         public async Task<AIModel> GetModelByNameAsync(string providerName, string modelName, CancellationToken cancellationToken = default)
         {
-            return await ExecuteDbOperationAsync(
-                async (db, ct) => await db.Table<AIModel>()
-                    .Where(m => m.ProviderName.Equals(providerName, StringComparison.OrdinalIgnoreCase)
-                             && m.ModelName.Equals(modelName, StringComparison.OrdinalIgnoreCase))
-                    .FirstOrDefaultAsync(),
-                "GetModelByName",
-                cancellationToken);
+            if (string.IsNullOrEmpty(providerName) || string.IsNullOrEmpty(modelName))
+                return null;
+
+            return await ExecuteDbOperationAsync<AIModel>(async (db, ct) =>
+            {
+                Debug.WriteLine($"AIModelRepository: Getting model {providerName}/{modelName}");
+                
+                // Use parameter binding with LOWER for case-insensitive comparison
+                var sql = @"
+                    SELECT * FROM AIModels 
+                    WHERE LOWER(ProviderName) = LOWER(?) 
+                    AND LOWER(ModelName) = LOWER(?) 
+                    LIMIT 1";
+                
+                var models = await db.QueryAsync<AIModel>(sql, providerName, modelName);
+                var model = models.FirstOrDefault();
+                
+                Debug.WriteLine($"AIModelRepository: Found model: {(model != null ? "Yes" : "No")}");
+                return model;
+            }, $"GetModelByName for {providerName}/{modelName}", cancellationToken);
         }
         
         /// <summary>
@@ -44,14 +57,24 @@ namespace NexusChat.Data.Repositories
         /// </summary>
         public async Task<List<AIModel>> GetByProviderAsync(string providerName, CancellationToken cancellationToken = default)
         {
-            return await ExecuteDbOperationAsync(
-                async (db, ct) => await db.Table<AIModel>()
-                    .Where(m => m.ProviderName.Equals(providerName, StringComparison.OrdinalIgnoreCase))
-                    .OrderByDescending(m => m.IsDefault)
-                    .ToListAsync(),
-                "GetByProvider",
-                cancellationToken,
-                new List<AIModel>());
+            if (string.IsNullOrEmpty(providerName))
+                return new List<AIModel>();
+
+            return await ExecuteDbOperationAsync<List<AIModel>>(async (db, ct) =>
+            {
+                Debug.WriteLine($"AIModelRepository: Getting models for provider {providerName}");
+                
+                // Use LIKE with case-insensitive comparison instead of equals function
+                var sql = @"
+                    SELECT * FROM AIModels 
+                    WHERE LOWER(ProviderName) = LOWER(?)
+                    ORDER BY DisplayName, ModelName";
+                
+                var models = await db.QueryAsync<AIModel>(sql, providerName);
+                
+                Debug.WriteLine($"AIModelRepository: Found {models.Count} models for provider {providerName}");
+                return models;
+            }, $"GetByProvider for {providerName}", cancellationToken, new List<AIModel>());
         }
         
         /// <summary>

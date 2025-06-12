@@ -1,10 +1,14 @@
 using System.Windows.Input;
 using Microsoft.Maui.Controls;
+using NexusChat.Core.Models;
 
 namespace NexusChat.Views.Controls
 {
     public partial class AIModelItem : ContentView
     {
+        public static readonly BindableProperty ModelProperty =
+            BindableProperty.Create(nameof(Model), typeof(AIModel), typeof(AIModelItem));
+
         public static readonly BindableProperty SelectModelCommandProperty =
             BindableProperty.Create(nameof(SelectModelCommand), typeof(ICommand), typeof(AIModelItem));
 
@@ -16,6 +20,12 @@ namespace NexusChat.Views.Controls
 
         public static readonly BindableProperty ShowModelInfoCommandProperty =
             BindableProperty.Create(nameof(ShowModelInfoCommand), typeof(ICommand), typeof(AIModelItem));
+
+        public AIModel Model
+        {
+            get => (AIModel)GetValue(ModelProperty);
+            set => SetValue(ModelProperty, value);
+        }
 
         public ICommand SelectModelCommand
         {

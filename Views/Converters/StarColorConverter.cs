@@ -15,11 +15,15 @@ namespace NexusChat.Views.Converters
         /// </summary>
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            if (value is bool isFavorite && isFavorite)
+            bool isFavorite = value is bool favorite && favorite;
+            string param = parameter?.ToString() ?? "";
+            
+            if (param.Equals("Icon", StringComparison.OrdinalIgnoreCase))
             {
-                return Color.FromArgb("#FFD700"); // Gold
+                return isFavorite ? "\uf005" : "\uf006"; // Solid star or outlined star
             }
-            return Color.FromArgb("#CCCCCC"); // Gray
+            
+            return isFavorite ? Colors.Gold : Colors.Gray;
         }
 
         /// <summary>

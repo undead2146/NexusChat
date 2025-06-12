@@ -271,5 +271,28 @@ namespace NexusChat.Services.AIProviders
             }
         }
 
+        /// <summary>
+        /// Refreshes provider availability after API key changes
+        /// </summary>
+        public async Task RefreshProviderAvailabilityAsync()
+        {
+            try
+            {
+                Debug.WriteLine("AIProviderFactory: Refreshing provider availability after API key changes");
+                
+                // Clear caches to force fresh checks
+                _modelDiscoveryService.ClearCache();
+                await _apiKeyManager.RefreshAvailabilityCacheAsync();
+                
+                // Reset initialization flag to allow re-discovery
+                _hasInitializedProviders = false;
+                
+                Debug.WriteLine("AIProviderFactory: Provider availability refreshed");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error refreshing provider availability: {ex.Message}");
+            }
+        }
     }
 }

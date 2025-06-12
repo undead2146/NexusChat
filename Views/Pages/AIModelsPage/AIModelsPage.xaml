@@ -5,46 +5,54 @@
              xmlns:controls="clr-namespace:NexusChat.Views.Controls"
              x:Class="NexusChat.Views.Pages.AIModelsPage"
              x:DataType="viewmodels:AIModelsViewModel"
-             Title="AI Models">
+             Title="AI Models"
+             Shell.NavBarIsVisible="False"
+             Shell.TabBarIsVisible="False">
 
-    <Grid>
-        <!-- Main Content -->
-        <Grid RowDefinitions="Auto,*">
+    <Grid Padding="{OnPlatform iOS='0,47,0,34', Android='0,0,0,0', Default='0,0,0,0'}">
+        
+        <!-- Main content in background -->
+        <Grid RowDefinitions="Auto,*" >
             <!-- Header -->
             <controls:AIModelsHeader Grid.Row="0"
-                                     SearchText="{Binding SearchText}"
-                                     ShowFavoritesOnly="{Binding ShowFavoritesOnly}"
-                                     RefreshButtonRotation="{Binding RefreshButtonRotation}"
-                                     GoBackCommand="{Binding GoBackCommand}"
-                                     FilterModelsCommand="{Binding FilterModelsCommand}"
-                                     ToggleFavoritesFilterCommand="{Binding ToggleFavoritesFilterCommand}"
-                                     RefreshModelsCommand="{Binding RefreshModelsCommand}" />
+                                    SearchText="{Binding SearchText}"
+                                    ShowFavoritesOnly="{Binding ShowFavoritesOnly}"
+                                    RefreshButtonRotation="{Binding RefreshButtonRotation}"
+                                    GoBackCommand="{Binding GoBackCommand}"
+                                    FilterModelsCommand="{Binding FilterModelsCommand}"
+                                    ToggleFavoritesFilterCommand="{Binding ToggleFavoritesFilterCommand}"
+                                    RefreshModelsCommand="{Binding RefreshModelsCommand}" />
             
             <!-- Models List -->
-            <CollectionView Grid.Row="1" 
+            <CollectionView Grid.Row="1"
                             ItemsSource="{Binding FilteredModels}"
                             BackgroundColor="{AppThemeBinding Light=#f8f9fa, Dark=#1a1a1a}">
                 <CollectionView.ItemTemplate>
                     <DataTemplate>
-                        <controls:AIModelItem SelectModelCommand="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:AIModelsViewModel}}, Path=SelectModelCommand}"
-                                              ToggleFavoriteCommand="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:AIModelsViewModel}}, Path=ToggleFavoriteCommand}"
-                                              SetDefaultModelCommand="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:AIModelsViewModel}}, Path=SetDefaultModelCommand}"
-                                              ShowModelInfoCommand="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:AIModelsViewModel}}, Path=ShowModelInfoCommand}" />
+                        <controls:AIModelItem Model="{Binding}"
+                                             ToggleFavoriteCommand="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:AIModelsViewModel}}, Path=ToggleFavoriteCommand}"
+                                             SelectModelCommand="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:AIModelsViewModel}}, Path=SelectModelCommand}"
+                                             SetDefaultModelCommand="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:AIModelsViewModel}}, Path=SetDefaultModelCommand}"
+                                             ShowModelInfoCommand="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:AIModelsViewModel}}, Path=ShowModelInfoCommand}" />
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
             </CollectionView>
         </Grid>
         
-        <!-- Floating Add Button -->
-        <controls:FloatingAddButton IsVisible="{Binding ShowAddButton}"
-                                    Command="{Binding ShowApiKeyOverlayCommand}" />
+        <!-- Floating Add Button as overlay - positioned absolutely -->
+        <controls:FloatingAddButton Command="{Binding DisplayApiKeyOverlayCommand}"
+                                   HorizontalOptions="End"
+                                   VerticalOptions="End"
+                                   ZIndex="1000" />
         
         <!-- API Key Overlay -->
-        <controls:ApiKeyOverlay IsVisible="{Binding IsApiKeyOverlayVisible}"
-                                ExistingApiKeys="{Binding ExistingApiKeys}"
-                                SaveApiKeyCommand="{Binding SaveApiKeyCommand}"
-                                RemoveApiKeyCommand="{Binding RemoveApiKeyCommand}"
-                                CloseOverlayCommand="{Binding CloseApiKeyOverlayCommand}" />
+        <controls:ApiKeyOverlay IsVisible="{Binding ShowApiKeyOverlay}"
+                               ExistingApiKeys="{Binding ExistingApiKeys}"
+                               SaveApiKeyCommand="{Binding SaveApiKeyCommand}"
+                               RemoveApiKeyCommand="{Binding RemoveApiKeyCommand}"
+                               CloseOverlayCommand="{Binding CloseApiKeyOverlayCommand}"
+                               ZIndex="2000" />
+        
     </Grid>
 
 </ContentPage>

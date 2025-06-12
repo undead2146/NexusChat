@@ -4,49 +4,14 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
 
     <!-- MAUI animations need to be created programmatically in code-behind -->
-    <!-- These are just placeholders for documentation purposes -->
+    <!-- These are documentation placeholders only -->
     
-    <x:String x:Key="ShowSidebarAnimationInfo">Animation to show sidebar</x:String>
-    <x:String x:Key="HideSidebarAnimationInfo">Animation to hide sidebar</x:String>
-
-    <!-- Slide In Animation -->
-    <Storyboard x:Key="SlideInAnimation">
-        <DoubleAnimation Storyboard.TargetProperty="TranslationX"
-                         From="-300"
-                         To="0"
-                         Duration="0:0:0.3">
-            <DoubleAnimation.Easing>
-                <CubicEase EasingMode="EaseOut" />
-            </DoubleAnimation.Easing>
-        </DoubleAnimation>
-    </Storyboard>
-
-    <!-- Slide Out Animation -->
-    <Storyboard x:Key="SlideOutAnimation">
-        <DoubleAnimation Storyboard.TargetProperty="TranslationX"
-                         From="0"
-                         To="-300"
-                         Duration="0:0:0.3">
-            <DoubleAnimation.Easing>
-                <CubicEase EasingMode="EaseIn" />
-            </DoubleAnimation.Easing>
-        </DoubleAnimation>
-    </Storyboard>
-
-    <!-- Fade In Animation -->
-    <Storyboard x:Key="FadeInAnimation">
-        <DoubleAnimation Storyboard.TargetProperty="Opacity"
-                         From="0"
-                         To="1"
-                         Duration="0:0:0.2" />
-    </Storyboard>
-
-    <!-- Fade Out Animation -->
-    <Storyboard x:Key="FadeOutAnimation">
-        <DoubleAnimation Storyboard.TargetProperty="Opacity"
-                         From="1"
-                         To="0"
-                         Duration="0:0:0.2" />
-    </Storyboard>
+    <x:String x:Key="ShowSidebarAnimationInfo">Slide sidebar in from left with TranslationX animation</x:String>
+    <x:String x:Key="HideSidebarAnimationInfo">Slide sidebar out to left with TranslationX animation</x:String>
+    
+    <!-- Animation durations and easing constants -->
+    <x:Double x:Key="SidebarAnimationDuration">300</x:Double>
+    <x:Double x:Key="FadeAnimationDuration">200</x:Double>
+    <x:Double x:Key="SidebarWidth">300</x:Double>
 
 </ResourceDictionary>

@@ -59,7 +59,7 @@ namespace NexusChat.Services
         {
             try
             {
-                return await _messageRepository.GetMessagesByConversationAsync(conversationId);
+                return await _messageRepository.GetByConversationIdAsync(conversationId, 50, 0);
             }
             catch (Exception ex)
             {
@@ -381,7 +381,7 @@ namespace NexusChat.Services
         {
             try
             {
-                return await _messageRepository.GetMessagesByConversationIdAsync(conversationId, cancellationToken);
+                return await _messageRepository.GetByConversationIdAsync(conversationId, 50, 0);
             }
             catch (Exception ex)
             {
@@ -394,14 +394,14 @@ namespace NexusChat.Services
         {
             try
             {
-                var message = await _messageRepository.GetByIdAsync(messageId, cancellationToken);
-                if (message != null && !message.IsFromUser)
+                var message = await _messageRepository.GetByIdAsync(messageId);
+                if (message != null && message.IsAI)
                 {
                     // Find the previous user message to regenerate from
-                    var messages = await _messageRepository.GetMessagesByConversationIdAsync(conversationId, cancellationToken);
+                    var messages = await _messageRepository.GetByConversationIdAsync(conversationId, 100, 0);
                     var previousUserMessage = messages
-                        .Where(m => m.IsFromUser && m.Timestamp < message.Timestamp)
-                        .OrderByDescending(m => m.Timestamp)
+                        .Where(m => !m.IsAI && m.SentAt < message.SentAt)
+                        .OrderByDescending(m => m.SentAt)
                         .FirstOrDefault();
 
                     if (previousUserMessage != null)
