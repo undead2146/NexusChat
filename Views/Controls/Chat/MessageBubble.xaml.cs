@@ -124,8 +124,10 @@ namespace NexusChat.Views.Controls
                     bubble.IsAI = message.IsAI;
                     bubble.Timestamp = message.CreatedAt;
                     
-                    // Handle thinking state
-                    bubble.UpdateThinkingState(message.Status);
+                    Debug.WriteLine($"MessageBubble updated: Content='{bubble.MessageContent}', IsAI={bubble.IsAI}, Status='{message.Status}'");
+                    
+                    // Handle thinking state - only show thinking if AI message with thinking status and no content
+                    bubble.UpdateThinkingState(message);
                 }
                 else
                 {
@@ -145,19 +147,47 @@ namespace NexusChat.Views.Controls
         /// <summary>
         /// Updates the thinking indicator state
         /// </summary>
-        private void UpdateThinkingState(string status)
+        private void UpdateThinkingState(Message? message)
         {
             try
             {
-                bool isThinking = !string.IsNullOrEmpty(status) && 
-                                 status.Equals("thinking", StringComparison.OrdinalIgnoreCase);
+                bool shouldShowThinking = false;
+                bool shouldShowContent = true;
                 
-                ThinkingGrid.IsVisible = isThinking;
-                ContentLabel.IsVisible = !isThinking;
+                if (message != null && message.IsAI)
+                {
+                    // Only show thinking if status is explicitly "thinking" AND content is empty
+                    // AND the message was just created (not loaded from database)
+                    shouldShowThinking = message.Status == "thinking" && 
+                                       string.IsNullOrWhiteSpace(message.Content) &&
+                                       message.Id == 0; // New messages have Id = 0 until saved
+                    
+                    shouldShowContent = !shouldShowThinking;
+                }
+                else if (message != null && !message.IsAI)
+                {
+                    // User messages always show content
+                    shouldShowThinking = false;
+                    shouldShowContent = true;
+                }
+                
+                Debug.WriteLine($"MessageBubble thinking state: ShowThinking={shouldShowThinking}, ShowContent={shouldShowContent}, Status='{message?.Status}', Content='{message?.Content}', Id={message?.Id}");
+                
+                // Update UI elements
+                if (ThinkingGrid != null)
+                    ThinkingGrid.IsVisible = shouldShowThinking;
+                    
+                if (ContentLabel != null)
+                    ContentLabel.IsVisible = shouldShowContent;
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"MessageBubble: Error updating thinking state - {ex.Message}");
+                // Fallback to show content and hide thinking
+                if (ThinkingGrid != null)
+                    ThinkingGrid.IsVisible = false;
+                if (ContentLabel != null)
+                    ContentLabel.IsVisible = true;
             }
         }
 

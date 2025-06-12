@@ -24,12 +24,10 @@ namespace NexusChat.Core.ViewModels
         private readonly IMessageRepository _messageRepository;
         private readonly IConversationRepository _conversationRepository;
         private readonly IAIModelRepository? _modelRepository;        
-        
         private readonly IAIModelManager _AIModelManager;
-
-        
         private readonly IChatService _chatService;
         private readonly INavigationService _navigationService;
+        private readonly IAIProviderFactory _providerFactory;
 
         [ObservableProperty]
         private Conversation? _currentConversation;
@@ -107,7 +105,8 @@ namespace NexusChat.Core.ViewModels
             IAIModelRepository? modelRepository,
             IAIModelManager AIModelManager,
             IChatService chatService,
-            INavigationService navigationService)
+            INavigationService navigationService,
+            IAIProviderFactory providerFactory)
         {
             _messageRepository = messageRepository ?? throw new ArgumentNullException(nameof(messageRepository));
             _conversationRepository = conversationRepository ?? throw new ArgumentNullException(nameof(conversationRepository));
@@ -115,6 +114,7 @@ namespace NexusChat.Core.ViewModels
             _AIModelManager = AIModelManager ?? throw new ArgumentNullException(nameof(AIModelManager));
             _chatService = chatService ?? throw new ArgumentNullException(nameof(chatService));
             _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
+            _providerFactory = providerFactory ?? throw new ArgumentNullException(nameof(providerFactory));
             
             Title = "Chat";
             _cts = new CancellationTokenSource();
@@ -163,25 +163,119 @@ namespace NexusChat.Core.ViewModels
                 CurrentConversation = conversation;
                 HasConversation = true;
                 
-                // Load initial page of messages
-                await LoadMessagesAsync();
-                
-                // Load current AI model
+                // Load current AI model first
                 await LoadCurrentModelAsync();
                 
                 Title = conversation.Title ?? "New Chat";
                 
+                // Clear messages first to show empty state immediately
+                await MainThread.InvokeOnMainThreadAsync(() =>
+                {
+                    Messages.Clear();
+                    HasMessages = false;
+                    OnPropertyChanged(nameof(Messages));
+                    OnPropertyChanged(nameof(HasMessages));
+                });
+                
                 // Ensure UI updates
                 OnPropertyChanged(nameof(CurrentModelName));
                 OnPropertyChanged(nameof(CurrentConversation));
+                OnPropertyChanged(nameof(Title));
+                OnPropertyChanged(nameof(HasConversation));
                 
                 Debug.WriteLine($"Chat initialized with title: {Title}, model: {CurrentModelName}");
+                
+                // Load messages progressively in background after UI is ready
+                _ = Task.Run(async () => await LoadMessagesProgressively(conversationId));
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error initializing ChatViewModel: {ex.Message}");
                 HasError = true;
                 ErrorMessage = $"Error loading conversation: {ex.Message}";
+            }
+        }
+        
+        /// <summary>
+        /// Loads messages progressively to avoid UI lag
+        /// </summary>
+        private async Task LoadMessagesProgressively(int conversationId)
+        {
+            try
+            {
+                Debug.WriteLine($"Starting progressive message loading for conversation {conversationId}");
+                
+                // Get all messages for the conversation
+                var allMessages = await _messageRepository.GetByConversationIdAsync(conversationId, 100, 0);
+                
+                if (allMessages.Count == 0)
+                {
+                    Debug.WriteLine("No messages found for conversation");
+                    return;
+                }
+                
+                Debug.WriteLine($"Found {allMessages.Count} messages to load progressively");
+                
+                // Load messages in small batches with delays
+                const int batchSize = 2; // Load 2 messages at a time
+                const int delayMs = 100;  // 100ms delay between batches
+                
+                var messageBatches = allMessages
+                    .Select((message, index) => new { message, index })
+                    .GroupBy(x => x.index / batchSize)
+                    .Select(g => g.Select(x => x.message).ToList())
+                    .ToList();
+                
+                foreach (var batch in messageBatches)
+                {
+                    await MainThread.InvokeOnMainThreadAsync(() =>
+                    {
+                        foreach (var message in batch)
+                        {
+                            // Ensure loaded messages have proper status
+                            if (message.IsAI && string.IsNullOrEmpty(message.Status))
+                            {
+                                message.Status = "complete";
+                            }
+                            else if (!message.IsAI && string.IsNullOrEmpty(message.Status))
+                            {
+                                message.Status = "sent";
+                            }
+                            
+                            Messages.Add(message);
+                            Debug.WriteLine($"Progressively loaded message: '{message.Content?.Substring(0, Math.Min(50, message.Content?.Length ?? 0))}...', IsAI: {message.IsAI}");
+                        }
+                        
+                        HasMessages = Messages.Count > 0;
+                        OnPropertyChanged(nameof(Messages));
+                        OnPropertyChanged(nameof(HasMessages));
+                        
+                        // Scroll to latest message
+                        if (Messages.Count > 0)
+                        {
+                            ScrollTarget = Messages.Last();
+                            OnPropertyChanged(nameof(ScrollTarget));
+                        }
+                    });
+                    
+                    // Small delay between batches to keep UI responsive
+                    if (messageBatches.IndexOf(batch) < messageBatches.Count - 1)
+                    {
+                        await Task.Delay(delayMs);
+                    }
+                }
+                
+                Debug.WriteLine($"Progressive loading completed. Total messages loaded: {Messages.Count}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error in progressive message loading: {ex.Message}");
+                
+                // Fallback to regular loading if progressive loading fails
+                await MainThread.InvokeOnMainThreadAsync(async () =>
+                {
+                    await LoadMessagesAsync();
+                });
             }
         }
         
@@ -341,7 +435,7 @@ namespace NexusChat.Core.ViewModels
         }
         
         /// <summary>
-        /// Sends the current message to the AI - With additional logging
+        /// Sends the current message to the AI
         /// </summary>
         [RelayCommand]
         public async Task SendMessage()
@@ -353,40 +447,212 @@ namespace NexusChat.Core.ViewModels
                 Debug.WriteLine("Cannot send message: Either CanSendMessage is false or Message is empty");
                 return;
             }
+
+            await EnsureConversationExistsAsync();
+            
+            if (CurrentConversation == null)
+            {
+                Debug.WriteLine("No conversation available after ensuring conversation exists");
+                return;
+            }
                 
             try
             {
+                IsMessageSending = true;
                 Debug.WriteLine($"Sending message: {Message}");
                 
                 // Store the message locally to avoid issues if cleared during sending
                 string messageText = Message.Trim();
-                Message = string.Empty;
+                Message = string.Empty; // Clear input immediately for better UX
                 
-                // Create user message
-                var userMessage = await _chatService.SendMessageAsync(CurrentConversation.Id, messageText);
+                // Force immediate UI update on main thread
+                await MainThread.InvokeOnMainThreadAsync(() =>
+                {
+                    // Create user message and add to UI immediately
+                    var userMessage = new Message
+                    {
+                        ConversationId = CurrentConversation.Id,
+                        Content = messageText,
+                        AuthorType = "user",
+                        IsUserMessage = true,
+                        Status = "sent",
+                        SentAt = DateTime.UtcNow,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow,
+                        Timestamp = DateTime.UtcNow
+                    };
+                    
+                    // Add to collection immediately - no async here
+                    Messages.Add(userMessage);
+                    HasMessages = Messages.Count > 0;
+                    ScrollTarget = userMessage;
+                    Debug.WriteLine($"Added user message to UI instantly: '{userMessage.Content}', IsAI: {userMessage.IsAI}");
+                    
+                    // Force property change notifications
+                    OnPropertyChanged(nameof(Messages));
+                    OnPropertyChanged(nameof(HasMessages));
+                    OnPropertyChanged(nameof(ScrollTarget));
+                });
                 
-                // Add to the messages collection
-                await AddMessageToCollectionAsync(userMessage);
+                // Update conversation title immediately if it's still "New Chat"
+                if (CurrentConversation.Title == "New Chat" && !string.IsNullOrWhiteSpace(messageText))
+                {
+                    string newTitle = messageText.Length > 30 ? messageText.Substring(0, 30).Trim() + "..." : messageText.Trim();
+                    CurrentConversation.Title = newTitle;
+                    Title = newTitle;
+                    
+                    // Update UI immediately
+                    await MainThread.InvokeOnMainThreadAsync(() =>
+                    {
+                        OnPropertyChanged(nameof(Title));
+                        OnPropertyChanged(nameof(CurrentConversation));
+                    });
+                    
+                    Debug.WriteLine($"Updated conversation title immediately to: {newTitle}");
+                }
+                
+                // Create AI message with thinking state and add to UI
+                var aiMessage = new Message
+                {
+                    ConversationId = CurrentConversation.Id,
+                    Content = "",
+                    AuthorType = "ai",
+                    IsUserMessage = false,
+                    Status = "thinking",
+                    SentAt = DateTime.UtcNow,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow,
+                    Timestamp = DateTime.UtcNow,
+                    ModelName = _AIModelManager.CurrentModel?.ModelName ?? "",
+                    ProviderName = _AIModelManager.CurrentModel?.ProviderName ?? ""
+                };
+                
+                // Add thinking AI message to UI immediately
+                await MainThread.InvokeOnMainThreadAsync(() =>
+                {
+                    Messages.Add(aiMessage);
+                    HasMessages = Messages.Count > 0;
+                    ScrollTarget = aiMessage;
+                    Debug.WriteLine($"Added thinking AI message to UI: Status='{aiMessage.Status}'");
+                    
+                    // Force property change notifications
+                    OnPropertyChanged(nameof(Messages));
+                    OnPropertyChanged(nameof(HasMessages));
+                    OnPropertyChanged(nameof(ScrollTarget));
+                });
                 
                 // Set thinking status
                 IsThinking = true;
                 
+                // Save user message to database in background (don't block UI)
+                var userMessageFromUI = Messages.Where(m => !m.IsAI).LastOrDefault();
+                if (userMessageFromUI != null)
+                {
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            userMessageFromUI.Id = await _messageRepository.AddAsync(userMessageFromUI);
+                            Debug.WriteLine($"Saved user message to database: ID={userMessageFromUI.Id}");
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"Error saving user message to database: {ex.Message}");
+                        }
+                    });
+                }
+                
                 try
                 {
                     // Get AI response
-                    await _chatService.SendAIMessageAsync(CurrentConversation.Id, messageText, _cts.Token);
+                    var aiService = await GetCurrentAIServiceAsync();
+                    if (aiService == null)
+                    {
+                        // Update AI message with error
+                        aiMessage.Content = "No AI service is configured. Please select a model.";
+                        aiMessage.Status = "error";
+                    }
+                    else
+                    {
+                        // Get AI response
+                        string aiResponse = await aiService.SendMessageAsync(messageText, _cts.Token);
+                        
+                        // Update AI message with response
+                        aiMessage.Content = aiResponse;
+                        aiMessage.Status = "complete";
+                    }
                     
-                    // Refresh messages to get the AI response
-                    await RefreshMessagesAsync();
+                    // Update AI message in UI immediately
+                    await MainThread.InvokeOnMainThreadAsync(() =>
+                    {
+                        // Force UI refresh by notifying property change
+                        var index = Messages.IndexOf(aiMessage);
+                        if (index >= 0)
+                        {
+                            // Trigger collection refresh
+                            Messages.RemoveAt(index);
+                            Messages.Insert(index, aiMessage);
+                            ScrollTarget = aiMessage;
+                            
+                            // Force property change notifications
+                            OnPropertyChanged(nameof(Messages));
+                            OnPropertyChanged(nameof(ScrollTarget));
+                        }
+                        
+                        Debug.WriteLine($"Updated AI message in UI: Content='{aiMessage.Content}', Status='{aiMessage.Status}'");
+                    });
                     
-                    // Scroll to the bottom
-                    await ScrollToBottomAsync();
+                    // Save AI message to database in background
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            aiMessage.Id = await _messageRepository.AddAsync(aiMessage);
+                            Debug.WriteLine($"Saved AI message to database: ID={aiMessage.Id}");
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"Error saving AI message to database: {ex.Message}");
+                        }
+                    });
+                    
+                    // Update conversation in database in background
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            CurrentConversation.UpdatedAt = DateTime.UtcNow;
+                            await _conversationRepository.UpdateAsync(CurrentConversation, CancellationToken.None);
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"Error updating conversation: {ex.Message}");
+                        }
+                    });
                     
                     Debug.WriteLine("AI response received and displayed");
                 }
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"Error getting AI response: {ex.Message}");
+                    
+                    // Update AI message with error immediately
+                    aiMessage.Content = $"Error: {ex.Message}";
+                    aiMessage.Status = "error";
+                    aiMessage.IsError = true;
+                    
+                    // Update UI immediately
+                    await MainThread.InvokeOnMainThreadAsync(() =>
+                    {
+                        var index = Messages.IndexOf(aiMessage);
+                        if (index >= 0)
+                        {
+                            Messages.RemoveAt(index);
+                            Messages.Insert(index, aiMessage);
+                            OnPropertyChanged(nameof(Messages));
+                        }
+                    });
+                    
                     await Shell.Current.DisplayAlert("Error", "Failed to get AI response. Please try again.", "OK");
                 }
                 finally
@@ -399,71 +665,12 @@ namespace NexusChat.Core.ViewModels
                 Debug.WriteLine($"Error in SendMessage: {ex.Message}");
                 Debug.WriteLine($"Stack trace: {ex.StackTrace}");
             }
-        }
-
-        /// <summary>
-        /// Adds a message to the collection
-        /// </summary>
-        private async Task AddMessageToCollectionAsync(Message message)
-        {
-            if (message == null) return;
-
-            await MainThread.InvokeOnMainThreadAsync(() =>
+            finally
             {
-                Messages.Add(message);
-                HasMessages = Messages.Count > 0;
-                ScrollTarget = message;
-            });
-        }
-
-        /// <summary>
-        /// Refreshes the messages from the database
-        /// </summary>
-        private async Task RefreshMessagesAsync()
-        {
-            if (CurrentConversation == null) return;
-
-            try
-            {
-                // Get the latest messages
-                var messages = await _messageRepository.GetByConversationIdAsync(
-                    CurrentConversation.Id,
-                    PageSize,
-                    0);
-
-                await MainThread.InvokeOnMainThreadAsync(() =>
-                {
-                    Messages.Clear();
-                    foreach (var message in messages)
-                    {
-                        Messages.Add(message);
-                    }
-                    
-                    HasMessages = Messages.Count > 0;
-                    _currentOffset = messages.Count;
-                });
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error refreshing messages: {ex.Message}");
+                IsMessageSending = false;
             }
         }
 
-        /// <summary>
-        /// Scrolls to the bottom of the messages
-        /// </summary>
-        private async Task ScrollToBottomAsync()
-        {
-            if (Messages.Count > 0)
-            {
-                await MainThread.InvokeOnMainThreadAsync(() =>
-                {
-                    ScrollTarget = Messages.Last();
-                    ShowScrollToBottom = false;
-                });
-            }
-        }
-        
         /// <summary>
         /// Regenerates the last AI message
         /// </summary>
@@ -501,36 +708,126 @@ namespace NexusChat.Core.ViewModels
                 IsMessageSending = true;
                 IsThinking = true;
                 
-                await _messageRepository.DeleteAsync(message.Id, CancellationToken.None);
-                Messages.Remove(message);
-                
-                var aiResponse = await _chatService.SendAIMessageAsync(
-                    CurrentConversation.Id,
-                    userMessage.Content, 
-                    _cts.Token);
-                
-                if (aiResponse != null)
+                // Remove the old AI message from UI immediately
+                await MainThread.InvokeOnMainThreadAsync(() =>
                 {
-                    var aiMessage = new Message
+                    Messages.Remove(message);
+                    OnPropertyChanged(nameof(Messages));
+                });
+                
+                // Delete from database in background
+                _ = Task.Run(async () =>
+                {
+                    try
                     {
-                        Content = aiResponse.Content,
-                        IsAI = true,
-                        ConversationId = CurrentConversation.Id,
-                        SentAt = DateTime.Now,
-                        Status = "Regenerated"
-                    };
+                        await _messageRepository.DeleteAsync(message.Id, CancellationToken.None);
+                        Debug.WriteLine($"Deleted message {message.Id} from database");
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Error deleting message from database: {ex.Message}");
+                    }
+                });
+                
+                // Create new thinking AI message
+                var newAiMessage = new Message
+                {
+                    ConversationId = CurrentConversation.Id,
+                    Content = "",
+                    AuthorType = "ai",
+                    IsUserMessage = false,
+                    Status = "thinking",
+                    SentAt = DateTime.UtcNow,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow,
+                    Timestamp = DateTime.UtcNow,
+                    ModelName = _AIModelManager.CurrentModel?.ModelName ?? "",
+                    ProviderName = _AIModelManager.CurrentModel?.ProviderName ?? ""
+                };
+                
+                // Add thinking message to UI
+                await MainThread.InvokeOnMainThreadAsync(() =>
+                {
+                    Messages.Add(newAiMessage);
+                    ScrollTarget = newAiMessage;
+                    OnPropertyChanged(nameof(Messages));
+                    OnPropertyChanged(nameof(ScrollTarget));
+                });
+                
+                // Get AI response
+                try
+                {
+                    var aiService = await GetCurrentAIServiceAsync();
+                    if (aiService != null)
+                    {
+                        string aiResponse = await aiService.SendMessageAsync(userMessage.Content, _cts.Token);
+                        
+                        // Update AI message with response
+                        newAiMessage.Content = aiResponse;
+                        newAiMessage.Status = "complete";
+                        
+                        // Update UI
+                        await MainThread.InvokeOnMainThreadAsync(() =>
+                        {
+                            var index = Messages.IndexOf(newAiMessage);
+                            if (index >= 0)
+                            {
+                                Messages.RemoveAt(index);
+                                Messages.Insert(index, newAiMessage);
+                                ScrollTarget = newAiMessage;
+                                OnPropertyChanged(nameof(Messages));
+                                OnPropertyChanged(nameof(ScrollTarget));
+                            }
+                        });
+                        
+                        // Save to database in background
+                        _ = Task.Run(async () =>
+                        {
+                            try
+                            {
+                                newAiMessage.Id = await _messageRepository.AddAsync(newAiMessage);
+                                Debug.WriteLine($"Saved regenerated AI message: ID={newAiMessage.Id}");
+                            }
+                            catch (Exception ex)
+                            {
+                                Debug.WriteLine($"Error saving regenerated message: {ex.Message}");
+                            }
+                        });
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Error regenerating AI response: {ex.Message}");
+                    
+                    // Update message with error
+                    newAiMessage.Content = $"Error regenerating response: {ex.Message}";
+                    newAiMessage.Status = "error";
                     
                     await MainThread.InvokeOnMainThreadAsync(() =>
                     {
-                        Messages.Add(aiMessage);
-                        ScrollTarget = aiMessage;
+                        var index = Messages.IndexOf(newAiMessage);
+                        if (index >= 0)
+                        {
+                            Messages.RemoveAt(index);
+                            Messages.Insert(index, newAiMessage);
+                            OnPropertyChanged(nameof(Messages));
+                        }
                     });
-                    
-                    aiMessage.Id = await _messageRepository.AddAsync(aiMessage);
-                    
-                    CurrentConversation.UpdatedAt = DateTime.Now;
-                    await _conversationRepository.UpdateAsync(CurrentConversation, CancellationToken.None);
                 }
+                
+                // Update conversation timestamp in background
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        CurrentConversation.UpdatedAt = DateTime.UtcNow;
+                        await _conversationRepository.UpdateAsync(CurrentConversation, CancellationToken.None);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Error updating conversation: {ex.Message}");
+                    }
+                });
             }
             catch (Exception ex)
             {
@@ -542,32 +839,39 @@ namespace NexusChat.Core.ViewModels
                 IsThinking = false;
             }
         }
-        
+
         /// <summary>
-        /// Updates the status of a message
+        /// Gets the current AI service based on the selected model
         /// </summary>
-        private async Task UpdateMessageStatusAsync(Message message, string newStatus)
+        private async Task<IAIProviderService?> GetCurrentAIServiceAsync()
         {
-            if (message == null) return;
+            await Task.Delay(1);
             
+            var currentModel = _AIModelManager.CurrentModel;
+            if (currentModel == null)
+            {
+                Debug.WriteLine("No current model selected");
+                return null;
+            }
+
             try
             {
-                message.Status = newStatus;
-                await _messageRepository.UpdateAsync(message, CancellationToken.None);
+                return await _providerFactory.GetProviderForModelAsync(currentModel.ProviderName, currentModel.ModelName);
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error updating message status: {ex.Message}");
+                Debug.WriteLine($"Error getting AI service: {ex.Message}");
+                return null;
             }
         }
-        
+
         /// <summary>
         /// Edits the title of the current conversation
         /// </summary>
         [RelayCommand]
-        public async Task EditTitle()
+        public async Task EditConversationTitle()
         {
-            Debug.WriteLine("EditTitle command executed");
+            Debug.WriteLine("EditConversationTitle command executed");
             
             await EnsureConversationExistsAsync();
             
@@ -583,57 +887,38 @@ namespace NexusChat.Core.ViewModels
                 
                 string result = await Shell.Current.DisplayPromptAsync(
                     "Edit Title", 
-                    "Enter a new title for this conversation",
-                    initialValue: currentTitle);
+                    "Enter a new title for this conversation:",
+                    "Save",
+                    "Cancel",
+                    currentTitle,
+                    maxLength: 100);
                     
-                if (!string.IsNullOrWhiteSpace(result))
+                if (!string.IsNullOrWhiteSpace(result) && result != currentTitle)
                 {
-                    CurrentConversation.Title = result;
+                    CurrentConversation.Title = result.Trim();
+                    CurrentConversation.UpdatedAt = DateTime.UtcNow;
+                    Title = result.Trim();
+                    
+                    // Update UI immediately
+                    await MainThread.InvokeOnMainThreadAsync(() =>
+                    {
+                        OnPropertyChanged(nameof(Title));
+                        OnPropertyChanged(nameof(CurrentConversation));
+                    });
+                    
+                    // Save to database
                     await _conversationRepository.UpdateAsync(CurrentConversation, CancellationToken.None);
-                    OnPropertyChanged(nameof(CurrentConversation));
+                    
+                    Debug.WriteLine($"Updated conversation title to: {result.Trim()}");
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error editing title: {ex.Message}");
+                Debug.WriteLine($"Error editing conversation title: {ex.Message}");
+                await Shell.Current.DisplayAlert("Error", "Failed to update conversation title.", "OK");
             }
         }
-        
-        /// <summary>
-        /// Loads more messages
-        /// </summary>
-        [RelayCommand]
-        private async Task LoadMoreMessagesAsync()
-        {
-            if (IsLoadingMoreMessages || !HasMoreMessages) return;
-            
-            try
-            {
-                int newOffset = Math.Max(0, _currentOffset - PageSize);
-                
-                if (newOffset == _currentOffset) return;
-                
-                await LoadMessagesAsync(newOffset, true);
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error loading more messages: {ex.Message}");
-            }
-        }
-        
-        /// <summary>
-        /// Scrolls to the bottom of the message list
-        /// </summary>
-        [RelayCommand]
-        public async Task ScrollToBottom()
-        {
-            Debug.WriteLine("ScrollToBottom command executed");
-            if (Messages.Count > 0)
-            {
-                ScrollTarget = Messages.Last();
-            }
-        }
-        
+
         /// <summary>
         /// Shows the options menu
         /// </summary>
@@ -656,12 +941,16 @@ namespace NexusChat.Core.ViewModels
                     "Options",
                     "Cancel",
                     null,
+                    "Edit Title",
                     "Clear Chat",
                     "Delete Conversation",
                     "Change AI Model");
                     
                 switch (result)
                 {
+                    case "Edit Title":
+                        await EditConversationTitle();
+                        break;
                     case "Clear Chat":
                         await ClearChatAsync();
                         break;
@@ -669,7 +958,7 @@ namespace NexusChat.Core.ViewModels
                         await DeleteConversationAsync();
                         break;
                     case "Change AI Model":
-                        await ChangeModel();
+                        await ChangeModelAsync();
                         break;
                 }
             }
@@ -680,79 +969,16 @@ namespace NexusChat.Core.ViewModels
         }
         
         /// <summary>
-        /// Clears all messages in the current chat
-        /// </summary>
-        private async Task ClearChatAsync()
-        {
-            if (CurrentConversation == null) return;
-            
-            bool confirm = await Shell.Current.DisplayAlert(
-                "Clear Chat", 
-                "Are you sure you want to delete all messages in this chat?", 
-                "Clear", 
-                "Cancel");
-                
-            if (confirm)
-            {
-                try
-                {
-                    await _messageRepository.DeleteByConversationIdAsync(CurrentConversation.Id, CancellationToken.None);
-                    
-                    await MainThread.InvokeOnMainThreadAsync(() =>
-                    {
-                        Messages.Clear();
-                        HasMessages = false;
-                        _currentOffset = 0;
-                        HasMoreMessages = false;
-                        ShowLoadMoreButton = false;
-                    });
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"Error clearing chat: {ex.Message}");
-                }
-            }
-        }
-        
-        /// <summary>
-        /// Deletes the current conversation
-        /// </summary>
-        private async Task DeleteConversationAsync()
-        {
-            if (CurrentConversation == null) return;
-            
-            bool confirm = await Shell.Current.DisplayAlert(
-                "Delete Conversation", 
-                "Are you sure you want to delete this conversation? This cannot be undone.", 
-                "Delete", 
-                "Cancel");
-                
-            if (confirm)
-            {
-                try
-                {
-                    await _conversationRepository.DeleteAsync(CurrentConversation.Id, CancellationToken.None);
-                    
-                    await GoBack();
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"Error deleting conversation: {ex.Message}");
-                }
-            }
-        }
-        
-        /// <summary>
         /// Changes the AI model for this chat by showing favorite models
         /// </summary>
         [RelayCommand]
-        public async Task ChangeModel()
+        public async Task ChangeModelAsync()
         {
-            Debug.WriteLine("ChangeModel command executed");
+            Debug.WriteLine("ChangeModelAsync command executed");
             try
             {
                 // Get favorite models from the model manager
-                var favoriteModels = await _modelRepository.GetFavoriteModelsAsync();
+                var favoriteModels = await _modelRepository?.GetFavoriteModelsAsync();
                 
                 if (favoriteModels == null || !favoriteModels.Any())
                 {
@@ -813,6 +1039,143 @@ namespace NexusChat.Core.ViewModels
                 Debug.WriteLine($"Error changing model: {ex.Message}");
                 Debug.WriteLine($"Stack trace: {ex.StackTrace}");
                 await Shell.Current.DisplayAlert("Error", "Failed to change model.", "OK");
+            }
+        }
+        
+        /// <summary>
+        /// Clears all messages in the current chat
+        /// </summary>
+        private async Task ClearChatAsync()
+        {
+            if (CurrentConversation == null) return;
+            
+            bool confirm = await Shell.Current.DisplayAlert(
+                "Clear Chat", 
+                "Are you sure you want to delete all messages in this chat?", 
+                "Clear", 
+                "Cancel");
+                
+            if (confirm)
+            {
+                try
+                {
+                    await _messageRepository.DeleteByConversationIdAsync(CurrentConversation.Id, CancellationToken.None);
+                    
+                    await MainThread.InvokeOnMainThreadAsync(() =>
+                    {
+                        Messages.Clear();
+                        HasMessages = false;
+                        _currentOffset = 0;
+                        HasMoreMessages = false;
+                        ShowLoadMoreButton = false;
+                    });
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Error clearing chat: {ex.Message}");
+                }
+            }
+        }
+        
+        /// <summary>
+        /// Event that fires when a conversation needs to be refreshed in sidebar
+        /// </summary>
+        public event Action? SidebarRefreshRequested;
+        
+        /// <summary>
+        /// Deletes the current conversation
+        /// </summary>
+        private async Task DeleteConversationAsync()
+        {
+            if (CurrentConversation == null) return;
+            
+            bool confirm = await Shell.Current.DisplayAlert(
+                "Delete Conversation", 
+                "Are you sure you want to delete this conversation? This cannot be undone.", 
+                "Delete", 
+                "Cancel");
+                
+            if (confirm)
+            {
+                try
+                {
+                    var conversationToDelete = CurrentConversation;
+                    Debug.WriteLine($"Deleting conversation: {conversationToDelete.Title} (ID: {conversationToDelete.Id})");
+                    
+                    // Delete the conversation from database
+                    await _conversationRepository.DeleteAsync(conversationToDelete.Id, CancellationToken.None);
+                    
+                    // Request sidebar refresh to remove the deleted conversation
+                    SidebarRefreshRequested?.Invoke();
+                    
+                    // Clear current conversation and messages
+                    CurrentConversation = null;
+                    await MainThread.InvokeOnMainThreadAsync(() =>
+                    {
+                        Messages.Clear();
+                        HasMessages = false;
+                        HasConversation = false;
+                        _currentOffset = 0;
+                        HasMoreMessages = false;
+                        ShowLoadMoreButton = false;
+                    });
+                    
+                    // Try to load the most recent conversation
+                    await LoadMostRecentConversationAsync();
+                    
+                    Debug.WriteLine("Conversation deleted and switched to most recent conversation");
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Error deleting conversation: {ex.Message}");
+                    await Shell.Current.DisplayAlert("Error", "Failed to delete conversation. Please try again.", "OK");
+                }
+            }
+        }
+        
+        /// <summary>
+        /// Loads the most recent conversation for the current user
+        /// </summary>
+        private async Task LoadMostRecentConversationAsync()
+        {
+            try
+            {
+                const int currentUserId = 1; // Default user ID
+                var recentConversations = await _conversationRepository.GetByUserIdAsync(currentUserId);
+                
+                if (recentConversations.Any())
+                {
+                    // Get the most recent conversation
+                    var mostRecent = recentConversations
+                        .OrderByDescending(c => c.UpdatedAt)
+                        .FirstOrDefault();
+                    
+                    if (mostRecent != null)
+                    {
+                        Debug.WriteLine($"Loading most recent conversation: {mostRecent.Title} (ID: {mostRecent.Id})");
+                        await InitializeAsync(mostRecent.Id);
+                        return;
+                    }
+                }
+                
+                // No conversations found, create a new one
+                Debug.WriteLine("No conversations found, creating new conversation");
+                await InitializeNewConversationAsync();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error loading most recent conversation: {ex.Message}");
+                // Fallback to creating a new conversation
+                try
+                {
+                    await InitializeNewConversationAsync();
+                }
+                catch (Exception fallbackEx)
+                {
+                    Debug.WriteLine($"Error creating fallback conversation: {fallbackEx.Message}");
+                    // If all else fails, navigate back to main page
+                    await GoBack();
+                }
             }
         }
         
@@ -916,11 +1279,18 @@ namespace NexusChat.Core.ViewModels
         {
             try
             {
+                Debug.WriteLine($"Loading conversation: {conversation.Title} (ID: {conversation.Id})");
                 CurrentConversation = conversation;
-                Title = conversation.Title;
+                Title = conversation.Title ?? "New Chat";
+                HasConversation = true;
                 
                 // Load messages for this conversation
                 LoadMessagesForConversation(conversation.Id);
+                
+                // Update UI properties
+                OnPropertyChanged(nameof(CurrentConversation));
+                OnPropertyChanged(nameof(Title));
+                OnPropertyChanged(nameof(HasConversation));
             }
             catch (Exception ex)
             {
@@ -941,27 +1311,29 @@ namespace NexusChat.Core.ViewModels
         }
 
         /// <summary>
-        /// Loads messages for a specific conversation
+        /// Loads messages for a specific conversation (used by LoadConversation method)
         /// </summary>
         private async void LoadMessagesForConversation(int conversationId)
         {
             try
             {
-                var conversationMessages = await _chatService.GetMessagesAsync(conversationId);
+                Debug.WriteLine($"LoadMessagesForConversation called for conversation {conversationId}");
                 
+                // Clear messages first
                 await MainThread.InvokeOnMainThreadAsync(() =>
                 {
                     Messages.Clear();
-                    foreach (var msg in conversationMessages)
-                    {
-                        Messages.Add(msg);
-                    }
-                    HasMessages = Messages.Count > 0;
+                    HasMessages = false;
+                    OnPropertyChanged(nameof(Messages));
+                    OnPropertyChanged(nameof(HasMessages));
                 });
+                
+                // Load messages progressively
+                await LoadMessagesProgressively(conversationId);
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error loading messages: {ex.Message}");
+                Debug.WriteLine($"Error loading messages for conversation: {ex.Message}");
             }
         }
     }

@@ -15,15 +15,19 @@ namespace NexusChat.Helpers
         /// <param name="task">The task to execute</param>
         public static void FireAndForget(this Task task)
         {
-            // Simple fire-and-forget with error handling
-            task.ContinueWith(t =>
+            if (task == null) return;
+            
+            Task.Run(async () =>
             {
-                if (t.IsFaulted)
+                try
                 {
-                    var ex = t.Exception?.InnerException ?? t.Exception;
-                    Debug.WriteLine($"Fire and forget task error: {ex?.Message}");
+                    await task;
                 }
-            }, TaskContinuationOptions.OnlyOnFaulted);
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"FireAndForget task failed: {ex.Message}");
+                }
+            });
         }
     }
 }

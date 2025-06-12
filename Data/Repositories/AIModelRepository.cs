@@ -33,7 +33,7 @@ namespace NexusChat.Data.Repositories
             if (string.IsNullOrEmpty(providerName) || string.IsNullOrEmpty(modelName))
                 return null;
 
-            return await ExecuteDbOperationAsync<AIModel>(async (db, ct) =>
+            return await ExecuteDbOperationAsync<AIModel>(async (connection, token) =>
             {
                 Debug.WriteLine($"AIModelRepository: Getting model {providerName}/{modelName}");
                 
@@ -44,7 +44,7 @@ namespace NexusChat.Data.Repositories
                     AND LOWER(ModelName) = LOWER(?) 
                     LIMIT 1";
                 
-                var models = await db.QueryAsync<AIModel>(sql, providerName, modelName);
+                var models = await connection.QueryAsync<AIModel>(sql, providerName, modelName);
                 var model = models.FirstOrDefault();
                 
                 Debug.WriteLine($"AIModelRepository: Found model: {(model != null ? "Yes" : "No")}");
@@ -60,7 +60,7 @@ namespace NexusChat.Data.Repositories
             if (string.IsNullOrEmpty(providerName))
                 return new List<AIModel>();
 
-            return await ExecuteDbOperationAsync<List<AIModel>>(async (db, ct) =>
+            return await ExecuteDbOperationAsync<List<AIModel>>(async (connection, token) =>
             {
                 Debug.WriteLine($"AIModelRepository: Getting models for provider {providerName}");
                 
@@ -70,11 +70,11 @@ namespace NexusChat.Data.Repositories
                     WHERE LOWER(ProviderName) = LOWER(?)
                     ORDER BY DisplayName, ModelName";
                 
-                var models = await db.QueryAsync<AIModel>(sql, providerName);
+                var models = await connection.QueryAsync<AIModel>(sql, providerName);
                 
                 Debug.WriteLine($"AIModelRepository: Found {models.Count} models for provider {providerName}");
                 return models;
-            }, $"GetByProvider for {providerName}", cancellationToken, new List<AIModel>());
+            }, $"GetByProvider for {providerName}", cancellationToken);
         }
         
         /// <summary>
@@ -183,33 +183,33 @@ namespace NexusChat.Data.Repositories
         /// </summary>
         public async Task<bool> SetAsDefaultAsync(string providerName, string modelName, CancellationToken cancellationToken = default)
         {
-            if (string.IsNullOrEmpty(providerName) || string.IsNullOrEmpty(modelName)) return false;
-            
-            return await ExecuteDbOperationAsync(
-                async (db, ct) => {
-                    // Get the model first
-                    var model = await db.Table<AIModel>()
-                        .Where(m => m.ProviderName.Equals(providerName, StringComparison.OrdinalIgnoreCase) 
-                                 && m.ModelName.Equals(modelName, StringComparison.OrdinalIgnoreCase))
-                        .FirstOrDefaultAsync();
-                        
-                    if (model == null) return false;
-                    
-                    // Clear default flag for this provider
-                    await db.ExecuteAsync(
-                        "UPDATE AIModels SET IsDefault = 0 WHERE ProviderName = ?", 
-                        providerName);
-                    
-                    // Set this model as default
-                    int result = await db.ExecuteAsync(
-                        "UPDATE AIModels SET IsDefault = 1 WHERE Id = ?", 
-                        model.Id);
-                    
-                    return result > 0;
-                },
-                "SetAsDefault",
-                cancellationToken,
-                false);
+            if (string.IsNullOrEmpty(providerName) || string.IsNullOrEmpty(modelName))
+                return false;
+
+            return await ExecuteDbOperationAsync<bool>(async (connection, token) =>
+            {
+                Debug.WriteLine($"AIModelRepository: Setting {providerName}/{modelName} as default");
+                
+                // First, unset all default models for this provider
+                var clearDefaultsSql = @"
+                    UPDATE AIModels 
+                    SET IsDefault = 0, UpdatedAt = CURRENT_TIMESTAMP
+                    WHERE LOWER(ProviderName) = LOWER(?)";
+                
+                await connection.ExecuteAsync(clearDefaultsSql, providerName);
+                
+                // Then set the specified model as default
+                var setDefaultSql = @"
+                    UPDATE AIModels 
+                    SET IsDefault = 1, UpdatedAt = CURRENT_TIMESTAMP
+                    WHERE LOWER(ProviderName) = LOWER(?) 
+                    AND LOWER(ModelName) = LOWER(?)";
+                
+                var rowsAffected = await connection.ExecuteAsync(setDefaultSql, providerName, modelName);
+                
+                Debug.WriteLine($"AIModelRepository: Set default for {rowsAffected} rows");
+                return rowsAffected > 0;
+            }, $"SetAsDefault for {providerName}/{modelName}", cancellationToken);
         }
         
         /// <summary>

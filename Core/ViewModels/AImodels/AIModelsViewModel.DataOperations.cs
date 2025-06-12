@@ -108,7 +108,7 @@ namespace NexusChat.Core.ViewModels
                 .ThenBy(m => m.ModelName, StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
-            Debug.WriteLine($"Loading {sortedModels.Count} models incrementally");
+            Debug.WriteLine($"Loading {sortedModels.Count} models incrementally with animations");
             
             // Clear collections at start
             await MainThread.InvokeOnMainThreadAsync(() =>
@@ -150,13 +150,23 @@ namespace NexusChat.Core.ViewModels
                         if (passesFilter)
                         {
                             FilteredModels.Add(model);
+                            
+                            // Trigger fade-in animation for this model
+                            _ = Task.Run(async () =>
+                            {
+                                await Task.Delay(100);
+                                await MainThread.InvokeOnMainThreadAsync(() =>
+                                {
+                                    OnPropertyChanged(nameof(FilteredModels));
+                                });
+                            });
                         }
                         
                         Debug.WriteLine($"Added model {i + 1}/{sortedModels.Count}: {model.ModelName} (Filtered: {FilteredModels.Count})");
                     });
                     
-                    // Longer delay to make the incremental loading visible
-                    await Task.Delay(50, cancellationToken);
+                    // Visible delay to make the incremental loading animated
+                    await Task.Delay(80, cancellationToken);
                 }
                 catch (Exception ex)
                 {
@@ -164,13 +174,15 @@ namespace NexusChat.Core.ViewModels
                 }
             }
             
-            // Final update of ShowNoResults
+            // Final update of ShowNoResults and force UI refresh
             await MainThread.InvokeOnMainThreadAsync(() =>
             {
                 ShowNoResults = FilteredModels.Count == 0 && !IsLoading;
+                OnPropertyChanged(nameof(FilteredModels));
+                OnPropertyChanged(nameof(Models));
             });
             
-            Debug.WriteLine($"Incremental loading completed. {Models.Count} models loaded, {FilteredModels.Count} filtered models shown.");
+            Debug.WriteLine($"Incremental loading completed with animations. {Models.Count} models loaded, {FilteredModels.Count} filtered models shown.");
         }
 
         /// <summary>
@@ -196,7 +208,15 @@ namespace NexusChat.Core.ViewModels
                         (m.Description?.ToLowerInvariant().Contains(searchLower) == true));
                 }
 
-                var filteredList = filteredModels.ToList();
+                // Always sort filtered models by priority
+                var filteredList = filteredModels
+                    .OrderByDescending(m => m.IsSelected)
+                    .ThenByDescending(m => m.IsFavorite)
+                    .ThenByDescending(m => m.IsDefault)
+                    .ThenByDescending(m => m.LastUsed ?? DateTime.MinValue)
+                    .ThenBy(m => m.ProviderName, StringComparer.OrdinalIgnoreCase)
+                    .ThenBy(m => m.ModelName, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
                 
                 // Update FilteredModels collection
                 FilteredModels.Clear();
@@ -207,7 +227,10 @@ namespace NexusChat.Core.ViewModels
                 
                 ShowNoResults = FilteredModels.Count == 0 && !IsLoading;
                 
-                Debug.WriteLine($"Applied filters: {Models.Count} total models -> {FilteredModels.Count} filtered models");
+                // Force UI update
+                OnPropertyChanged(nameof(FilteredModels));
+                
+                Debug.WriteLine($"Applied filters with sorting: {Models.Count} total models -> {FilteredModels.Count} filtered models");
             }
             catch (Exception ex)
             {

@@ -4,7 +4,6 @@
              xmlns:viewmodels="clr-namespace:NexusChat.Core.ViewModels"
              xmlns:controls="clr-namespace:NexusChat.Views.Controls"
              x:Class="NexusChat.Views.Pages.AIModelsPage"
-             x:DataType="viewmodels:AIModelsViewModel"
              Title="AI Models"
              Shell.NavBarIsVisible="False"
              Shell.TabBarIsVisible="False">
@@ -25,21 +24,22 @@
             
             <!-- Models List -->
             <CollectionView Grid.Row="1"
+                            x:Name="ModelsCollectionView"
                             ItemsSource="{Binding FilteredModels}"
                             BackgroundColor="{AppThemeBinding Light=#f8f9fa, Dark=#1a1a1a}">
                 <CollectionView.ItemTemplate>
                     <DataTemplate>
                         <controls:AIModelItem Model="{Binding}"
-                                             ToggleFavoriteCommand="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:AIModelsViewModel}}, Path=ToggleFavoriteCommand}"
-                                             SelectModelCommand="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:AIModelsViewModel}}, Path=SelectModelCommand}"
-                                             SetDefaultModelCommand="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:AIModelsViewModel}}, Path=SetDefaultModelCommand}"
-                                             ShowModelInfoCommand="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:AIModelsViewModel}}, Path=ShowModelInfoCommand}" />
+                                             ToggleFavoriteCommand="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.ToggleFavoriteCommand}"
+                                             SelectModelCommand="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.SelectModelCommand}"
+                                             SetDefaultModelCommand="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.SetDefaultModelCommand}"
+                                             ShowModelInfoCommand="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.ShowModelInfoCommand}" />
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
             </CollectionView>
         </Grid>
         
-        <!-- Floating Add Button as overlay - positioned absolutely -->
+        <!-- Floating Add Button as overlay -->
         <controls:FloatingAddButton Command="{Binding DisplayApiKeyOverlayCommand}"
                                    HorizontalOptions="End"
                                    VerticalOptions="End"

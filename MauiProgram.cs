@@ -113,7 +113,15 @@ public static class MauiProgram
     {
         // Transients - ViewModels (as per project instructions)
         services.AddTransient<MainPageViewModel>();
-        services.AddTransient<ChatViewModel>();
+        services.AddTransient<ChatViewModel>(provider => new ChatViewModel(
+            provider.GetRequiredService<IMessageRepository>(),
+            provider.GetRequiredService<IConversationRepository>(),
+            provider.GetService<IAIModelRepository>(),
+            provider.GetRequiredService<IAIModelManager>(),
+            provider.GetRequiredService<IChatService>(),
+            provider.GetRequiredService<INavigationService>(),
+            provider.GetRequiredService<IAIProviderFactory>()
+        ));
         services.AddTransient<AIModelsViewModel>();
         services.AddTransient<ConversationsSidebarViewModel>();
     }

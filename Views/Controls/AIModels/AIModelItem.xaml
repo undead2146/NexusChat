@@ -5,8 +5,7 @@
              xmlns:models="clr-namespace:NexusChat.Core.Models"
              xmlns:converters="clr-namespace:NexusChat.Views.Converters"
              x:Class="NexusChat.Views.Controls.AIModelItem"
-             x:Name="AIModelItemRoot"
-             x:DataType="models:AIModel">
+             x:Name="AIModelItemRoot">
 
     <ContentView.Resources>
         <ResourceDictionary>
@@ -15,7 +14,9 @@
             <converters:ModelStatusToColorConverter x:Key="ModelStatusToColorConverter" />
             <converters:ModelStatusToStrokeThicknessConverter x:Key="ModelStatusToStrokeThicknessConverter" />
             <converters:BoolToColorConverter x:Key="BoolToColorConverter" />
-            <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+            <converters:BoolToStringConverter x:Key="BoolToStringConverter" />
+            <converters:StringEmptyConverter x:Key="StringEmptyConverter" />
+            <converters:InvertedBoolConverter x:Key="InvertedBoolConverter" />
         </ResourceDictionary>
     </ContentView.Resources>
 
@@ -24,11 +25,15 @@
            Stroke="{Binding ., Converter={StaticResource ModelStatusToColorConverter}}"
            StrokeThickness="{Binding ., Converter={StaticResource ModelStatusToStrokeThicknessConverter}}"
            Padding="16"
-           Margin="8,4">
+           Margin="8,4"
+           x:Name="ModelItemBorder"
+           ScaleX="{Binding AnimationScale, FallbackValue=1.0}"
+           ScaleY="{Binding AnimationScale, FallbackValue=1.0}"
+           Opacity="{Binding AnimationOpacity, FallbackValue=1.0}">
         
         <Grid RowDefinitions="Auto,Auto,Auto,Auto" ColumnDefinitions="*,Auto" RowSpacing="8">
             
-            <!-- Header Row with Provider and Status Icons -->
+            <!-- Header Row with Provider and Action Buttons -->
             <Grid Grid.Row="0" Grid.ColumnSpan="2" ColumnDefinitions="Auto,*,Auto,Auto,Auto">
                 
                 <!-- Provider Badge -->
@@ -41,33 +46,6 @@
                            FontSize="12"
                            FontAttributes="Bold" />
                 </Border>
-                
-                <!-- Status Icons -->
-                <StackLayout Grid.Column="2" Orientation="Horizontal" Spacing="4">
-                    <!-- Selected Indicator -->
-                    <Label Text="&#xf00c;"
-                           FontFamily="FontAwesome-Solid"
-                           TextColor="Blue"
-                           FontSize="14"
-                           IsVisible="{Binding IsSelected}"
-                           ToolTipProperties.Text="Currently Selected" />
-                    
-                    <!-- Default Indicator -->
-                    <Label Text="&#xf015;"
-                           FontFamily="FontAwesome-Solid"
-                           TextColor="Green"
-                           FontSize="14"
-                           IsVisible="{Binding IsDefault}"
-                           ToolTipProperties.Text="Default Model" />
-                    
-                    <!-- Favorite Indicator -->
-                    <Label Text="&#xf005;"
-                           FontFamily="FontAwesome-Solid"
-                           TextColor="Gold"
-                           FontSize="14"
-                           IsVisible="{Binding IsFavorite}"
-                           ToolTipProperties.Text="Favorite Model" />
-                </StackLayout>
                 
                 <!-- Action Buttons -->
                 <StackLayout Grid.Column="3" Orientation="Horizontal" Spacing="4">
@@ -85,19 +63,6 @@
                             CommandParameter="{Binding}"
                             ToolTipProperties.Text="Toggle Favorite" />
                     
-                    <!-- Set Default Button -->
-                    <Button Text="&#xf015;"
-                            FontFamily="FontAwesome-Solid"
-                            TextColor="{Binding IsDefault, Converter={StaticResource BoolToColorConverter}, ConverterParameter='Green|Gray'}"
-                            BackgroundColor="Transparent"
-                            BorderColor="Transparent"
-                            FontSize="16"
-                            WidthRequest="36"
-                            HeightRequest="36"
-                            Padding="0"
-                            Command="{Binding Source={x:Reference AIModelItemRoot}, Path=SetDefaultModelCommand}"
-                            CommandParameter="{Binding}"
-                            ToolTipProperties.Text="Set as Default" />
                 </StackLayout>
                 
                 <!-- Menu Button -->
@@ -171,18 +136,17 @@
                     </StackLayout>
                 </StackLayout>
                 
-                <!-- Select Button -->
+                <!-- Select Button: GRAY for Selected, BLUE for Select -->
                 <Button Grid.Column="1"
                         Text="{Binding IsSelected, Converter={StaticResource BoolToStringConverter}, ConverterParameter='Selected|Select'}"
                         FontSize="14"
                         FontAttributes="Bold"
-                        BackgroundColor="{Binding IsSelected, Converter={StaticResource BoolToColorConverter}, ConverterParameter='#0078D7|#28a745'}"
+                        BackgroundColor="{Binding IsSelected, Converter={StaticResource BoolToColorConverter}, ConverterParameter='#999999|#0078D7'}"
                         TextColor="White"
                         CornerRadius="6"
                         Padding="16,8"
                         Command="{Binding Source={x:Reference AIModelItemRoot}, Path=SelectModelCommand}"
-                        CommandParameter="{Binding}"
-                        IsEnabled="{Binding IsSelected, Converter={StaticResource InvertedBoolConverter}}" />
+                        CommandParameter="{Binding}" />
             </Grid>
         </Grid>
         

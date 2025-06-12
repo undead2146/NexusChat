@@ -1,18 +1,15 @@
 using System;
 using System.Globalization;
-using Microsoft.Maui.Controls;
 using Microsoft.Maui.Graphics;
+using Microsoft.Maui.Controls;
 
 namespace NexusChat.Views.Converters
 {
     /// <summary>
-    /// Converts boolean value to star color (gold for favorites)
+    /// Converts boolean favorite status to star color or icon
     /// </summary>
     public class StarColorConverter : IValueConverter
     {
-        /// <summary>
-        /// Convert bool to color
-        /// </summary>
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
             bool isFavorite = value is bool favorite && favorite;
@@ -26,9 +23,6 @@ namespace NexusChat.Views.Converters
             return isFavorite ? Colors.Gold : Colors.Gray;
         }
 
-        /// <summary>
-        /// Convert back - not implemented
-        /// </summary>
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         {
             throw new NotImplementedException();

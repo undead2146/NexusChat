@@ -75,60 +75,78 @@
                         <controls:ThinkingIndicator IsActive="True" />
                     </Grid>
                     
-                    <!-- Message Content -->
-                    <Label x:Name="ContentLabel"
-                           Text="{Binding MessageContent, Source={x:Reference this}}"
-                           LineBreakMode="WordWrap"
-                           TextType="Text">
-                        <Label.Triggers>
-                            <DataTrigger TargetType="Label"
-                                         Binding="{Binding IsAI, Source={x:Reference this}}"
-                                         Value="True">
-                                <Setter Property="TextColor" 
-                                        Value="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}" />
-                            </DataTrigger>
-                            <DataTrigger TargetType="Label"
-                                         Binding="{Binding IsAI, Source={x:Reference this}}"
-                                         Value="False">
-                                <Setter Property="TextColor" 
-                                        Value="{StaticResource White}" />
-                            </DataTrigger>
-                        </Label.Triggers>
-                    </Label>
-                           
-                    <!-- Timestamp -->
-                    <Label Text="{Binding Timestamp, Source={x:Reference this}, Converter={StaticResource DateTimeToTimeStringConverter}}"
-                           FontSize="10"
-                           HorizontalOptions="End"
-                           Margin="0,5,0,0">
-                        <Label.Triggers>
-                            <DataTrigger TargetType="Label"
-                                         Binding="{Binding IsAI, Source={x:Reference this}}"
-                                         Value="True">
-                                <Setter Property="TextColor" 
-                                        Value="{AppThemeBinding Light={StaticResource SecondaryTextColor}, Dark={StaticResource SecondaryTextColorDark}}" />
-                            </DataTrigger>
-                            <DataTrigger TargetType="Label"
-                                         Binding="{Binding IsAI, Source={x:Reference this}}"
-                                         Value="False">
-                                <Setter Property="TextColor" 
-                                        Value="{StaticResource White}" />
-                            </DataTrigger>
-                        </Label.Triggers>
-                    </Label>
-                    
-                    <!-- Regenerate button for AI messages -->
-                    <Button Text="&#xf2f9;"
-                           FontFamily="FontAwesome-Solid"
-                           FontSize="14"
-                           Padding="8,2"
-                           Margin="0,4,0,0"
-                           BackgroundColor="Transparent"
-                           TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}"
-                           HorizontalOptions="End"
-                           IsVisible="{Binding IsAI, Source={x:Reference this}}"
-                           Command="{Binding Source={x:Reference this}, Path=RegenerateCommand}"
-                           CommandParameter="{Binding Source={x:Reference this}, Path=Message}" />
+                    <!-- Message Content Container -->
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        
+                        <!-- Message Content -->
+                        <Label x:Name="ContentLabel"
+                               Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2"
+                               Text="{Binding MessageContent, Source={x:Reference this}}"
+                               LineBreakMode="WordWrap"
+                               TextType="Text">
+                            <Label.Triggers>
+                                <DataTrigger TargetType="Label"
+                                             Binding="{Binding IsAI, Source={x:Reference this}}"
+                                             Value="True">
+                                    <Setter Property="TextColor" 
+                                            Value="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}" />
+                                </DataTrigger>
+                                <DataTrigger TargetType="Label"
+                                             Binding="{Binding IsAI, Source={x:Reference this}}"
+                                             Value="False">
+                                    <Setter Property="TextColor" 
+                                            Value="{StaticResource White}" />
+                                </DataTrigger>
+                            </Label.Triggers>
+                        </Label>
+                        
+                        <!-- Timestamp and Regenerate Button Row -->
+                        <Label Grid.Row="1" Grid.Column="0"
+                               Text="{Binding Timestamp, Source={x:Reference this}, Converter={StaticResource DateTimeToTimeStringConverter}}"
+                               FontSize="10"
+                               HorizontalOptions="Start"
+                               Margin="0,5,0,0">
+                            <Label.Triggers>
+                                <DataTrigger TargetType="Label"
+                                             Binding="{Binding IsAI, Source={x:Reference this}}"
+                                             Value="True">
+                                    <Setter Property="TextColor" 
+                                            Value="{AppThemeBinding Light={StaticResource SecondaryTextColor}, Dark={StaticResource SecondaryTextColorDark}}" />
+                                </DataTrigger>
+                                <DataTrigger TargetType="Label"
+                                             Binding="{Binding IsAI, Source={x:Reference this}}"
+                                             Value="False">
+                                    <Setter Property="TextColor" 
+                                            Value="{StaticResource White}" />
+                                </DataTrigger>
+                            </Label.Triggers>
+                        </Label>
+                        
+                        <!-- Regenerate button for AI messages - positioned at bottom right -->
+                        <Button Grid.Row="1" Grid.Column="1"
+                               Text="&#xf2f9;"
+                               FontFamily="FontAwesome-Solid"
+                               FontSize="12"
+                               Padding="4,2"
+                               Margin="8,2,0,0"
+                               BackgroundColor="Transparent"
+                               TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}"
+                               HorizontalOptions="End"
+                               VerticalOptions="End"
+                               WidthRequest="24"
+                               HeightRequest="20"
+                               IsVisible="{Binding IsAI, Source={x:Reference this}}"
+                               Command="{Binding Source={x:Reference this}, Path=RegenerateCommand}"
+                               CommandParameter="{Binding Source={x:Reference this}, Path=Message}" />
+                    </Grid>
                 </VerticalStackLayout>
             </Border>
         </VerticalStackLayout>

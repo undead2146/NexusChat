@@ -77,7 +77,7 @@ namespace NexusChat.Core.ViewModels
         /// </summary>
         private async Task TriggerModelAnimation(AIModel model)
         {
-            if (model == null || _isAnAnimationInProgress)
+            if (model == null)
                 return;
                 
             try
@@ -85,30 +85,27 @@ namespace NexusChat.Core.ViewModels
                 lock (_animationLock)
                 {
                     if (_isAnAnimationInProgress)
+                    {
+                        Debug.WriteLine("Animation already in progress, skipping");
                         return;
+                    }
                         
                     _isAnAnimationInProgress = true;
                 }
                 
-                string propertyName = $"Animate_{model.ProviderName}_{model.ModelName}";
+                Debug.WriteLine($"Starting animation for model: {model.ModelName}");
                 
-                _animationStates[propertyName] = !_animationStates.GetValueOrDefault(propertyName, false);
-                
-                int modelIndex = Models.IndexOf(model);
-                if (modelIndex >= 0)
+                // Since the model now implements INotifyPropertyChanged, 
+                // just trigger the scroll and let property changes handle UI updates
+                await MainThread.InvokeOnMainThreadAsync(async () => 
                 {
-                    await MainThread.InvokeOnMainThreadAsync(() => 
-                    {
-                        OnPropertyChanged(nameof(Models));
-                    });
-                }
-                
-                await MainThread.InvokeOnMainThreadAsync(() => 
-                {
-                    OnPropertyChanged(propertyName);
+                    ScrollToModelRequested?.Invoke(model);
+                    
+                    // Brief delay for visual feedback
+                    await Task.Delay(150);
                 });
                 
-                await Task.Delay(100);
+                Debug.WriteLine($"Animation completed for model: {model.ModelName}");
             }
             catch (Exception ex)
             {

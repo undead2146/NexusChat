@@ -49,6 +49,9 @@ namespace NexusChat.Core.ViewModels
             _chatService = chatService ?? throw new ArgumentNullException(nameof(chatService));
             
             Title = "Conversations";
+            
+            // Load conversations in background without blocking constructor
+            Task.Run(async () => await LoadConversations());
         }
 
         [RelayCommand]
@@ -64,12 +67,13 @@ namespace NexusChat.Core.ViewModels
                     Title = "New Chat",
                     CreatedAt = DateTime.Now,
                     UpdatedAt = DateTime.Now,
-                    LastMessage = string.Empty,
+                    LastMessage = "No messages yet",
                     UserId = GetCurrentUserId()
                 };
                 
                 // Save to database
-                await _conversationRepository.AddAsync(newConversation, CancellationToken.None);
+                var conversationId = await _conversationRepository.AddAsync(newConversation, CancellationToken.None);
+                newConversation.Id = conversationId;
                 
                 // Add to local collection
                 await MainThread.InvokeOnMainThreadAsync(() =>
@@ -83,7 +87,7 @@ namespace NexusChat.Core.ViewModels
                 ConversationSelected?.Invoke(newConversation);
                 ConversationCreated?.Invoke(newConversation);
                 
-                Debug.WriteLine($"Created new conversation: {newConversation.Id}");
+                Debug.WriteLine($"Created new conversation: {newConversation.Id} with title: {newConversation.Title}");
             }
             catch (Exception ex)
             {
@@ -107,25 +111,49 @@ namespace NexusChat.Core.ViewModels
             {
                 if (conversation == null) return;
 
+                // Verify the conversation still exists in the database
+                var existingConversation = await _conversationRepository.GetByIdAsync(conversation.Id);
+                if (existingConversation == null)
+                {
+                    Debug.WriteLine($"Conversation {conversation.Id} no longer exists, removing from list");
+                    
+                    // Remove from local collection
+                    await MainThread.InvokeOnMainThreadAsync(() =>
+                    {
+                        Conversations.Remove(conversation);
+                        ShowNoConversations = Conversations.Count == 0;
+                        
+                        // If this was the selected conversation, clear selection
+                        if (SelectedConversation?.Id == conversation.Id)
+                        {
+                            SelectedConversation = null;
+                        }
+                    });
+                    
+                    // Refresh the list to ensure consistency
+                    await LoadConversations(forceRefresh: true);
+                    return;
+                }
+
                 // Update selection state in UI
                 await MainThread.InvokeOnMainThreadAsync(() =>
                 {
-                    SelectedConversation = conversation;
+                    SelectedConversation = existingConversation;
                     
                     foreach (var conv in Conversations)
                     {
-                        conv.IsSelected = conv.Id == conversation.Id;
+                        conv.IsSelected = conv.Id == existingConversation.Id;
                     }
                 });
                 
                 // Update last accessed time in database
-                conversation.LastAccessedAt = DateTime.Now;
-                await _conversationRepository.UpdateAsync(conversation, CancellationToken.None);
+                existingConversation.LastAccessedAt = DateTime.Now;
+                await _conversationRepository.UpdateAsync(existingConversation, CancellationToken.None);
                 
                 // Notify parent component about conversation selection
-                ConversationSelected?.Invoke(conversation);
+                ConversationSelected?.Invoke(existingConversation);
                 
-                Debug.WriteLine($"Selected conversation: {conversation.Title}");
+                Debug.WriteLine($"Selected conversation: {existingConversation.Title}");
             }
             catch (Exception ex)
             {
@@ -135,6 +163,9 @@ namespace NexusChat.Core.ViewModels
                     HasError = true;
                     ErrorMessage = $"Failed to open conversation: {ex.Message}";
                 });
+                
+                // Refresh the conversations list in case of database inconsistency
+                await LoadConversations(forceRefresh: true);
             }
         }
 
@@ -154,33 +185,67 @@ namespace NexusChat.Core.ViewModels
                 if (!confirmed) return;
 
                 IsLoading = true;
+                Debug.WriteLine($"Deleting conversation from sidebar: {conversation.Title} (ID: {conversation.Id})");
+                
+                // Store the deleted conversation ID for comparison
+                var deletedConversationId = conversation.Id;
+                var wasSelected = SelectedConversation?.Id == deletedConversationId;
                 
                 // Delete from database
-                await _conversationRepository.DeleteAsync(conversation, CancellationToken.None);
+                await _conversationRepository.DeleteAsync(conversation.Id, CancellationToken.None);
                 
                 // Remove from local collection
                 await MainThread.InvokeOnMainThreadAsync(() =>
                 {
                     Conversations.Remove(conversation);
-                    
-                    // Update selection if this was the selected conversation
-                    if (SelectedConversation?.Id == conversation.Id)
-                    {
-                        SelectedConversation = Conversations.FirstOrDefault();
-                        if (SelectedConversation != null)
-                        {
-                            SelectedConversation.IsSelected = true;
-                            ConversationSelected?.Invoke(SelectedConversation);
-                        }
-                    }
-                    
                     ShowNoConversations = Conversations.Count == 0;
                 });
                 
-                // Notify parent components
-                ConversationDeleted?.Invoke(conversation);
+                // Handle selection logic
+                if (wasSelected)
+                {
+                    // If the deleted conversation was selected, select the most recent one
+                    var mostRecentConversation = Conversations
+                        .OrderByDescending(c => c.UpdatedAt)
+                        .FirstOrDefault();
+                    
+                    await MainThread.InvokeOnMainThreadAsync(() =>
+                    {
+                        if (mostRecentConversation != null)
+                        {
+                            // Clear all selections first
+                            foreach (var conv in Conversations)
+                            {
+                                conv.IsSelected = false;
+                            }
+                            
+                            // Select the most recent conversation
+                            mostRecentConversation.IsSelected = true;
+                            SelectedConversation = mostRecentConversation;
+                            
+                            Debug.WriteLine($"Selected most recent conversation: {mostRecentConversation.Title}");
+                        }
+                        else
+                        {
+                            SelectedConversation = null;
+                        }
+                    });
+                    
+                    // Notify parent components about the deletion and new selection
+                    ConversationDeleted?.Invoke(conversation);
+                    
+                    if (mostRecentConversation != null)
+                    {
+                        ConversationSelected?.Invoke(mostRecentConversation);
+                    }
+                }
+                else
+                {
+                    // Just notify about the deletion
+                    ConversationDeleted?.Invoke(conversation);
+                }
                 
-                Debug.WriteLine($"Deleted conversation: {conversation.Title}");
+                Debug.WriteLine($"Conversation deleted from sidebar: {conversation.Title}");
             }
             catch (Exception ex)
             {
@@ -253,6 +318,8 @@ namespace NexusChat.Core.ViewModels
                 var userId = GetCurrentUserId();
                 var conversations = await _conversationRepository.GetByUserIdAsync(userId);
                 
+                Debug.WriteLine($"Loading conversations for user {userId}: found {conversations.Count()} conversations");
+                
                 // Sort by last updated/accessed time, then by creation time
                 var sortedConversations = conversations
                     .OrderByDescending(c => c.LastAccessedAt ?? c.UpdatedAt)
@@ -285,7 +352,7 @@ namespace NexusChat.Core.ViewModels
                     }
                 });
 
-                Debug.WriteLine($"Loaded {Conversations.Count} conversations from database");
+                Debug.WriteLine($"Loaded {Conversations.Count} conversations from database. ShowNoConversations: {ShowNoConversations}");
             }
             catch (Exception ex)
             {
@@ -319,6 +386,12 @@ namespace NexusChat.Core.ViewModels
                     else
                     {
                         conversation.LastMessage = "No messages yet";
+                    }
+                    
+                    // Ensure title is not empty
+                    if (string.IsNullOrWhiteSpace(conversation.Title))
+                    {
+                        conversation.Title = "New Chat";
                     }
                 }
             }

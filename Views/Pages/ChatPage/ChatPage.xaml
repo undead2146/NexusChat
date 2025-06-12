@@ -2,6 +2,7 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:viewmodels="clr-namespace:NexusChat.Core.ViewModels"
+             xmlns:models="clr-namespace:NexusChat.Core.Models"
              xmlns:controls="clr-namespace:NexusChat.Views.Controls"
              x:Class="NexusChat.Views.Pages.ChatPage"
              x:DataType="viewmodels:ChatViewModel"
@@ -27,7 +28,7 @@
                             ItemsSource="{Binding Messages}"
                             BackgroundColor="{AppThemeBinding Light=#f8f9fa, Dark=#1a1a1a}">
                 <CollectionView.ItemTemplate>
-                    <DataTemplate>
+                    <DataTemplate x:DataType="models:Message">
                         <controls:MessageBubble Message="{Binding}"
                                                RegenerateCommand="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:ChatViewModel}}, Path=RegenerateMessageCommand}" />
                     </DataTemplate>
@@ -64,15 +65,28 @@
             <controls:ConversationsSidebar x:Name="SidebarContent" />
         </Grid>
 
-        <!-- Sidebar overlay -->
-        <BoxView x:Name="SidebarOverlay"
-                 BackgroundColor="Black"
-                 Opacity="0.5"
-                 IsVisible="{Binding IsSidebarOpen}">
-            <BoxView.GestureRecognizers>
-                <TapGestureRecognizer Command="{Binding ToggleSidebarCommand}" />
-            </BoxView.GestureRecognizers>
-        </BoxView>
+        <!-- Sidebar overlay - only visible outside sidebar area -->
+        <Grid x:Name="SidebarOverlay"
+              IsVisible="{Binding IsSidebarOpen}"
+              BackgroundColor="Transparent">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="300" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            
+            <!-- Transparent area over sidebar content -->
+            <BoxView Grid.Column="0" 
+                     BackgroundColor="Transparent" />
+            
+            <!-- Clickable overlay area outside sidebar -->
+            <BoxView Grid.Column="1"
+                     BackgroundColor="Black"
+                     Opacity="0.5">
+                <BoxView.GestureRecognizers>
+                    <TapGestureRecognizer Command="{Binding ToggleSidebarCommand}" />
+                </BoxView.GestureRecognizers>
+            </BoxView>
+        </Grid>
     </Grid>
 
 </ContentPage>

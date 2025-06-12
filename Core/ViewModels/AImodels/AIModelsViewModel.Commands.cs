@@ -91,10 +91,42 @@ namespace NexusChat.Core.ViewModels
 
                 IsLoading = true;
                 
-                foreach (var m in Models)
+                // Update UI with proper property notifications FIRST
+                await MainThread.InvokeOnMainThreadAsync(() =>
                 {
-                    m.IsSelected = m == model;
-                }
+                    // Clear all selected flags first
+                    foreach (var m in Models)
+                    {
+                        if (m.IsSelected)
+                        {
+                            m.IsSelected = false;
+                        }
+                    }
+                    foreach (var m in FilteredModels)
+                    {
+                        if (m.IsSelected)
+                        {
+                            m.IsSelected = false;
+                        }
+                    }
+                    
+                    // Set the new selected model
+                    model.IsSelected = true;
+                    
+                    var filteredModel = FilteredModels.FirstOrDefault(m => 
+                        m.ProviderName == model.ProviderName && m.ModelName == model.ModelName);
+                    if (filteredModel != null && filteredModel != model)
+                    {
+                        filteredModel.IsSelected = true;
+                    }
+                    
+                    // Force immediate UI refresh
+                    OnPropertyChanged(nameof(Models));
+                    OnPropertyChanged(nameof(FilteredModels));
+                });
+                
+                // Start animation
+                await TriggerModelSelectionAnimation(model);
                 
                 bool success = await _modelManager.SetCurrentModelAsync(model);
                 if (success)
@@ -104,15 +136,27 @@ namespace NexusChat.Core.ViewModels
                     
                     _ = _modelManager.RecordModelUsageAsync(model.ProviderName, model.ModelName);
                     
+                    // Re-sort and update collections
+                    await ResortAndUpdateModels();
+                    
                     ScrollToModelRequested?.Invoke(model);
                 }
                 else
                 {
-                    foreach (var m in Models)
+                    // Revert UI changes if database update failed
+                    await MainThread.InvokeOnMainThreadAsync(() =>
                     {
-                        m.IsSelected = m == SelectedModel;
-                    }
-                    model.IsSelected = false;
+                        foreach (var m in Models)
+                        {
+                            m.IsSelected = m == SelectedModel;
+                        }
+                        foreach (var m in FilteredModels)
+                        {
+                            m.IsSelected = m == SelectedModel;
+                        }
+                        OnPropertyChanged(nameof(Models));
+                        OnPropertyChanged(nameof(FilteredModels));
+                    });
                     
                     ShowNotification("Failed to select model");
                 }
@@ -142,24 +186,61 @@ namespace NexusChat.Core.ViewModels
                     return;
                 }
                 
-                foreach (var m in Models.Where(m => m.ProviderName.Equals(model.ProviderName, StringComparison.OrdinalIgnoreCase)))
+                // Update UI with proper property notifications FIRST
+                await MainThread.InvokeOnMainThreadAsync(() =>
                 {
-                    m.IsDefault = m == model;
-                }
+                    // Clear all default flags for this provider first
+                    foreach (var m in Models.Where(m => m.ProviderName.Equals(model.ProviderName, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        if (m.IsDefault)
+                        {
+                            m.IsDefault = false;
+                        }
+                    }
+                    // Set the new default
+                    model.IsDefault = true;
+                    
+                    // Update FilteredModels collection too
+                    foreach (var m in FilteredModels.Where(m => m.ProviderName.Equals(model.ProviderName, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        m.IsDefault = m == model;
+                    }
+                    
+                    // Force immediate UI refresh
+                    OnPropertyChanged(nameof(Models));
+                    OnPropertyChanged(nameof(FilteredModels));
+                });
+                
+                // Start animation
+                await TriggerModelDefaultAnimation(model);
                 
                 bool success = await _modelManager.SetDefaultModelAsync(model.ProviderName, model.ModelName);
                 
                 if (success)
                 {
                     ShowNotification($"{NormalizeModelName(model.ModelName)} set as default for {model.ProviderName}");
+                    
+                    // Re-sort and update collections
+                    await ResortAndUpdateModels();
                 }
                 else
                 {
-                    foreach (var m in Models.Where(m => m.ProviderName.Equals(model.ProviderName, StringComparison.OrdinalIgnoreCase)))
+                    // Revert UI changes if database update failed
+                    await MainThread.InvokeOnMainThreadAsync(() =>
                     {
-                        m.IsDefault = false;
-                    }
-                    model.IsDefault = false;
+                        foreach (var m in Models.Where(m => m.ProviderName.Equals(model.ProviderName, StringComparison.OrdinalIgnoreCase)))
+                        {
+                            m.IsDefault = false;
+                        }
+                        model.IsDefault = false;
+                        
+                        foreach (var m in FilteredModels.Where(m => m.ProviderName.Equals(model.ProviderName, StringComparison.OrdinalIgnoreCase)))
+                        {
+                            m.IsDefault = false;
+                        }
+                        OnPropertyChanged(nameof(Models));
+                        OnPropertyChanged(nameof(FilteredModels));
+                    });
                     
                     ShowNotification("Failed to set default model");
                 }
@@ -180,7 +261,28 @@ namespace NexusChat.Core.ViewModels
             {
                 Debug.WriteLine($"Toggling favorite for {model.ProviderName}/{model.ModelName}");
                 
-                model.IsFavorite = !model.IsFavorite;
+                bool newFavoriteStatus = !model.IsFavorite;
+                
+                // Update UI with proper property notifications FIRST
+                await MainThread.InvokeOnMainThreadAsync(() =>
+                {
+                    model.IsFavorite = newFavoriteStatus;
+                    
+                    // Update the corresponding model in FilteredModels
+                    var filteredModel = FilteredModels.FirstOrDefault(m => 
+                        m.ProviderName == model.ProviderName && m.ModelName == model.ModelName);
+                    if (filteredModel != null && filteredModel != model)
+                    {
+                        filteredModel.IsFavorite = newFavoriteStatus;
+                    }
+                    
+                    // Force immediate UI refresh
+                    OnPropertyChanged(nameof(Models));
+                    OnPropertyChanged(nameof(FilteredModels));
+                });
+                
+                // Start animation
+                await TriggerModelFavoriteAnimation(model, newFavoriteStatus);
                 
                 string notificationText = model.IsFavorite ? 
                     $"{NormalizeModelName(model.ModelName)} added to favorites" : 
@@ -194,14 +296,39 @@ namespace NexusChat.Core.ViewModels
                 {
                     Debug.WriteLine($"Successfully updated favorite status to {model.IsFavorite}");
                     
-                    if (ShowFavoritesOnly)
+                    if (ShowFavoritesOnly && !model.IsFavorite)
                     {
-                        await FilterModels();
+                        // Animate out before removing
+                        await AnimateModelOut(model);
+                        
+                        await MainThread.InvokeOnMainThreadAsync(() =>
+                        {
+                            FilteredModels.Remove(model);
+                        });
+                    }
+                    else
+                    {
+                        // Re-sort and update collections
+                        await ResortAndUpdateModels();
                     }
                 }
                 else
                 {
-                    model.IsFavorite = !model.IsFavorite;
+                    // Revert UI changes if database update failed
+                    await MainThread.InvokeOnMainThreadAsync(() =>
+                    {
+                        model.IsFavorite = !newFavoriteStatus;
+                        
+                        var filteredModel = FilteredModels.FirstOrDefault(m => 
+                            m.ProviderName == model.ProviderName && m.ModelName == model.ModelName);
+                        if (filteredModel != null)
+                        {
+                            filteredModel.IsFavorite = !newFavoriteStatus;
+                        }
+                        OnPropertyChanged(nameof(Models));
+                        OnPropertyChanged(nameof(FilteredModels));
+                    });
+                    
                     ShowNotification("Failed to update favorite status");
                 }
             }
@@ -212,7 +339,126 @@ namespace NexusChat.Core.ViewModels
                 ErrorMessage = $"Error updating favorite status: {ex.Message}";
             }
         }
-        #endregion
+
+        /// <summary>
+        /// Triggers selection animation with visual feedback
+        /// </summary>
+        private async Task TriggerModelSelectionAnimation(AIModel model)
+        {
+            try
+            {
+                Debug.WriteLine($"Starting selection animation for {model.ModelName}");
+                
+                // Force immediate UI update
+                await MainThread.InvokeOnMainThreadAsync(() =>
+                {
+                    // Force collection change notification
+                    var index = FilteredModels.IndexOf(model);
+                    if (index >= 0)
+                    {
+                        FilteredModels[index] = model;
+                    }
+                    
+                    // Force property updates
+                    OnPropertyChanged(nameof(FilteredModels));
+                });
+                
+                
+                await Task.Delay(200);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error in selection animation: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Triggers default animation with visual feedback
+        /// </summary>
+        private async Task TriggerModelDefaultAnimation(AIModel model)
+        {
+            try
+            {
+                Debug.WriteLine($"Starting default animation for {model.ModelName}");
+                
+                // Force immediate UI update
+                await MainThread.InvokeOnMainThreadAsync(() =>
+                {
+                    // Force collection change notification
+                    var index = FilteredModels.IndexOf(model);
+                    if (index >= 0)
+                    {
+                        FilteredModels[index] = model;
+                    }
+                    
+                    OnPropertyChanged(nameof(FilteredModels));
+                });
+                
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error in default animation: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Triggers favorite animation with visual feedback
+        /// </summary>
+        private async Task TriggerModelFavoriteAnimation(AIModel model, bool isFavorite)
+        {
+            try
+            {
+                Debug.WriteLine($"Starting favorite animation for {model.ModelName} - {(isFavorite ? "favoriting" : "unfavoriting")}");
+                
+                // Force immediate UI update
+                await MainThread.InvokeOnMainThreadAsync(() =>
+                {
+                    // Force collection change notification
+                    var index = FilteredModels.IndexOf(model);
+                    if (index >= 0)
+                    {
+                        FilteredModels[index] = model;
+                    }
+                    
+                    OnPropertyChanged(nameof(FilteredModels));
+                });
+                
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error in favorite animation: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Animates a model out before removal
+        /// </summary>
+        private async Task AnimateModelOut(AIModel model)
+        {
+            try
+            {
+                Debug.WriteLine($"Starting removal animation for {model.ModelName}");
+                
+                // Fade out animation
+                _ = Task.Run(async () =>
+                {
+                    for (int i = 10; i >= 0; i--)
+                    {
+                        await MainThread.InvokeOnMainThreadAsync(() =>
+                        {
+                            model.AnimationOpacity = i / 10.0;
+                        });
+                        await Task.Delay(30);
+                    }
+                });
+                
+                await Task.Delay(300);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error in removal animation: {ex.Message}");
+            }
+        }
 
         #region API Key Management Commands
         [RelayCommand]
@@ -619,5 +865,74 @@ namespace NexusChat.Core.ViewModels
             await DisplayApiKeyOverlay();
         }
         #endregion
+
+        #endregion
+
+        /// <summary>
+        /// Re-sorts models and updates collections after status changes
+        /// </summary>
+        private async Task ResortAndUpdateModels()
+        {
+            try
+            {
+                await MainThread.InvokeOnMainThreadAsync(async () =>
+                {
+                    Debug.WriteLine("Starting model resort and animation");
+                    
+                    // Get current models and sort them by priority
+                    var sortedModels = Models
+                        .OrderByDescending(m => m.IsSelected)
+                        .ThenByDescending(m => m.IsFavorite)
+                        .ThenByDescending(m => m.IsDefault)
+                        .ThenByDescending(m => m.LastUsed ?? DateTime.MinValue)
+                        .ThenBy(m => m.ProviderName, StringComparer.OrdinalIgnoreCase)
+                        .ThenBy(m => m.ModelName, StringComparer.OrdinalIgnoreCase)
+                        .ToList();
+                    
+                    // Animate models out that need to move
+                    var modelsToAnimate = new List<AIModel>();
+                    for (int i = 0; i < Models.Count; i++)
+                    {
+                        var currentModel = Models[i];
+                        var newPosition = sortedModels.IndexOf(currentModel);
+                        
+                        // If model needs to move significantly, animate it out
+                        if (Math.Abs(i - newPosition) > 2)
+                        {
+                            modelsToAnimate.Add(currentModel);
+                            currentModel.AnimationOpacity = 0.3;
+                            currentModel.AnimationScale = 0.9;
+                        }
+                    }
+                    
+                    // Brief delay for animation out
+                    if (modelsToAnimate.Count > 0)
+                    {
+                        await Task.Delay(200);
+                    }
+                    
+                    // Clear and re-add in sorted order
+                    Models.Clear();
+                    foreach (var model in sortedModels)
+                    {
+                        Models.Add(model);
+                        
+                        // Reset animation properties
+                        model.AnimationOpacity = 1.0;
+                        model.AnimationScale = 1.0;
+                    }
+                    
+                    // Apply filters and update FilteredModels with sorting
+                    ApplyFiltersAndUpdateFilteredModels();
+                    
+                    
+                    Debug.WriteLine($"Resorted models: {Models.Count} total, {FilteredModels.Count} filtered");
+                });
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error resorting models: {ex.Message}");
+            }
+        }
     }
 }

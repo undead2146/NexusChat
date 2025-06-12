@@ -534,47 +534,43 @@ namespace NexusChat.Data.Repositories
         }
 
         /// <summary>
-        /// Updates the last activity time for a conversation
+        /// Updates the last activity timestamp for a conversation
         /// </summary>
         public async Task<bool> UpdateLastActivityAsync(int conversationId, CancellationToken cancellationToken = default)
         {
             try
             {
-                await InitializeAsync();
-                
                 var conversation = await GetByIdAsync(conversationId, cancellationToken);
-                if (conversation == null)
-                    return false;
-                
-                conversation.UpdatedAt = DateTime.UtcNow;
-                
-                await UpdateAsync(conversation, cancellationToken);
-                return true;
+                if (conversation != null)
+                {
+                    conversation.UpdatedAt = DateTime.UtcNow;
+                    return await UpdateAsync(conversation, cancellationToken);
+                }
+                return false;
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error updating last activity: {ex.Message}");
+                Debug.WriteLine($"Error updating conversation last activity: {ex.Message}");
                 return false;
             }
         }
 
         /// <summary>
-        /// Adds a conversation to the database (hides base method intentionally)
+        /// Adds a new conversation and returns the ID
         /// </summary>
-        public new async Task<int> AddAsync(Conversation entity, CancellationToken cancellationToken = default)
+        public async Task<int> AddConversationAsync(Conversation conversation, CancellationToken cancellationToken = default)
         {
-            // Ensure database is initialized
-            await InitializeAsync();
-            
-            // Check for cancellation
-            cancellationToken.ThrowIfCancellationRequested();
-            
-            // Insert the entity
-            await _connection!.InsertAsync(entity);
-            
-            return entity.Id;
+            try
+            {
+                return await AddAsync(conversation, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error adding conversation: {ex.Message}");
+                throw;
+            }
         }
-
+        
         /// <summary>
         /// Gets all conversations
         /// </summary>
@@ -624,25 +620,6 @@ namespace NexusChat.Data.Repositories
             {
                 Debug.WriteLine($"Error getting recent conversations: {ex.Message}");
                 return new List<Conversation>();
-            }
-        }
-
-        /// <summary>
-        /// Adds a conversation to the database
-        /// </summary>
-        public async Task<int> AddConversationAsync(Conversation conversation, CancellationToken cancellationToken = default)
-        {
-            if (conversation == null)
-                return 0;
-                
-            try
-            {
-                return await AddAsync(conversation, cancellationToken);
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error adding conversation: {ex.Message}");
-                return 0;
             }
         }
         
@@ -701,6 +678,27 @@ namespace NexusChat.Data.Repositories
             {
                 Debug.WriteLine($"Error getting conversations by user ID: {ex.Message}");
                 return new List<Conversation>();
+            }
+        }
+
+        /// <summary>
+        /// Gets the most recent conversation for a user
+        /// </summary>
+        public async Task<Conversation?> GetMostRecentByUserIdAsync(int userId, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                await InitializeAsync();
+                
+                return await _connection!.Table<Conversation>()
+                    .Where(c => c.UserId == userId)
+                    .OrderByDescending(c => c.UpdatedAt)
+                    .FirstOrDefaultAsync();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"ConversationRepository: Error getting most recent conversation by user - {ex.Message}");
+                return null;
             }
         }
     }

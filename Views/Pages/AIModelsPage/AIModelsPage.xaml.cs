@@ -4,6 +4,7 @@ using Microsoft.Maui.Controls;
 using NexusChat.Core.ViewModels;
 using NexusChat.Core.Models;
 using NexusChat.Services.Interfaces;
+using System.Linq;
 
 namespace NexusChat.Views.Pages
 {
@@ -95,15 +96,32 @@ namespace NexusChat.Views.Pages
 
                 Debug.WriteLine($"AIModelsPage: Scrolling to model {model.ProviderName}/{model.ModelName}");
                 
-                // Since we removed x:Name attributes, we need to find the CollectionView programmatically
-                var collectionView = FindCollectionViewInVisualTree(this);
+                // Get the CollectionView by name first
+                var collectionView = this.FindByName<CollectionView>("ModelsCollectionView");
+                if (collectionView == null)
+                {
+                    // Fallback to traversing the page content
+                    collectionView = FindCollectionViewRecursive(Content);
+                }
+                
                 if (collectionView != null)
                 {
-                    collectionView.ScrollTo(model, position: ScrollToPosition.MakeVisible, animate: true);
+                    MainThread.BeginInvokeOnMainThread(() =>
+                    {
+                        try
+                        {
+                            collectionView.ScrollTo(model, position: ScrollToPosition.MakeVisible, animate: true);
+                            Debug.WriteLine("AIModelsPage: Successfully scrolled to model");
+                        }
+                        catch (Exception scrollEx)
+                        {
+                            Debug.WriteLine($"AIModelsPage: Error during scroll: {scrollEx.Message}");
+                        }
+                    });
                 }
                 else
                 {
-                    Debug.WriteLine("AIModelsPage: CollectionView not found in visual tree");
+                    Debug.WriteLine("AIModelsPage: CollectionView not found in content tree");
                 }
             }
             catch (Exception ex)
@@ -112,30 +130,43 @@ namespace NexusChat.Views.Pages
             }
         }
 
-        private CollectionView FindCollectionViewInVisualTree(Element element)
+        private CollectionView FindCollectionViewRecursive(Element element)
         {
+            if (element == null)
+                return null;
+
             if (element is CollectionView collectionView)
                 return collectionView;
 
             if (element is Layout layout)
             {
-                foreach (var child in layout.Children)
+                foreach (var child in layout.Children.OfType<Element>())
                 {
-                    if (child is Element childElement)
-                    {
-                        var result = FindCollectionViewInVisualTree(childElement);
-                        if (result != null)
-                            return result;
-                    }
+                    var result = FindCollectionViewRecursive(child);
+                    if (result != null)
+                        return result;
                 }
             }
             else if (element is ContentView contentView && contentView.Content is Element contentElement)
             {
-                return FindCollectionViewInVisualTree(contentElement);
+                return FindCollectionViewRecursive(contentElement);
             }
-            else if (element is ScrollView scrollView && scrollView.Content is Element scrollContentElement)
+            else if (element is ScrollView scrollView && scrollView.Content is Element scrollElement)
             {
-                return FindCollectionViewInVisualTree(scrollContentElement);
+                return FindCollectionViewRecursive(scrollElement);
+            }
+            else if (element is Grid grid)
+            {
+                foreach (var child in grid.Children.OfType<Element>())
+                {
+                    var result = FindCollectionViewRecursive(child);
+                    if (result != null)
+                        return result;
+                }
+            }
+            else if (element is Border border && border.Content is Element borderElement)
+            {
+                return FindCollectionViewRecursive(borderElement);
             }
 
             return null;

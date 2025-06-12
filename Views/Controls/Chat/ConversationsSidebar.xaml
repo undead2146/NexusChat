@@ -2,9 +2,11 @@
 <ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:viewmodels="clr-namespace:NexusChat.Core.ViewModels"
+             xmlns:models="clr-namespace:NexusChat.Core.Models"
              xmlns:converters="clr-namespace:NexusChat.Views.Converters"
              x:Class="NexusChat.Views.Controls.ConversationsSidebar"
-             x:DataType="viewmodels:ConversationsSidebarViewModel">
+             x:DataType="viewmodels:ConversationsSidebarViewModel"
+             x:Name="Root">
 
     <ContentView.Resources>
         <ResourceDictionary>
@@ -141,13 +143,13 @@
                             SelectionMode="Single"
                             SelectedItem="{Binding SelectedConversation}">
                 <CollectionView.ItemTemplate>
-                    <DataTemplate>
+                    <DataTemplate x:DataType="models:Conversation">
                         <SwipeView>
                             <SwipeView.LeftItems>
                                 <SwipeItems>
                                     <SwipeItem Text="Edit"
                                               BackgroundColor="#28a745"
-                                              Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:ConversationsSidebarViewModel}}, Path=EditConversationTitleCommand}"
+                                              Command="{Binding Source={x:Reference Root}, Path=BindingContext.EditConversationTitleCommand}"
                                               CommandParameter="{Binding}" />
                                 </SwipeItems>
                             </SwipeView.LeftItems>
@@ -155,7 +157,7 @@
                                 <SwipeItems>
                                     <SwipeItem Text="Delete"
                                               BackgroundColor="#dc3545"
-                                              Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:ConversationsSidebarViewModel}}, Path=DeleteConversationCommand}"
+                                              Command="{Binding Source={x:Reference Root}, Path=BindingContext.DeleteConversationCommand}"
                                               CommandParameter="{Binding}" />
                                 </SwipeItems>
                             </SwipeView.RightItems>
@@ -165,7 +167,6 @@
                                     StrokeThickness="0.5"
                                     Padding="16,12"
                                     Margin="8,4">
-                                <!-- Selection indicator -->
                                 <Border.Triggers>
                                     <DataTrigger TargetType="Border"
                                                 Binding="{Binding IsSelected}"
@@ -216,7 +217,7 @@
                                 </Grid>
                                 
                                 <Border.GestureRecognizers>
-                                    <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:ConversationsSidebarViewModel}}, Path=OpenConversationCommand}"
+                                    <TapGestureRecognizer Command="{Binding Source={x:Reference Root}, Path=BindingContext.OpenConversationCommand}"
                                                           CommandParameter="{Binding}" />
                                 </Border.GestureRecognizers>
                             </Border>

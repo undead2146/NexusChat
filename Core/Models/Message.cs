@@ -32,12 +32,12 @@ namespace NexusChat.Core.Models
         /// <summary>
         /// Gets or sets the sender ID (user or system)
         /// </summary>
-        public string SenderId { get; set; }
+        public string SenderId { get; set; } = "";
         
         /// <summary>
         /// Gets or sets whether this is a user message (true) or AI message (false)
         /// </summary>
-        public bool IsUserMessage { get; set; }
+        public bool IsUserMessage { get; set; } = true;
         
         /// <summary>
         /// Gets or sets the timestamp of the message
@@ -62,22 +62,22 @@ namespace NexusChat.Core.Models
         /// <summary>
         /// Gets or sets the raw response data
         /// </summary>
-        public string RawResponse { get; set; }
+        public string RawResponse { get; set; } = "";
         
         /// <summary>
         /// Gets or sets the name of the model that generated this message
         /// </summary>
-        public string ModelName { get; set; }
+        public string ModelName { get; set; } = "";
         
         /// <summary>
         /// Gets or sets the name of the provider that generated this message
         /// </summary>
-        public string ProviderName { get; set; }
+        public string ProviderName { get; set; } = "";
         
         /// <summary>
         /// Gets or sets any error information for this message
         /// </summary>
-        public string ErrorMessage { get; set; }
+        public string ErrorMessage { get; set; } = "";
         
         /// <summary>
         /// Gets or sets whether this message is an error
@@ -105,12 +105,17 @@ namespace NexusChat.Core.Models
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
         /// <summary>
-        /// Gets whether this message is from AI (compatibility property)
+        /// Gets whether this message is from AI (primary property for UI binding)
         /// </summary>
+        [Ignore]
         public bool IsAI 
         { 
-            get => AuthorType == "ai";
-            set => AuthorType = value ? "ai" : "user";
+            get => AuthorType == "ai" || !IsUserMessage;
+            set 
+            { 
+                AuthorType = value ? "ai" : "user";
+                IsUserMessage = !value;
+            }
         }
 
         /// <summary>
@@ -131,7 +136,10 @@ namespace NexusChat.Core.Models
         {
             Content = content;
             IsUserMessage = isUserMessage;
+            AuthorType = isUserMessage ? "user" : "ai";
             Timestamp = DateTime.Now;
+            CreatedAt = DateTime.UtcNow;
+            SentAt = DateTime.UtcNow;
         }
         
         /// <summary>
@@ -141,8 +149,11 @@ namespace NexusChat.Core.Models
         {
             Content = content;
             IsUserMessage = isUserMessage;
+            AuthorType = isUserMessage ? "user" : "ai";
             ModelName = modelName;
             Timestamp = DateTime.Now;
+            CreatedAt = DateTime.UtcNow;
+            SentAt = DateTime.UtcNow;
         }
     }
 }

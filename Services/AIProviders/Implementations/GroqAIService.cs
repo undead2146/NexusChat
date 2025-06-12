@@ -104,9 +104,6 @@ namespace NexusChat.Services.AIProviders.Implementations
                 models.Add(CreateModelInternal("gemma-2-27b-it", "Gemma 2 27B IT", "Google's Gemma 2 27B instruction-tuned model", 4096, 8192));
                 
                 // Preview models
-                models.Add(CreateModelInternal("llama-3-3-70b-specdec", "Llama 3.3 70B SpecDec", "Llama 3.3 (70B) SpecDec - Specialized decoder version with enhanced context", 4096, 32768));
-                models.Add(CreateModelInternal("qwen-2-5-32b", "Qwen 2.5 32B", "Qwen 2.5 (32B) - Alibaba's advanced language model", 4096, 32768));
-                models.Add(CreateModelInternal("qwen-2-5-coder-32b", "Qwen 2.5 Coder 32B", "Qwen 2.5 Coder (32B) - Code-specialized version of Qwen", 4096, 32768));
                 models.Add(CreateModelInternal("deepseek-r1-distill-llama-70b", "DeepSeek R1 Distilled Llama 70B", "DeepSeek R1 Distilled Llama (70B) - Knowledge-distilled efficient model", 4096, 16384));
 
                 Debug.WriteLine($"GroqAIService: Discovered {models.Count} Groq models.");

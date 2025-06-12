@@ -6,16 +6,15 @@ namespace NexusChat.Views.Converters
 {
     public class StringEmptyConverter : IValueConverter
     {
-        public string FallbackValue { get; set; } = "New Chat";
-
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            if (value is string stringValue)
-            {
-                return string.IsNullOrEmpty(stringValue) ? FallbackValue : stringValue;
-            }
+            string stringValue = value?.ToString() ?? "";
+            bool isEmpty = string.IsNullOrWhiteSpace(stringValue);
             
-            return FallbackValue;
+            string param = parameter?.ToString()?.ToLowerInvariant();
+            bool invert = param == "invert";
+            
+            return invert ? !isEmpty : isEmpty;
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)

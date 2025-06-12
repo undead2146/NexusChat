@@ -93,5 +93,35 @@ namespace NexusChat.Views.Controls
                 }
             }
         }
+
+        public async Task RefreshConversationsAsync()
+        {
+            if (_viewModel != null)
+            {
+                await _viewModel.LoadConversations(forceRefresh: true);
+                Debug.WriteLine("ConversationsSidebar: Conversations refreshed");
+            }
+        }
+        
+        public void RemoveConversation(int conversationId)
+        {
+            if (_viewModel != null)
+            {
+                var conversation = _viewModel.Conversations.FirstOrDefault(c => c.Id == conversationId);
+                if (conversation != null)
+                {
+                    MainThread.BeginInvokeOnMainThread(() =>
+                    {
+                        _viewModel.Conversations.Remove(conversation);
+                        _viewModel.ShowNoConversations = _viewModel.Conversations.Count == 0;
+                        
+                        if (_viewModel.SelectedConversation?.Id == conversationId)
+                        {
+                            _viewModel.SelectedConversation = _viewModel.Conversations.FirstOrDefault();
+                        }
+                    });
+                }
+            }
+        }
     }
 }

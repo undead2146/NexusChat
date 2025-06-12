@@ -17,7 +17,7 @@ namespace NexusChat.Views.Converters
             if (value is not AIModel model)
                 return Colors.Transparent;
 
-            // Priority order: Selected > Default > Favorite > None
+            // Hierarchy: Selected (blue) > Default (green) > Favorite (gold) > None (transparent)
             if (model.IsSelected)
                 return Colors.Blue;
             

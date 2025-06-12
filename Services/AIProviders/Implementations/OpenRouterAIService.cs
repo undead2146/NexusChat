@@ -105,7 +105,7 @@ namespace NexusChat.Services.AIProviders.Implementations
 
 
                 // Model definitions previously in AIModelDiscoveryService.CreateOpenRouterModelsAsync
-                // and OpenRouterAIService.GetAvailableModels()
+                // and OpenRouterAIService.GetAvailableModels() 
                 models.Add(CreateModelInternal("anthropic/claude-3.5-sonnet", "Claude 3.5 Sonnet (via OpenRouter)", "Anthropic's most advanced model", 200000, 4096, true, true));
                 models.Add(CreateModelInternal("openai/gpt-4o", "GPT-4o (via OpenRouter)", "OpenAI's latest multimodal model", 128000, 4096, true, true));
                 models.Add(CreateModelInternal("google/gemini-1.5-pro", "Gemini 1.5 Pro (via OpenRouter)", "Google's advanced model with large context", 1048576, 8192, true, true)); // Max context for Gemini 1.5 Pro is 1M or 2M

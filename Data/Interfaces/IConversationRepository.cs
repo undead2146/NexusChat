@@ -52,5 +52,10 @@ namespace NexusChat.Data.Interfaces
         Task<List<Conversation>> GetByUserIdAsync(int userId, CancellationToken cancellationToken = default);
         
         Task<List<Conversation>> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken = default);
+        
+        /// <summary>
+        /// Gets the most recent conversation for a user
+        /// </summary>
+        Task<Conversation?> GetMostRecentByUserIdAsync(int userId, CancellationToken cancellationToken = default);
     }
 }

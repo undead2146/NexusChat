@@ -16,8 +16,14 @@ namespace NexusChat.Views.Converters
             if (value is not AIModel model)
                 return 1.0;
 
-            // Thicker border for models with special status
-            if (model.IsSelected || model.IsDefault || model.IsFavorite)
+            // Selected gets thickest border, then default, then favorite
+            if (model.IsSelected)
+                return 3.0;
+            
+            if (model.IsDefault)
+                return 2.5;
+                
+            if (model.IsFavorite)
                 return 2.0;
             
             return 1.0;

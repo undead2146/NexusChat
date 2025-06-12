@@ -225,18 +225,38 @@ namespace NexusChat.Services
                 var message = new Message
                 {
                     ConversationId = conversationId,
-                    AuthorType = "user",
                     Content = content,
+                    AuthorType = "user",
+                    IsUserMessage = true,
                     Status = "sent",
-                    SentAt = DateTime.UtcNow
+                    SentAt = DateTime.UtcNow,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow,
+                    Timestamp = DateTime.UtcNow
                 };
 
                 int messageId = await _messageRepository.AddAsync(message);
                 message.Id = messageId;
 
-                // Update conversation last activity
-                await _conversationRepository.UpdateLastActivityAsync(conversationId);
+                // Update conversation last activity and title if needed
+                var conversation = await _conversationRepository.GetByIdAsync(conversationId);
+                if (conversation != null)
+                {
+                    conversation.UpdatedAt = DateTime.UtcNow;
+                    
+                    // Update title if it's still "New Chat" and this is the first user message
+                    if (conversation.Title == "New Chat" && !string.IsNullOrWhiteSpace(content))
+                    {
+                        // Generate title from first 30 characters of the message
+                        string newTitle = content.Length > 30 ? content.Substring(0, 30).Trim() + "..." : content.Trim();
+                        conversation.Title = newTitle;
+                        Debug.WriteLine($"Updated conversation title to: {newTitle}");
+                    }
+                    
+                    await _conversationRepository.UpdateAsync(conversation, cancellationToken);
+                }
 
+                Debug.WriteLine($"User message created: ID={message.Id}, Content='{message.Content}', IsAI={message.IsAI}");
                 return message;
             }
             catch (Exception ex)
@@ -260,41 +280,36 @@ namespace NexusChat.Services
                     throw new InvalidOperationException($"Conversation with ID {conversationId} not found");
                 }
 
-                // Create initial AI message
-                var aiMessage = new Message
-                {
-                    Content = "",
-                    ConversationId = conversationId,
-                    IsAI = true,
-                    MessageType = "ai",
-                    Status = "thinking",
-                    Timestamp = DateTime.Now
-                };
-
-                // Add to database
-                aiMessage.Id = await _messageRepository.AddAsync(aiMessage);
-
                 // Get AI service for current model
                 var aiService = await GetCurrentAIServiceAsync();
                 if (aiService == null)
                 {
-                    throw new InvalidOperationException("No AI service is configured");
+                    throw new InvalidOperationException("No AI service is configured. Please select a model.");
                 }
 
-                // Create callback action for streaming updates
-                Action<string> updateCallback = (string update) =>
-                    UpdateAIMessageContentAsync(aiMessage, update).ConfigureAwait(false);
+                // Get the full response from AI service
+                string fullResponse = await aiService.SendMessageAsync(userPrompt, cancellationToken);
+                
+                // Create AI message with response
+                var aiMessage = new Message
+                {
+                    Content = fullResponse,
+                    ConversationId = conversationId,
+                    AuthorType = "ai",
+                    IsUserMessage = false,
+                    MessageType = "ai",
+                    Status = "complete",
+                    SentAt = DateTime.UtcNow,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow,
+                    Timestamp = DateTime.UtcNow,
+                    ModelName = _modelManager.CurrentModel?.ModelName ?? "",
+                    ProviderName = _modelManager.CurrentModel?.ProviderName ?? ""
+                };
 
-                // Call with correct parameter order
-                var result = await aiService.SendStreamedMessageAsync(
-                    userPrompt,
-                    cancellationToken,
-                    updateCallback
-                );
-
-                // Update message status
-                aiMessage.Status = "complete";
-                await _messageRepository.UpdateAsync(aiMessage, cancellationToken);
+                // Add to database
+                aiMessage.Id = await _messageRepository.AddAsync(aiMessage);
+                Debug.WriteLine($"AI message created: ID={aiMessage.Id}, Content='{aiMessage.Content}', IsAI={aiMessage.IsAI}");
 
                 return aiMessage;
             }

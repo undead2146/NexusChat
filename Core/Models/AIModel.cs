@@ -1,4 +1,5 @@
 using System;
+using System.Threading.Tasks;
 using SQLite;
 using CommunityToolkit.Mvvm.ComponentModel;
 using SQLiteNetExtensions.Attributes;
@@ -170,6 +171,27 @@ namespace NexusChat.Core.Models
         /// </summary>
         [Obsolete("Use Status property instead")]
         public string DisplayStatus { get; set; } = "normal";
+
+        /// <summary>
+        /// Animation scale for UI feedback - View-related property
+        /// </summary>
+        [ObservableProperty]
+        [property: Ignore]
+        private double _animationScale = 1.0;
+
+        /// <summary>
+        /// Animation opacity for UI feedback - View-related property
+        /// </summary>
+        [ObservableProperty]
+        [property: Ignore]
+        private double _animationOpacity = 1.0;
+
+        /// <summary>
+        /// Indicates if animation is in progress - View-related property
+        /// </summary>
+        [ObservableProperty]
+        [property: Ignore]
+        private bool _isAnimating = false;
         
         /// <summary>
         /// Creates a copy of this model
@@ -204,6 +226,17 @@ namespace NexusChat.Core.Models
                 UpdatedAt = this.UpdatedAt
             };
         }
+
+        /// <summary>
+        /// Gets a summary of the model's current status for binding
+        /// </summary>
+        [Ignore]
+        public string StatusSummary => 
+            IsSelected ? "Selected" : 
+            IsDefault ? "Default" : 
+            IsFavorite ? "Favorite" : 
+            "Available";
+
     }
 
 }
