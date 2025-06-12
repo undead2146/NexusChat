@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="NexusChat.Views.Controls.ChatHeader"
+             HeightRequest="56">
+
+    <ContentView.Resources>
+        <ResourceDictionary>
+            <Color x:Key="BadgeBackground">#0078D7</Color>
+            <Color x:Key="BadgeBackgroundDark">#0078D7</Color>
+            <Color x:Key="BadgeText">White</Color>
+            <Color x:Key="ButtonBackgroundHover">#F0F0F0</Color>
+            <Color x:Key="ButtonBackgroundHoverDark">#333333</Color>
+        </ResourceDictionary>
+    </ContentView.Resources>
+
+    <Grid ColumnDefinitions="Auto,*,Auto,Auto" 
+          BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceBackground}, Dark={StaticResource SurfaceBackgroundDark}}"
+          Padding="12,8"
+          ColumnSpacing="12">
+
+        <!-- Menu Button (Used for sidebar toggle on conversation page) -->
+        <Button x:Name="MenuButton"
+                Grid.Column="0"
+                Text="&#xf0c9;" 
+                FontFamily="FontAwesome-Solid"
+                FontSize="18"
+                WidthRequest="40"
+                HeightRequest="40"
+                CornerRadius="20"
+                Padding="0"
+                BackgroundColor="Transparent"
+                BorderColor="Transparent"
+                InputTransparent="False"
+                TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}"
+                VerticalOptions="Center">
+            <Button.Shadow>
+                <Shadow Brush="Transparent" Opacity="0" />
+            </Button.Shadow>
+        </Button>
+
+        <!-- Header & Subtitle -->
+        <StackLayout Grid.Column="1"
+                     VerticalOptions="Center"
+                     HorizontalOptions="Start"
+                     Spacing="4">
+            
+            <!-- Title -->
+            <Label x:Name="HeaderLabel" 
+                   FontAttributes="Bold"
+                   FontSize="16"
+                   LineBreakMode="TailTruncation" 
+                   VerticalOptions="Center" />
+            
+            <!-- Model Badge - Clickable -->
+            <Border x:Name="ModelBadge"
+                   IsVisible="False"
+                   BackgroundColor="{AppThemeBinding Light={StaticResource BadgeBackground}, Dark={StaticResource BadgeBackgroundDark}}"
+                   Padding="6,2"
+                   StrokeShape="RoundRectangle 12"
+                   Stroke="Transparent"
+                   HorizontalOptions="Start"
+                   VerticalOptions="Center">
+                <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="4">
+                    <Label Grid.Column="0"
+                          Text="&#xf233;"
+                          FontFamily="FontAwesome-Solid"
+                          FontSize="12"
+                          TextColor="{StaticResource BadgeText}"
+                          VerticalOptions="Center" />
+                    <Label Grid.Column="1"
+                          x:Name="ModelLabel"
+                          FontSize="12"
+                          TextColor="{StaticResource BadgeText}"
+                          LineBreakMode="TailTruncation"
+                          VerticalOptions="Center" />
+                </Grid>
+                <Border.GestureRecognizers>
+                    <TapGestureRecognizer x:Name="ModelBadgeTapGesture" />
+                </Border.GestureRecognizers>
+            </Border>
+        </StackLayout>
+
+        <!-- Switch Model Button -->
+        <Button x:Name="SwitchModelButton"
+                Grid.Column="2"
+                Text="&#xf233;" 
+                FontFamily="FontAwesome-Solid"
+                FontSize="16"
+                WidthRequest="40"
+                HeightRequest="40"
+                CornerRadius="20"
+                Padding="0"
+                BackgroundColor="Transparent" 
+                BorderColor="Transparent"
+                VerticalOptions="Center"
+                TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}">
+            <Button.Shadow>
+                <Shadow Brush="Transparent" Opacity="0" />
+            </Button.Shadow>
+        </Button>
+
+        <!-- Options Button -->
+        <Button x:Name="OptionsButton"
+                Grid.Column="3"
+                Text="&#xf142;" 
+                FontFamily="FontAwesome-Solid"
+                FontSize="16"
+                WidthRequest="40"
+                HeightRequest="40"
+                CornerRadius="20"
+                Padding="0"
+                BackgroundColor="Transparent"
+                BorderColor="Transparent"
+                VerticalOptions="Center"
+                TextColor="{AppThemeBinding Light={StaticResource SecondaryTextColor}, Dark={StaticResource SecondaryTextColorDark}}">
+            <Button.Shadow>
+                <Shadow Brush="Transparent" Opacity="0" />
+            </Button.Shadow>
+        </Button>
+    </Grid>
+</ContentView>

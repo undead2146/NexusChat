@@ -126,6 +126,8 @@
         <Setter Property="FontSize" Value="16" />
     </Style>
     
+    <!-- Remove Frame styles - replaced with Border equivalents -->
+    <!--
     <Style TargetType="Frame" ApplyToDerivedTypes="False">
         <Setter Property="HasShadow" Value="True" />
         <Setter Property="BorderColor" Value="{StaticResource CardBorder}" />
@@ -147,6 +149,23 @@
         <Setter Property="CornerRadius" Value="12" />
         <Setter Property="HasShadow" Value="True" />
         <Setter Property="Padding" Value="10" />
+    </Style>
+    -->
+    
+    <!-- Border equivalents for message containers -->
+    <Style x:Key="UserMessageBorder" TargetType="Border">
+        <Setter Property="BackgroundColor" Value="{StaticResource UserMessageBackground}" />
+        <Setter Property="Stroke" Value="{StaticResource UserMessageBackground}" />
+        <Setter Property="StrokeShape" Value="RoundRectangle 12" />
+        <Setter Property="Padding" Value="10" />
+    </Style>
+    
+    <Style x:Key="AIMessageBorder" TargetType="Border">
+        <Setter Property="BackgroundColor" Value="{StaticResource AIMessageBackground}" />
+        <Setter Property="Stroke" Value="{StaticResource CardBorder}" />
+        <Setter Property="StrokeShape" Value="RoundRectangle 12" />
+        <Setter Property="Padding" Value="10" />
+        <Setter Property="Shadow" Value="{StaticResource SmallShadow}" />
     </Style>
     
     <!-- Message text styles specifically for the dark theme -->

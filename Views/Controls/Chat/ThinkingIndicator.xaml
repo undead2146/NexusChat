@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="NexusChat.Views.Controls.ThinkingIndicator">
+
+    <Border Style="{StaticResource AIMessageBubbleStyle}">
+        <StackLayout Orientation="Horizontal"
+                     Spacing="4">
+            <Ellipse x:Name="Dot1"
+                     Fill="{AppThemeBinding Light=#666666, Dark=#cccccc}"
+                     WidthRequest="8"
+                     HeightRequest="8" />
+            <Ellipse x:Name="Dot2"
+                     Fill="{AppThemeBinding Light=#666666, Dark=#cccccc}"
+                     WidthRequest="8"
+                     HeightRequest="8" />
+            <Ellipse x:Name="Dot3"
+                     Fill="{AppThemeBinding Light=#666666, Dark=#cccccc}"
+                     WidthRequest="8"
+                     HeightRequest="8" />
+        </StackLayout>
+    </Border>
+
+</ContentView>

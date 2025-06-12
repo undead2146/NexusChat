@@ -29,11 +29,10 @@ namespace NexusChat.Data.Repositories
         /// </summary>
         public async Task InitializeAsync()
         {
-            await InitializeRepositoryAsync();
-            
             try
             {
-                await Database.CreateTableAsync<User>();
+                var db = await _dbService.GetConnectionAsync();
+                await db.CreateTableAsync<User>();
                 Debug.WriteLine("UserRepository: Created User table");
             }
             catch (Exception ex)
@@ -41,7 +40,7 @@ namespace NexusChat.Data.Repositories
                 Debug.WriteLine($"UserRepository: Error creating table - {ex.Message}");
             }
         }
-        
+
         /// <summary>
         /// Gets a user by username
         /// </summary>
@@ -49,11 +48,11 @@ namespace NexusChat.Data.Repositories
         {
             if (string.IsNullOrEmpty(username))
                 return null;
-                
+
             try
             {
-                await EnsureDatabaseAsync();
-                return await Database.Table<User>()
+                var db = await _dbService.GetConnectionAsync();
+                return await db.Table<User>()
                     .Where(u => u.Username == username)
                     .FirstOrDefaultAsync();
             }
@@ -63,7 +62,7 @@ namespace NexusChat.Data.Repositories
                 return null;
             }
         }
-        
+
         /// <summary>
         /// Gets a user by username with cancellation support
         /// </summary>
@@ -71,13 +70,19 @@ namespace NexusChat.Data.Repositories
         {
             if (string.IsNullOrEmpty(username))
                 return null;
-                
+
             try
             {
-                await EnsureDatabaseAsync(cancellationToken);
-                return await Database.Table<User>()
+                cancellationToken.ThrowIfCancellationRequested();
+                var db = await _dbService.GetConnectionAsync();
+                return await db.Table<User>()
                     .Where(u => u.Username == username)
                     .FirstOrDefaultAsync();
+            }
+            catch (OperationCanceledException)
+            {
+                Debug.WriteLine("UserRepository: GetByUsernameAsync was cancelled");
+                throw;
             }
             catch (Exception ex)
             {
@@ -85,7 +90,7 @@ namespace NexusChat.Data.Repositories
                 return null;
             }
         }
-        
+
         /// <summary>
         /// Checks if a username exists
         /// </summary>
@@ -93,11 +98,11 @@ namespace NexusChat.Data.Repositories
         {
             if (string.IsNullOrEmpty(username))
                 return false;
-                
+
             try
             {
-                await EnsureDatabaseAsync();
-                return await Database.Table<User>()
+                var db = await _dbService.GetConnectionAsync();
+                return await db.Table<User>()
                     .Where(u => u.Username == username)
                     .CountAsync() > 0;
             }
@@ -107,7 +112,7 @@ namespace NexusChat.Data.Repositories
                 return false;
             }
         }
-        
+
         /// <summary>
         /// Validates user credentials
         /// </summary>
@@ -115,13 +120,13 @@ namespace NexusChat.Data.Repositories
         {
             if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
                 return false;
-                
+
             try
             {
                 var user = await GetByUsernameAsync(username);
                 if (user == null)
                     return false;
-                    
+
                 // Verify password using BCrypt
                 return BCrypt.Net.BCrypt.Verify(password, user.PasswordHash);
             }
@@ -131,7 +136,7 @@ namespace NexusChat.Data.Repositories
                 return false;
             }
         }
-        
+
         /// <summary>
         /// Gets a user by display name
         /// </summary>
@@ -139,11 +144,11 @@ namespace NexusChat.Data.Repositories
         {
             if (string.IsNullOrEmpty(displayName))
                 return null;
-                
+
             try
             {
-                await EnsureDatabaseAsync();
-                return await Database.Table<User>()
+                var db = await _dbService.GetConnectionAsync();
+                return await db.Table<User>()
                     .Where(u => u.DisplayName == displayName)
                     .FirstOrDefaultAsync();
             }
@@ -151,6 +156,30 @@ namespace NexusChat.Data.Repositories
             {
                 Debug.WriteLine($"UserRepository: Error getting user by display name - {ex.Message}");
                 return null;
+            }
+        }
+
+        /// <summary>
+        /// Search users by username or display name (case-insensitive, limited)
+        /// </summary>
+        public override async Task<List<User>> SearchAsync(string searchText, int limit = 50)
+        {
+            if (string.IsNullOrWhiteSpace(searchText))
+                return new List<User>();
+
+            try
+            {
+                var db = await _dbService.GetConnectionAsync();
+                var lower = searchText.ToLowerInvariant();
+                return await db.Table<User>()
+                    .Where(u => u.Username.ToLower().Contains(lower) || u.DisplayName.ToLower().Contains(lower))
+                    .Take(limit)
+                    .ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"UserRepository: Error searching users - {ex.Message}");
+                return new List<User>();
             }
         }
     }

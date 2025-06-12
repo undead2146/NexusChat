@@ -70,13 +70,37 @@ namespace NexusChat.Services
             {
                 Routing.RegisterRoute(nameof(Views.Pages.ChatPage), typeof(Views.Pages.ChatPage));
                 Routing.RegisterRoute(nameof(Views.Pages.AIModelsPage), typeof(Views.Pages.AIModelsPage));
-                Routing.RegisterRoute(nameof(Views.Pages.DevTools.ThemesPage), typeof(Views.Pages.DevTools.ThemesPage));
-                Routing.RegisterRoute(nameof(Views.Pages.DevTools.DatabaseViewerPage), typeof(Views.Pages.DevTools.DatabaseViewerPage));
-                Routing.RegisterRoute(nameof(Views.Pages.DevTools.ModelTestingPage), typeof(Views.Pages.DevTools.ModelTestingPage));
+
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error registering routes: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Navigates to a route with immediate execution
+        /// </summary>
+        /// <param name="route">The route</param>
+        /// <param name="parameters">Route parameters</param>
+        public async Task NavigateToAsync(string route, IDictionary<string, object> parameters = null)
+        {
+            try
+            {
+                // Navigate immediately without waiting for page initialization
+                if (parameters != null)
+                {
+                    await Shell.Current.GoToAsync(route, parameters);
+                }
+                else
+                {
+                    await Shell.Current.GoToAsync(route);
+                }
+            }
+            catch (Exception ex)
+            {
+                // Handle navigation errors
+                System.Diagnostics.Debug.WriteLine($"Navigation error: {ex.Message}");
             }
         }
     }

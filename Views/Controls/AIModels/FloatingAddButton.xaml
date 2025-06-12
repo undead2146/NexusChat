@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="NexusChat.Views.Controls.FloatingAddButton"
+             x:Name="FloatingAddButtonRoot">
+
+    <Border BackgroundColor="Transparent"
+            StrokeThickness="0"
+            WidthRequest="56"
+            HeightRequest="56"
+            Margin="16"
+            HorizontalOptions="End"
+            VerticalOptions="End"
+            IsVisible="{Binding IsVisible}">
+        <Border.Shadow>
+            <Shadow Brush="Black" Offset="0,4" Radius="8" Opacity="0.3" />
+        </Border.Shadow>
+        
+        <Button Text="&#xf067;"
+                FontFamily="FontAwesome-Solid"
+                Command="{Binding Source={x:Reference FloatingAddButtonRoot}, Path=Command}"
+                BackgroundColor="{AppThemeBinding Light=#0078D7, Dark=#0078D7}"
+                TextColor="White"
+                WidthRequest="56"
+                HeightRequest="56"
+                CornerRadius="28"
+                FontSize="20"
+                BorderWidth="0" />
+    </Border>
+</ContentView>

@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:viewmodels="clr-namespace:NexusChat.Core.ViewModels"
+             xmlns:models="clr-namespace:NexusChat.Core.Models"
+             xmlns:converters="clr-namespace:NexusChat.Views.Converters"
+             x:Class="NexusChat.Views.Controls.AIModelItem"
+             x:Name="AIModelItemRoot"
+             x:DataType="models:AIModel">
+
+    <ContentView.Resources>
+        <ResourceDictionary>
+            <converters:ProviderToColorConverter x:Key="ProviderToColorConverter" />
+            <converters:StarColorConverter x:Key="StarColorConverter" />
+        </ResourceDictionary>
+    </ContentView.Resources>
+
+    <Border BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#2D2D2D}"
+           StrokeShape="RoundRectangle 8,8,8,8"
+           Stroke="{AppThemeBinding Light=#e0e0e0, Dark=#555555}"
+           StrokeThickness="1"
+           Padding="12"
+           Margin="4,4">
+        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+            <Label Grid.Column="0" 
+                   Text="{Binding ProviderName}" 
+                   FontAttributes="Bold" 
+                   FontSize="14"
+                   VerticalOptions="Center"/>
+            <Label Grid.Column="1" 
+                   Text="{Binding ModelName}" 
+                   FontSize="16"
+                   VerticalOptions="Center"/>
+            <Button Grid.Column="2"
+                    Text="Select"
+                    FontSize="12"
+                    Padding="8,4"
+                    Command="{Binding Source={x:Reference AIModelItemRoot}, Path=SelectModelCommand}"
+                    CommandParameter="{Binding}"/>
+        </Grid>
+    </Border>
+</ContentView>

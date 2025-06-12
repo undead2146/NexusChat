@@ -3,24 +3,15 @@
     x:Class="NexusChat.AppShell"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-    xmlns:local="clr-namespace:NexusChat"
-    xmlns:pages="clr-namespace:NexusChat.Views.Pages"
+    xmlns:local="clr-namespace:NexusChat.Views.Pages"
     Title="NexusChat"
     Shell.FlyoutBehavior="Disabled"
     Shell.NavBarIsVisible="False">
 
-    <!-- Single ShellContent with MainPage as starting point -->
+    <!-- MainPage as the default starting point - routes handled in AppShell.xaml.cs -->
     <ShellContent
+        Title="Home"
         Route="MainPage"
-        ContentTemplate="{DataTemplate pages:MainPage}"
-        FlyoutItemIsVisible="False" />
-
-    <ShellContent
-        ContentTemplate="{DataTemplate pages:ChatPage}"
-        Route="ChatPage" />
-
-    <FlyoutItem Title="Conversations" Route="ConversationsPage">
-        <ShellContent ContentTemplate="{DataTemplate pages:ConversationsPage}" />
-    </FlyoutItem>
+        ContentTemplate="{DataTemplate local:MainPage}" />
 
 </Shell>

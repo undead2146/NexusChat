@@ -10,10 +10,8 @@ using NexusChat.Core.Models;
 using NexusChat.Helpers;
 using NexusChat.Services;
 using NexusChat.Services.Interfaces;
-using NexusChat.Views.Pages.DevTools;
 using Microsoft.Maui.Controls;
 using NexusChat.Views.Pages;
-using NexusChat.Core.ViewModels.DevTools;
 using NexusChat.Data.Interfaces;
 using System.Windows.Input;
 
@@ -609,36 +607,7 @@ namespace NexusChat.Core.ViewModels
         /// </summary>
         private async Task HandleNavigateToThemes()
         {
-            if (IsNavigatingToThemes) return;
-            
-            Debug.WriteLine("MainPageViewModel: HandleNavigateToThemes - Start");
-            
-            try
-            {
-                IsNavigatingToThemes = true;
-                ThemesButtonEnabled = false;
-                ThemesButtonText = "Loading...";
-                
-                await _navigationService.NavigateToAsync(nameof(ThemesPage)); // Updated navigation logic
-                Debug.WriteLine("ThemesPage navigation successful");
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error in HandleNavigateToThemes: {ex.Message}");
-                
-                // Alert user with clearer error message
-                await DisplayAlertAsync(
-                    "Navigation Failed", 
-                    "Could not open component library page.", 
-                    "OK");
-            }
-            finally
-            {
-                await Task.Delay(300);
-                ThemesButtonText = "View Themes"; // Updated text
-                ThemesButtonEnabled = true;
-                IsNavigatingToThemes = false;
-            }
+           
         }
 
         /// <summary>
@@ -646,22 +615,7 @@ namespace NexusChat.Core.ViewModels
         /// </summary>
         private async Task HandleRunModelTests()
         {
-            Debug.WriteLine("MainPageViewModel: HandleRunModelTests start");
-            try
-            {
-                await _navigationService.NavigateToAsync(nameof(ModelTestingPage)); // Updated navigation logic
-                Debug.WriteLine("MainPageViewModel: HandleRunModelTests completed successfully");
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error in HandleRunModelTests: {ex.Message}");
-                
-                // Show error alert when navigation fails
-                await DisplayAlertAsync(
-                    "Navigation Error", 
-                    $"Could not navigate to Model Testing Page: {ex.Message}", 
-                    "OK");
-            }
+           
         }
         
         /// <summary>
@@ -669,7 +623,6 @@ namespace NexusChat.Core.ViewModels
         /// </summary>
         private async Task HandleViewDatabase()
         {
-            await _navigationService.NavigateToAsync(nameof(DatabaseViewerPage)); // Updated navigation logic
         }
 
         /// <summary>

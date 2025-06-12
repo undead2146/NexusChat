@@ -1,0 +1,260 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:viewmodels="clr-namespace:NexusChat.Core.ViewModels"
+             xmlns:converters="clr-namespace:NexusChat.Views.Converters"
+             x:Class="NexusChat.Views.Controls.ConversationsSidebar"
+             x:DataType="viewmodels:ConversationsSidebarViewModel">
+
+    <ContentView.Resources>
+        <ResourceDictionary>
+            <converters:InvertedBoolConverter x:Key="InvertedBoolConverter" />
+            <converters:DateTimeToRelativeDateConverter x:Key="DateTimeToRelativeDateConverter" />
+        </ResourceDictionary>
+    </ContentView.Resources>
+    
+    <Grid RowDefinitions="Auto,*,Auto">
+        <!-- Header with refresh and new conversation buttons -->
+        <Grid Grid.Row="0" 
+              ColumnDefinitions="Auto,*,Auto,Auto" 
+              Padding="16,12"
+              BackgroundColor="{AppThemeBinding Light=#f5f5f5, Dark=#1e1e1e}">
+            
+            <Label Grid.Column="1"
+                   Text="Conversations"
+                   FontSize="18"
+                   FontAttributes="Bold"
+                   HorizontalOptions="Center"
+                   VerticalOptions="Center"
+                   TextColor="{AppThemeBinding Light=#333333, Dark=#ffffff}" />
+            
+            <Button Grid.Column="2"
+                    Text="&#xf021;"
+                    FontFamily="FontAwesome-Solid"
+                    Command="{Binding RefreshConversationsCommand}"
+                    BackgroundColor="Transparent"
+                    TextColor="{AppThemeBinding Light=#333333, Dark=#ffffff}"
+                    FontSize="16"
+                    WidthRequest="32"
+                    HeightRequest="32"
+                    IsEnabled="{Binding IsLoading, Converter={StaticResource InvertedBoolConverter}}"
+                    ToolTipProperties.Text="Refresh conversations">
+                <Button.Triggers>
+                    <DataTrigger TargetType="Button" Binding="{Binding IsRefreshing}" Value="True">
+                        <DataTrigger.EnterActions>
+                            <Trigger>
+                                <Setter Property="Rotation" Value="360" />
+                            </Trigger>
+                        </DataTrigger.EnterActions>
+                        <DataTrigger.ExitActions>
+                            <Trigger>
+                                <Setter Property="Rotation" Value="0" />
+                            </Trigger>
+                        </DataTrigger.ExitActions>
+                    </DataTrigger>
+                </Button.Triggers>
+            </Button>
+            
+            <Button Grid.Column="3"
+                    Text="&#xf067;"
+                    FontFamily="FontAwesome-Solid"
+                    Command="{Binding NewConversationCommand}"
+                    BackgroundColor="Transparent"
+                    TextColor="{AppThemeBinding Light=#333333, Dark=#ffffff}"
+                    FontSize="16"
+                    WidthRequest="32"
+                    HeightRequest="32"
+                    IsEnabled="{Binding IsLoading, Converter={StaticResource InvertedBoolConverter}}"
+                    ToolTipProperties.Text="New conversation" />
+        </Grid>
+
+        <!-- Loading indicator -->
+        <ActivityIndicator Grid.Row="1"
+                          IsVisible="{Binding IsLoading}"
+                          IsRunning="{Binding IsLoading}"
+                          Color="{AppThemeBinding Light=#0078D7, Dark=#0078D7}"
+                          VerticalOptions="Center"
+                          HorizontalOptions="Center"
+                          HeightRequest="40"
+                          WidthRequest="40" />
+
+        <!-- Error message -->
+        <Border Grid.Row="1"
+                IsVisible="{Binding HasError}"
+                BackgroundColor="{AppThemeBinding Light=#fff5f5, Dark=#5c1e1e}"
+                Stroke="{AppThemeBinding Light=#f56565, Dark=#e53e3e}"
+                StrokeShape="RoundRectangle 8"
+                Padding="16"
+                Margin="16">
+            <StackLayout Spacing="8">
+                <Label Text="&#xf071;"
+                       FontFamily="FontAwesome-Solid"
+                       FontSize="24"
+                       TextColor="#dc3545"
+                       HorizontalOptions="Center" />
+                <Label Text="{Binding ErrorMessage}"
+                       FontSize="14"
+                       TextColor="#dc3545"
+                       HorizontalTextAlignment="Center"
+                       LineBreakMode="WordWrap" />
+                <Button Text="Retry"
+                        Command="{Binding RefreshConversationsCommand}"
+                        BackgroundColor="#dc3545"
+                        TextColor="White"
+                        CornerRadius="6"
+                        FontSize="12"
+                        Padding="12,6"
+                        HorizontalOptions="Center" />
+            </StackLayout>
+        </Border>
+
+        <!-- No conversations message -->
+        <StackLayout Grid.Row="1"
+                     IsVisible="{Binding ShowNoConversations}"
+                     VerticalOptions="Center"
+                     HorizontalOptions="Center"
+                     Spacing="16"
+                     Margin="32">
+            <Label Text="&#xf086;"
+                   FontFamily="FontAwesome-Solid"
+                   FontSize="48"
+                   TextColor="{AppThemeBinding Light=#cccccc, Dark=#666666}"
+                   HorizontalOptions="Center" />
+            <Label Text="No conversations yet"
+                   FontSize="16"
+                   FontAttributes="Bold"
+                   TextColor="{AppThemeBinding Light=#666666, Dark=#cccccc}"
+                   HorizontalOptions="Center" />
+            <Label Text="Start a new conversation to begin chatting"
+                   FontSize="14"
+                   TextColor="{AppThemeBinding Light=#999999, Dark=#999999}"
+                   HorizontalOptions="Center"
+                   HorizontalTextAlignment="Center" />
+            <Button Text="New Conversation"
+                    Command="{Binding NewConversationCommand}"
+                    BackgroundColor="{AppThemeBinding Light=#0078D7, Dark=#0078D7}"
+                    TextColor="White"
+                    CornerRadius="8"
+                    Padding="16,8"
+                    FontSize="14" />
+        </StackLayout>
+
+        <!-- Conversations List -->
+        <RefreshView Grid.Row="1"
+                     IsRefreshing="{Binding IsRefreshing}"
+                     Command="{Binding RefreshConversationsCommand}"
+                     IsVisible="{Binding ShowNoConversations, Converter={StaticResource InvertedBoolConverter}}">
+            <CollectionView ItemsSource="{Binding Conversations}"
+                            BackgroundColor="{AppThemeBinding Light=#ffffff, Dark=#1a1a1a}"
+                            SelectionMode="Single"
+                            SelectedItem="{Binding SelectedConversation}">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate>
+                        <SwipeView>
+                            <SwipeView.LeftItems>
+                                <SwipeItems>
+                                    <SwipeItem Text="Edit"
+                                              BackgroundColor="#28a745"
+                                              Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:ConversationsSidebarViewModel}}, Path=EditConversationTitleCommand}"
+                                              CommandParameter="{Binding}" />
+                                </SwipeItems>
+                            </SwipeView.LeftItems>
+                            <SwipeView.RightItems>
+                                <SwipeItems>
+                                    <SwipeItem Text="Delete"
+                                              BackgroundColor="#dc3545"
+                                              Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:ConversationsSidebarViewModel}}, Path=DeleteConversationCommand}"
+                                              CommandParameter="{Binding}" />
+                                </SwipeItems>
+                            </SwipeView.RightItems>
+                            
+                            <Border BackgroundColor="{AppThemeBinding Light=#ffffff, Dark=#2d2d2d}"
+                                    Stroke="{AppThemeBinding Light=#e0e0e0, Dark=#555555}"
+                                    StrokeThickness="0.5"
+                                    Padding="16,12"
+                                    Margin="8,4">
+                                <!-- Selection indicator -->
+                                <Border.Triggers>
+                                    <DataTrigger TargetType="Border"
+                                                Binding="{Binding IsSelected}"
+                                                Value="True">
+                                        <Setter Property="BackgroundColor"
+                                                Value="{AppThemeBinding Light=#e3f2fd, Dark=#1565c0}" />
+                                        <Setter Property="Stroke"
+                                                Value="{AppThemeBinding Light=#2196f3, Dark=#42a5f5}" />
+                                        <Setter Property="StrokeThickness"
+                                                Value="2" />
+                                    </DataTrigger>
+                                </Border.Triggers>
+                                
+                                <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto">
+                                    <!-- Conversation title -->
+                                    <Label Grid.Column="0" Grid.Row="0"
+                                           Text="{Binding Title}"
+                                           FontSize="16"
+                                           FontAttributes="Bold"
+                                           TextColor="{AppThemeBinding Light=#333333, Dark=#ffffff}"
+                                           LineBreakMode="TailTruncation"
+                                           MaxLines="1" />
+                                    
+                                    <!-- Last message preview -->
+                                    <Label Grid.Column="0" Grid.Row="1"
+                                           Text="{Binding LastMessage}"
+                                           FontSize="14"
+                                           TextColor="{AppThemeBinding Light=#666666, Dark=#cccccc}"
+                                           LineBreakMode="TailTruncation"
+                                           MaxLines="2"
+                                           Margin="0,4,0,0" />
+                                    
+                                    <!-- Timestamp -->
+                                    <Label Grid.Column="0" Grid.Row="2"
+                                           Text="{Binding UpdatedAt, Converter={StaticResource DateTimeToRelativeDateConverter}}"
+                                           FontSize="12"
+                                           TextColor="{AppThemeBinding Light=#999999, Dark=#999999}"
+                                           Margin="0,4,0,0" />
+                                    
+                                    <!-- Navigation arrow -->
+                                    <Label Grid.Column="1" Grid.RowSpan="3"
+                                           Text="&#xf105;"
+                                           FontFamily="FontAwesome-Solid"
+                                           TextColor="{AppThemeBinding Light=#666666, Dark=#cccccc}"
+                                           FontSize="16"
+                                           VerticalOptions="Center"
+                                           HorizontalOptions="End" />
+                                </Grid>
+                                
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:ConversationsSidebarViewModel}}, Path=OpenConversationCommand}"
+                                                          CommandParameter="{Binding}" />
+                                </Border.GestureRecognizers>
+                            </Border>
+                        </SwipeView>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+        </RefreshView>
+        
+        <!-- Footer with conversation count -->
+        <Grid Grid.Row="2"
+              ColumnDefinitions="*,Auto"
+              Padding="16,8"
+              BackgroundColor="{AppThemeBinding Light=#f5f5f5, Dark=#1e1e1e}"
+              IsVisible="{Binding ShowNoConversations, Converter={StaticResource InvertedBoolConverter}}">
+            
+            <Label Grid.Column="0"
+                   Text="{Binding Conversations.Count, StringFormat='{0} conversations'}"
+                   FontSize="12"
+                   TextColor="{AppThemeBinding Light=#666666, Dark=#cccccc}"
+                   VerticalOptions="Center" />
+                   
+            <Label Grid.Column="1"
+                   Text="{Binding SelectedConversation.Title, StringFormat='Selected: {0}'}"
+                   FontSize="10"
+                   TextColor="{AppThemeBinding Light=#999999, Dark=#999999}"
+                   VerticalOptions="Center"
+                   IsVisible="{Binding SelectedConversation, Converter={StaticResource NotNullConverter}}"
+                   LineBreakMode="TailTruncation"
+                   MaximumWidthRequest="150" />
+        </Grid>
+    </Grid>
+</ContentView>

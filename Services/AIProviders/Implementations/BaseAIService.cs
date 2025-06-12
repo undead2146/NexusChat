@@ -130,8 +130,12 @@ namespace NexusChat.Services.AIProviders.Implementations
             }
         }
 
-        public Task<Stream> SendStreamedMessageAsync(string prompt, Action<string> onMessageUpdate, CancellationToken cancellationToken) {
-            throw new NotImplementedException();
+        /// <summary>
+        /// Dispose method to clean up HttpClient
+        /// </summary>
+        public virtual void Dispose()
+        {
+            HttpClient?.Dispose();
         }
     }
 

@@ -18,7 +18,7 @@ namespace NexusChat.Services.AIManagement
     {
         private readonly IAIModelRepository _modelRepository;
         private readonly IApiKeyManager _apiKeyManager;
-        private readonly IAIProviderFactory _providerFactory;
+        private readonly IAIModelDiscoveryService _modelDiscoveryService;
         private readonly SemaphoreSlim _initLock = new SemaphoreSlim(1, 1);
         private bool _initialized = false;
         private int _initializeAttempts = 0;
@@ -37,15 +37,15 @@ namespace NexusChat.Services.AIManagement
         public AIModelManager(
             IAIModelRepository modelRepository,
             IApiKeyManager apiKeyManager,
-            IAIProviderFactory providerFactory)
+            IAIModelDiscoveryService modelDiscoveryService)
         {
             _modelRepository = modelRepository ?? throw new ArgumentNullException(nameof(modelRepository));
             _apiKeyManager = apiKeyManager ?? throw new ArgumentNullException(nameof(apiKeyManager));
-            _providerFactory = providerFactory ?? throw new ArgumentNullException(nameof(providerFactory));
+            _modelDiscoveryService = modelDiscoveryService ?? throw new ArgumentNullException(nameof(modelDiscoveryService));
         }
         
         /// <summary>
-        /// Initializes the service with improved error handling and retry logic
+        /// Initialize the service 
         /// </summary>
         public async Task InitializeAsync()
         {
@@ -60,87 +60,56 @@ namespace NexusChat.Services.AIManagement
                     return;
                 
                 _initializeAttempts++;
-                Debug.WriteLine($"AIModelManager: Initializing... (attempt {_initializeAttempts})");
-                
-                // Wait for API key manager initialization
+                Debug.WriteLine($"AIModelManager: Initializing without discovery... (attempt {_initializeAttempts})");
+
                 await _apiKeyManager.InitializeAsync();
                 
-                // Ensure we have some models in the database
-                var models = await _modelRepository.GetAllAsync();
-                Debug.WriteLine($"AIModelManager: Found {models.Count} models in database");
+                // Check existing models without triggering discovery
+                var models = await GetExistingModelsOnlyAsync();
+                Debug.WriteLine($"AIModelManager: Found {models.Count} existing models in database");
                 
-                if (models.Count == 0 || _initializeAttempts == 1)
-                {
-                    Debug.WriteLine("AIModelManager: No models found or first attempt - loading from environment");
-                    await LoadModelsFromEnvironmentAsync();
-                    
-                    // Also load from provider factories
-                    await LoadModelsFromProvidersAsync();
-                    
-                    // Reload models after loading from environment
-                    models = await _modelRepository.GetAllAsync();
-                    Debug.WriteLine($"AIModelManager: Now have {models.Count} models after loading");
-                    
-                    // Check providers for debugging
-                    await LogModelBreakdownAsync();
-                }
-                
-                // Get the current model
+                // Get current model without triggering discovery
                 var currentModel = await _modelRepository.GetCurrentModelAsync();
-                if (currentModel == null)
+                if (currentModel == null && models.Count > 0)
                 {
-                    // No current model set, try to set a default
-                    var defaultModels = await _modelRepository.GetDefaultModelsAsync();
-                    Debug.WriteLine($"AIModelManager: Found {defaultModels.Count} default models");
-                    
-                    if (defaultModels.Count > 0)
-                    {
-                        currentModel = defaultModels[0];
-                        bool success = await _modelRepository.SetCurrentModelAsync(currentModel);
-                        Debug.WriteLine($"AIModelManager: Set default model as current: {currentModel.ProviderName}/{currentModel.ModelName}, " +
-                                       $"Success: {success}");
-                    }
-                    else if (models.Count > 0)
-                    {
-                        // No default model, try to set the first one
-                        currentModel = models[0];
-                        bool success = await _modelRepository.SetCurrentModelAsync(currentModel);
-                        Debug.WriteLine($"AIModelManager: Set first model as current: {currentModel.ProviderName}/{currentModel.ModelName}, " +
-                                       $"Success: {success}");
-                    }
+                    currentModel = models.FirstOrDefault(m => m.IsDefault) ?? models.First();
+                    await _modelRepository.SetCurrentModelAsync(currentModel);
+                    Debug.WriteLine($"AIModelManager: Set existing model as current: {currentModel.ProviderName}/{currentModel.ModelName}");
                 }
                 
                 CurrentModel = currentModel;
-                Debug.WriteLine($"AIModelManager: Current model set to: {(currentModel != null ? $"{currentModel.ProviderName}/{currentModel.ModelName}" : "none")}");
-                
                 _initialized = true;
-                Debug.WriteLine("AIModelManager: Initialization complete");
+                Debug.WriteLine("AIModelManager: Fast initialization complete without discovery");
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error initializing AIModelManager: {ex.Message}");
-                Debug.WriteLine($"Stack trace: {ex.StackTrace}");
-                
-                // Try to initialize again if we haven't exceeded max attempts
-                if (_initializeAttempts < MAX_INIT_ATTEMPTS)
-                {
-                    _initialized = false;
-                }
-                else
-                {
-                    // Set initialized to true but with basic functionality
-                    Debug.WriteLine("AIModelManager: Max initialization attempts reached, proceeding with limited functionality");
-                    _initialized = true;
-                }
+                _initialized = true; // Set to true to prevent infinite retry loops
             }
             finally
             {
                 _initLock.Release();
             }
         }
-        
+
         /// <summary>
-        /// Gets all available models
+        /// Gets existing models from database only, no discovery 
+        /// </summary>
+        private async Task<List<AIModel>> GetExistingModelsOnlyAsync()
+        {
+            try
+            {
+                return await _modelRepository.GetAllAsync();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"GetExistingModelsOnlyAsync: Error: {ex.Message}");
+                return new List<AIModel>();
+            }
+        }
+
+        /// <summary>
+        /// Gets all available models filtered by providers with valid API keys
         /// </summary>
         public async Task<List<AIModel>> GetAllModelsAsync()
         {
@@ -148,19 +117,15 @@ namespace NexusChat.Services.AIManagement
             
             try
             {
-                var models = await _modelRepository.GetAllAsync();
-                Debug.WriteLine($"AIModelManager: Retrieved {models.Count} models");
+                // Get all models from database
+                var allModels = await _modelRepository.GetAllAsync();
+                Debug.WriteLine($"AIModelManager: Retrieved {allModels.Count} total models from database");
                 
-                // If no models, try to load from providers
-                if (models.Count == 0)
-                {
-                    Debug.WriteLine("AIModelManager: No models found, attempting to load from providers");
-                    await LoadModelsFromProvidersAsync();
-                    models = await _modelRepository.GetAllAsync();
-                    Debug.WriteLine($"AIModelManager: After loading from providers: {models.Count} models");
-                }
+                // Filter models by providers that have valid API keys
+                var filteredModels = await FilterModelsByAvailableProviders(allModels);
                 
-                return models;
+                Debug.WriteLine($"AIModelManager: Returning {filteredModels.Count} models after API key filtering");
+                return filteredModels;
             }
             catch (Exception ex)
             {
@@ -168,8 +133,174 @@ namespace NexusChat.Services.AIManagement
                 return new List<AIModel>();
             }
         }
-        
+
         /// <summary>
+        /// Filters models to only include those from providers with valid API keys
+        /// </summary>
+        private async Task<List<AIModel>> FilterModelsByAvailableProviders(List<AIModel> allModels)
+        {
+            if (allModels == null || allModels.Count == 0)
+                return new List<AIModel>();
+
+            try
+            {
+                // Get providers that have valid API keys
+                var availableProviders = await GetProvidersWithApiKeys();
+                
+                if (availableProviders.Count == 0)
+                {
+                    Debug.WriteLine("AIModelManager: No providers with API keys found");
+                    return new List<AIModel>();
+                }
+
+                // Filter models by available providers
+                var filteredModels = allModels
+                    .Where(model => availableProviders.Any(provider => 
+                        string.Equals(model.ProviderName, provider, StringComparison.OrdinalIgnoreCase)))
+                    .ToList();
+
+                Debug.WriteLine($"AIModelManager: Filtered {allModels.Count} models down to {filteredModels.Count} for providers: {string.Join(", ", availableProviders)}");
+                
+                return filteredModels;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error filtering models by available providers: {ex.Message}");
+                return allModels; // Return all models if filtering fails
+            }
+        }
+
+        /// <summary>
+        /// Gets list of providers that have valid API keys configured
+        /// </summary>
+        private async Task<List<string>> GetProvidersWithApiKeys()
+        {
+            var availableProviders = new List<string>();
+            var knownProviders = new[] { "Groq", "OpenRouter", "Anthropic", "OpenAI", "Azure" };
+            
+            Debug.WriteLine("AIModelManager: Checking API keys for all known providers...");
+            
+            foreach (var provider in knownProviders)
+            {
+                try
+                {
+                    bool hasKey = await _apiKeyManager.HasActiveApiKeyAsync(provider);
+                    string apiKey = await _apiKeyManager.GetApiKeyAsync(provider);
+                    
+                    Debug.WriteLine($"AIModelManager: Provider {provider} - HasKey: {hasKey}, KeyLength: {(string.IsNullOrEmpty(apiKey) ? 0 : apiKey.Length)}");
+                    
+                    if (hasKey)
+                    {
+                        availableProviders.Add(provider);
+                        Debug.WriteLine($"AIModelManager: Added {provider} to available providers");
+                    }
+                    else
+                    {
+                        Debug.WriteLine($"AIModelManager: Provider {provider} has no valid API key");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Error checking API key for {provider}: {ex.Message}");
+                }
+            }
+            
+            Debug.WriteLine($"AIModelManager: Final available providers: {string.Join(", ", availableProviders)} (Total: {availableProviders.Count})");
+            return availableProviders;
+        }
+
+        /// <summary>
+        /// Gets all models including those without API keys (for administrative purposes)
+        /// </summary>
+        public async Task<List<AIModel>> GetAllModelsUnfilteredAsync()
+        {
+            await EnsureInitializedAsync();
+            
+            try
+            {
+                var models = await _modelRepository.GetAllAsync();
+                Debug.WriteLine($"AIModelManager: Retrieved {models.Count} unfiltered models from database");
+                return models;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error getting unfiltered models: {ex.Message}");
+                return new List<AIModel>();
+            }
+        }
+
+        /// <summary>
+        /// Discovers and loads models ONLY when explicitly called - STEP 12 FIX
+        /// </summary>
+        public async Task<bool> DiscoverAndLoadModelsAsync()
+        {
+            try
+            {
+                Debug.WriteLine("AIModelManager: Explicitly discovering models (not during init)");
+                
+                // Use the discovery service to get all models from all sources
+                var discoveredModels = await _modelDiscoveryService.DiscoverAllModelsAsync();
+                Debug.WriteLine($"AIModelManager: Discovered {discoveredModels.Count} models explicitly");
+                
+                if (discoveredModels.Count == 0)
+                {
+                    Debug.WriteLine("AIModelManager: No models discovered");
+                    return false;
+                }
+                
+                // Get existing models to avoid duplicates
+                var existingModels = await _modelRepository.GetAllAsync();
+                var existingModelKeys = existingModels
+                    .Select(m => $"{m.ProviderName.ToLowerInvariant()}:{m.ModelName.ToLowerInvariant()}")
+                    .ToHashSet();
+                
+                // Filter out models that already exist
+                var newModels = discoveredModels
+                    .Where(model => !existingModelKeys.Contains(
+                        $"{model.ProviderName.ToLowerInvariant()}:{model.ModelName.ToLowerInvariant()}"))
+                    .ToList();
+                    
+                Debug.WriteLine($"AIModelManager: Found {newModels.Count} truly new models to add");
+                
+                // Add new models in batches
+                int addedCount = 0;
+                const int batchSize = 20;
+                
+                for (int i = 0; i < newModels.Count; i += batchSize)
+                {
+                    var batch = newModels.Skip(i).Take(batchSize);
+                    
+                    foreach (var model in batch)
+                    {
+                        try
+                        {
+                            int id = await _modelRepository.AddAsync(model);
+                            addedCount++;
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"Error adding model {model.ProviderName}/{model.ModelName}: {ex.Message}");
+                        }
+                    }
+                    
+                    // Small delay between batches to prevent overwhelming database
+                    if (i + batchSize < newModels.Count)
+                    {
+                        await Task.Delay(10);
+                    }
+                }
+                
+                Debug.WriteLine($"AIModelManager: Added {addedCount} new models from explicit discovery");
+                return addedCount > 0;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error in explicit discovery and loading: {ex.Message}");
+                return false;
+            }
+        }
+        
+        
         /// Logs the breakdown of models by provider for debugging
         /// </summary>
         private async Task LogModelBreakdownAsync()
@@ -325,7 +456,7 @@ namespace NexusChat.Services.AIManagement
         }
         
         /// <summary>
-        /// Sets favorite status with improved error handling
+        /// Sets favorite status with improved error handling and fixed SQLite queries
         /// </summary>
         public async Task<bool> SetFavoriteStatusAsync(string providerName, string modelName, bool isFavorite)
         {
@@ -338,34 +469,29 @@ namespace NexusChat.Services.AIManagement
             {
                 Debug.WriteLine($"AIModelManager: Setting favorite status for {providerName}/{modelName} to {isFavorite}");
                 
-                // Try to find the model in the database first
-                var dbModel = await _modelRepository.GetModelByNameAsync(providerName, modelName);
+                // Use case-insensitive lookup to avoid SQLite query errors
+                var dbModel = await FindModelByNameAsync(providerName, modelName);
                 
                 // If model doesn't exist in database, add it first
                 if (dbModel == null)
                 {
-                    Debug.WriteLine($"Model {providerName}/{modelName} not found in database, creating it first");
+                    Debug.WriteLine($"Model {providerName}/{modelName} not found in database, discovering it first");
                     
-                    // Check if the provider factory knows about this model
-                    bool isKnownModel = false;
-                    if (_providerFactory != null && _providerFactory.IsProviderAvailable(providerName))
+                    // Try to discover the model via the discovery service
+                    var discoveredModels = await _modelDiscoveryService.DiscoverProviderModelsAsync(providerName);
+                    var discoveredModel = discoveredModels.FirstOrDefault(m => 
+                        string.Equals(m.ModelName, modelName, StringComparison.OrdinalIgnoreCase));
+                    
+                    if (discoveredModel != null)
                     {
-                        var providerModels = _providerFactory.GetModelsForProvider(providerName);
-                        var factoryModel = providerModels.FirstOrDefault(m => 
-                            m.ModelName.Equals(modelName, StringComparison.OrdinalIgnoreCase));
-                            
-                        if (factoryModel != null)
-                        {
-                            isKnownModel = true;
-                            factoryModel.IsFavorite = isFavorite;
-                            await _modelRepository.AddAsync(factoryModel);
-                            return true;
-                        }
+                        discoveredModel.IsFavorite = isFavorite;
+                        await _modelRepository.AddAsync(discoveredModel);
+                        Debug.WriteLine($"Successfully updated favorite status to {isFavorite}");
+                        return true;
                     }
-                    
-                    if (!isKnownModel)
+                    else
                     {
-                        // Create a minimal model entry
+                        // Create a minimal model entry if we can't discover it
                         var newModel = new AIModel
                         {
                             ProviderName = providerName,
@@ -394,13 +520,13 @@ namespace NexusChat.Services.AIManagement
                     {
                         // Also update CurrentModel if it's the affected model
                         if (CurrentModel != null && 
-                            CurrentModel.ProviderName.Equals(providerName, StringComparison.OrdinalIgnoreCase) &&
-                            CurrentModel.ModelName.Equals(modelName, StringComparison.OrdinalIgnoreCase))
+                            string.Equals(CurrentModel.ProviderName, providerName, StringComparison.OrdinalIgnoreCase) &&
+                            string.Equals(CurrentModel.ModelName, modelName, StringComparison.OrdinalIgnoreCase))
                         {
                             CurrentModel.IsFavorite = isFavorite;
                         }
                         
-                        Debug.WriteLine($"AIModelManager: Successfully set favorite status");
+                        Debug.WriteLine($"AIModelManager: Successfully updated favorite status to {isFavorite}");
                     }
                     else
                     {
@@ -416,8 +542,27 @@ namespace NexusChat.Services.AIManagement
                 Debug.WriteLine($"Stack trace: {ex.StackTrace}");
                 return false;
             }
-            
-            return false;
+        }
+
+        /// <summary>
+        /// Helper method to find model by name using case-insensitive comparison
+        /// Avoids SQLite "no such function: equals" error by using in-memory filtering
+        /// </summary>
+        private async Task<AIModel> FindModelByNameAsync(string providerName, string modelName)
+        {
+            try
+            {
+                // Get all models and filter in memory to avoid SQLite function compatibility issues
+                var allModels = await _modelRepository.GetAllAsync();
+                return allModels.FirstOrDefault(m => 
+                    string.Equals(m.ProviderName, providerName, StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(m.ModelName, modelName, StringComparison.OrdinalIgnoreCase));
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error finding model by name: {ex.Message}");
+                return null;
+            }
         }
         
         /// <summary>
@@ -445,11 +590,17 @@ namespace NexusChat.Services.AIManagement
         /// <summary>
         /// Ensures the manager is initialized
         /// </summary>
+        [Obsolete("This method performs sync-over-async operations which can lead to deadlocks. Use EnsureInitializedAsync instead.")]
         private void EnsureInitialized()
         {
+            Debug.WriteLine("WARNING: Synchronous EnsureInitialized called. This can cause deadlocks and should be avoided.");
+            
+            // Check if already initialized to avoid potential deadlocks
             if (!_initialized)
             {
-                InitializeAsync().Wait();
+                // We won't call InitializeAsync().Wait() here anymore as it can deadlock
+                // Just log a warning and return without initialization
+                Debug.WriteLine("AIModelManager: Skipping initialization in synchronous context to prevent deadlocks.");
             }
         }
         
@@ -464,551 +615,212 @@ namespace NexusChat.Services.AIManagement
             }
         }
         
+  
         /// <summary>
-        /// Loads models from the environment variables
+        /// Discovers and loads models for a specific provider
         /// </summary>
-        private async Task LoadModelsFromEnvironmentAsync()
+        public async Task<bool> DiscoverAndLoadProviderModelsAsync(string providerName)
         {
+            if (string.IsNullOrEmpty(providerName))
+                return false;
+                
             try
             {
-                Debug.WriteLine("AIModelManager: Loading models from environment...");
+                Debug.WriteLine($"AIModelManager: Discovering models for provider {providerName}");
                 
-                // First load models from the database
-                var existingModels = await _modelRepository.GetAllAsync();
-                var existingModelKeys = existingModels
-                    .Select(m => $"{m.ProviderName.ToLowerInvariant()}:{m.ModelName.ToLowerInvariant()}")
+                // Use the discovery service to get models for this provider
+                var discoveredModels = await _modelDiscoveryService.DiscoverProviderModelsAsync(providerName);
+                Debug.WriteLine($"AIModelManager: Discovered {discoveredModels.Count} models for provider {providerName}");
+                
+                // Get existing models to avoid duplicates
+                var existingModels = await _modelRepository.GetByProviderAsync(providerName);
+                var existingModelNames = existingModels
+                    .Select(m => m.ModelName.ToLowerInvariant())
                     .ToHashSet();
                 
-                Debug.WriteLine($"AIModelManager: Found {existingModels.Count} existing models in database");
-                
-                // Make sure DotNetEnv is loaded
-                Env.Load();
-                Debug.WriteLine("AIModelManager: Loaded .env file if available");
-                
-                // Load all models from both services
-                await LoadGroqModelsAsync(existingModelKeys);
-                await LoadOpenRouterModelsAsync(existingModelKeys);
-                await LoadDummyModelsAsync(existingModelKeys);
-                
-                // Re-check counts after loading
-                var updatedModels = await _modelRepository.GetAllAsync();
-                
-                // Count models by provider for debugging
-                var groqCount = updatedModels.Count(m => m.ProviderName.Equals("Groq", StringComparison.OrdinalIgnoreCase));
-                var openRouterCount = updatedModels.Count(m => m.ProviderName.Equals("OpenRouter", StringComparison.OrdinalIgnoreCase));
-                var dummyCount = updatedModels.Count(m => m.ProviderName.Equals("Dummy", StringComparison.OrdinalIgnoreCase));
-                
-                Debug.WriteLine($"AIModelManager: After loading - Total={updatedModels.Count}, Groq={groqCount}, OpenRouter={openRouterCount}, Dummy={dummyCount}");
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error loading models from environment: {ex.Message}");
-                Debug.WriteLine($"Stack trace: {ex.StackTrace}");
-            }
-        }
-        
-        /// <summary>
-        /// Loads models from provider factories with significant performance optimizations
-        /// </summary>
-        private async Task LoadModelsFromProvidersAsync()
-        {
-            try
-            {
-                Debug.WriteLine("Loading models from AI providers...");
-                
-                if (_providerFactory == null)
+                // Add all discovered models that don't already exist
+                int addedCount = 0;
+                foreach (var model in discoveredModels)
                 {
-                    Debug.WriteLine("Provider factory is null, cannot load models from providers");
-                    return;
-                }
-                
-                // Get only providers that have valid API keys
-                var activeProviders = await _providerFactory.GetActiveProvidersAsync();
-                
-                if (activeProviders.Count == 0)
-                {
-                    Debug.WriteLine("No providers with API keys available");
-                    return;
-                }
-                
-                Debug.WriteLine($"Found {activeProviders.Count} active providers with API keys");
-                
-                // Get models only for active providers
-                foreach (var providerName in activeProviders)
-                {
-                    try
-                    {
-                        Debug.WriteLine($"Loading models for provider: {providerName}");
-                        var models = await _providerFactory.GetModelsForProviderAsync(providerName);
-                        
-                        if (models != null && models.Count > 0)
-                        {
-                            Debug.WriteLine($"Found {models.Count} models for provider {providerName}");
-                            
-                            // Process in batches for better performance
-                            for (int i = 0; i < models.Count; i += 10)
-                            {
-                                var batch = models.Skip(i).Take(10);
-                                
-                                foreach (var model in batch)
-                                {
-                                    try
-                                    {
-                                        var existingModel = await _modelRepository.GetModelByNameAsync(
-                                            model.ProviderName, model.ModelName);
-                                            
-                                        if (existingModel == null)
-                                        {
-                                            int id = await _modelRepository.AddAsync(model);
-                                            Debug.WriteLine($"Added model {model.ProviderName}/{model.ModelName} with ID {id}");
-                                        }
-                                    }
-                                    catch (Exception ex)
-                                    {
-                                        Debug.WriteLine($"Error adding model {model.ProviderName}/{model.ModelName}: {ex.Message}");
-                                    }
-                                }
-                                
-                                // Small delay between batches to not block UI thread
-                                await Task.Delay(10);
-                            }
-                        }
-                        else
-                        {
-                            Debug.WriteLine($"No models found for provider {providerName}");
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"Error loading models for provider {providerName}: {ex.Message}");
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error in LoadModelsFromProvidersAsync: {ex.Message}");
-                Debug.WriteLine($"Stack trace: {ex.StackTrace}");
-            }
-        }
-        
-        /// <summary>
-        /// Loads OpenRouter models from environment variables
-        /// </summary>
-        private async Task LoadOpenRouterModelsAsync(HashSet<string> existingModelKeys)
-        {
-            try
-            {
-                Debug.WriteLine("AIModelManager: Loading OpenRouter models from environment...");
-                
-                // Get all environment variables with the OpenRouter model prefix
-                var modelVars = GetEnvironmentVariableKeys("AI_MODEL_OPENROUTER_");
-                Debug.WriteLine($"AIModelManager: Found {modelVars.Count} OpenRouter model environment variables");
-                
-                // Create a counter to track added models
-                int addedModelCount = 0;
-                
-                foreach (var modelVar in modelVars)
-                {
-                    try
-                    {
-                        // Extract model name and ID from environment variable
-                        string modelEnvSuffix = modelVar.Substring("AI_MODEL_OPENROUTER_".Length);
-                        string modelId = Environment.GetEnvironmentVariable(modelVar);
-                        
-                        if (string.IsNullOrEmpty(modelId))
-                        {
-                            Debug.WriteLine($"AIModelManager: Empty model ID for {modelVar}, skipping");
-                            continue;
-                        }
-                        
-                        // Use the model ID as is (OpenRouter models often contain slashes)
-                        string normalizedModelName = modelId.ToLowerInvariant();
-                        
-                        // Check if we already have this model
-                        string modelKey = $"openrouter:{normalizedModelName}";
-                        if (existingModelKeys.Contains(modelKey))
-                        {
-                            Debug.WriteLine($"AIModelManager: Model {normalizedModelName} already exists, skipping");
-                            continue;
-                        }
-                        
-                        Debug.WriteLine($"AIModelManager: Adding OpenRouter model: {normalizedModelName}");
-                        
-                        // Get model description if available
-                        string descEnvVar = $"AI_MODEL_DESC_OPENROUTER_{modelEnvSuffix}";
-                        string description = Environment.GetEnvironmentVariable(descEnvVar) ?? 
-                                            $"OpenRouter model: {normalizedModelName}";
-                        
-                        // Get model capabilities
-                        int maxTokens = 4096;
-                        int contextWindow = 16384;
-                        bool supportsStreaming = true;
-                        bool supportsVision = false;
-                        bool supportsCodeCompletion = false;
-                        
-                        // Parse capabilities from environment if available
-                        if (int.TryParse(Environment.GetEnvironmentVariable($"AI_MODEL_CAP_OPENROUTER_{modelEnvSuffix}_TOKENS"), out int tokens))
-                            maxTokens = tokens;
-                            
-                        if (int.TryParse(Environment.GetEnvironmentVariable($"AI_MODEL_CAP_OPENROUTER_{modelEnvSuffix}_CONTEXT"), out int ctx))
-                            contextWindow = ctx;
-                            
-                        if (bool.TryParse(Environment.GetEnvironmentVariable($"AI_MODEL_CAP_OPENROUTER_{modelEnvSuffix}_STREAMING"), out bool streaming))
-                            supportsStreaming = streaming;
-                            
-                        if (bool.TryParse(Environment.GetEnvironmentVariable($"AI_MODEL_CAP_OPENROUTER_{modelEnvSuffix}_VISION"), out bool vision))
-                            supportsVision = vision;
-                            
-                        if (bool.TryParse(Environment.GetEnvironmentVariable($"AI_MODEL_CAP_OPENROUTER_{modelEnvSuffix}_CODE"), out bool code))
-                            supportsCodeCompletion = code;
-                        
-                        // Create and save the model
-                        var model = new AIModel
-                        {
-                            ModelName = normalizedModelName,
-                            ProviderName = "OpenRouter",
-                            Description = description,
-                            MaxTokens = maxTokens,
-                            MaxContextWindow = contextWindow,
-                            SupportsStreaming = supportsStreaming,
-                            SupportsVision = supportsVision,
-                            SupportsCodeCompletion = supportsCodeCompletion,
-                            IsAvailable = true,
-                            ApiKeyVariable = $"AI_KEY_OPENROUTER_{modelEnvSuffix}",
-                            DisplayName = normalizedModelName.Split('/').LastOrDefault() ?? normalizedModelName,
-                            IsFavorite = false,
-                            IsSelected = false,
-                            IsDefault = false,
-                            UsageCount = 0,
-                            LastUsed = null
-                        };
-                        
-                        // Add to database
-                        var id = await _modelRepository.AddAsync(model);
-                        Debug.WriteLine($"AIModelManager: Added OpenRouter model {normalizedModelName} with ID {id}");
-                        
-                        existingModelKeys.Add(modelKey);
-                        addedModelCount++;
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"Error adding OpenRouter model {modelVar}: {ex.Message}");
-                    }
-                }
-                
-                Debug.WriteLine($"AIModelManager: Added {addedModelCount} OpenRouter models from environment variables");
-                
-                // Add core OpenRouter models explicitly if needed
-                string[] coreModels = new[]
-                {
-                    "anthropic/claude-3-opus",
-                    "anthropic/claude-3-sonnet",
-                    "google/gemini-pro",
-                    "mistral-small-3-1-24b"
-                };
-                
-                int addedCoreModelCount = 0;
-                
-                foreach (var modelName in coreModels)
-                {
-                    string modelKey = $"openrouter:{modelName.ToLowerInvariant()}";
-                    if (!existingModelKeys.Contains(modelKey))
+                    if (!existingModelNames.Contains(model.ModelName.ToLowerInvariant()))
                     {
                         try
                         {
-                            var model = new AIModel
-                            {
-                                ModelName = modelName,
-                                ProviderName = "OpenRouter",
-                                Description = $"OpenRouter model: {modelName}",
-                                MaxTokens = 4096,
-                                MaxContextWindow = 16384,
-                                SupportsStreaming = true,
-                                IsAvailable = true,
-                                ApiKeyVariable = "AI_KEY_OPENROUTER",
-                                DisplayName = modelName.Split('/').LastOrDefault() ?? modelName,
-                                IsFavorite = false,
-                                IsSelected = false,
-                                IsDefault = false,
-                                UsageCount = 0
-                            };
-                            
-                            var id = await _modelRepository.AddAsync(model);
-                            Debug.WriteLine($"AIModelManager: Added core OpenRouter model {modelName} with ID {id}");
-                            
-                            existingModelKeys.Add(modelKey);
-                            addedCoreModelCount++;
+                            int id = await _modelRepository.AddAsync(model);
+                            Debug.WriteLine($"Added model {model.ProviderName}/{model.ModelName} with ID {id}");
+                            addedCount++;
+                            existingModelNames.Add(model.ModelName.ToLowerInvariant());
                         }
                         catch (Exception ex)
                         {
-                            Debug.WriteLine($"Error adding core OpenRouter model {modelName}: {ex.Message}");
+                            Debug.WriteLine($"Error adding model {model.ProviderName}/{model.ModelName}: {ex.Message}");
                         }
                     }
                 }
                 
-                Debug.WriteLine($"AIModelManager: Added {addedCoreModelCount} core OpenRouter models");
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error in LoadOpenRouterModelsAsync: {ex.Message}");
-                Debug.WriteLine($"Stack trace: {ex.StackTrace}");
-            }
-        }
-        
-        /// <summary>
-        /// Loads Groq models from environment variables
-        /// </summary>
-        private async Task LoadGroqModelsAsync(HashSet<string> existingModelKeys)
-        {
-            try
-            {
-                Debug.WriteLine("AIModelManager: Loading Groq models from environment...");
-                
-                // Get all environment variables with the Groq model prefix
-                var modelVars = GetEnvironmentVariableKeys("AI_MODEL_GROQ_");
-                Debug.WriteLine($"AIModelManager: Found {modelVars.Count} Groq model environment variables");
-                
-                // Create a counter to track added models  
-                int addedModelCount = 0;
-                
-                foreach (var modelVar in modelVars)
-                {
-                    try
-                    {
-                        // Extract model name and ID from environment variable
-                        string modelEnvSuffix = modelVar.Substring("AI_MODEL_GROQ_".Length);
-                        string modelId = Environment.GetEnvironmentVariable(modelVar);
-                        
-                        if (string.IsNullOrEmpty(modelId))
-                        {
-                            Debug.WriteLine($"AIModelManager: Empty model ID for {modelVar}, skipping");
-                            continue;
-                        }
-                        
-                        // Convert underscore format to dash format for display
-                        string normalizedModelName = modelId.Replace('_', '-').ToLowerInvariant();
-                        
-                        // Check if we already have this model
-                        string modelKey = $"groq:{normalizedModelName}";
-                        if (existingModelKeys.Contains(modelKey))
-                        {
-                            Debug.WriteLine($"AIModelManager: Model {normalizedModelName} already exists, skipping");
-                            continue;
-                        }
-                        
-                        Debug.WriteLine($"AIModelManager: Adding Groq model: {normalizedModelName}");
-                        
-                        // Get model description if available
-                        string descEnvVar = $"AI_MODEL_DESC_GROQ_{modelEnvSuffix}";
-                        string description = Environment.GetEnvironmentVariable(descEnvVar) ?? 
-                                            $"Groq model: {normalizedModelName}";
-                        
-                        // Get model capabilities
-                        int maxTokens = 4096;
-                        int contextWindow = 8192;
-                        bool supportsStreaming = true;
-                        bool supportsVision = false;
-                        bool supportsCodeCompletion = false;
-                        
-                        // Parse capabilities from environment if available
-                        if (int.TryParse(Environment.GetEnvironmentVariable($"AI_MODEL_CAP_GROQ_{modelEnvSuffix}_TOKENS"), out int tokens))
-                            maxTokens = tokens;
-                            
-                        if (int.TryParse(Environment.GetEnvironmentVariable($"AI_MODEL_CAP_GROQ_{modelEnvSuffix}_CONTEXT"), out int ctx))
-                            contextWindow = ctx;
-                            
-                        if (bool.TryParse(Environment.GetEnvironmentVariable($"AI_MODEL_CAP_GROQ_{modelEnvSuffix}_STREAMING"), out bool streaming))
-                            supportsStreaming = streaming;
-                            
-                        if (bool.TryParse(Environment.GetEnvironmentVariable($"AI_MODEL_CAP_GROQ_{modelEnvSuffix}_VISION"), out bool vision))
-                            supportsVision = vision;
-                            
-                        if (bool.TryParse(Environment.GetEnvironmentVariable($"AI_MODEL_CAP_GROQ_{modelEnvSuffix}_CODE"), out bool code))
-                            supportsCodeCompletion = code;
-                        
-                        // Create and save the model
-                        var model = new AIModel
-                        {
-                            ModelName = normalizedModelName,
-                            ProviderName = "Groq",
-                            Description = description,
-                            MaxTokens = maxTokens,
-                            MaxContextWindow = contextWindow,
-                            SupportsStreaming = supportsStreaming,
-                            SupportsVision = supportsVision,
-                            SupportsCodeCompletion = supportsCodeCompletion,
-                            IsAvailable = true,
-                            ApiKeyVariable = $"AI_KEY_GROQ_{modelEnvSuffix}",
-                            DisplayName = normalizedModelName,
-                            IsFavorite = false,
-                            IsSelected = false,
-                            IsDefault = false,
-                            UsageCount = 0,
-                            LastUsed = null
-                        };
-                        
-                        // Add to database
-                        var id = await _modelRepository.AddAsync(model);
-                        Debug.WriteLine($"AIModelManager: Added Groq model {normalizedModelName} with ID {id}");
-                        
-                        existingModelKeys.Add(modelKey);
-                        addedModelCount++;
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"Error adding Groq model {modelVar}: {ex.Message}");
-                    }
-                }
-                
-                Debug.WriteLine($"AIModelManager: Added {addedModelCount} Groq models from environment variables");
-                
-                // Add core models explicitly if needed
-                string[] coreModels = new[]
-                {
-                    "llama3-70b-8192",
-                    "llama3-8b-8192",
-                    "mixtral-8x7b-32768",
-                    "gemma-7b-it",
-                    "llama-3-3-70b-versatile",
-                    "llama-3-1-8b-instant"
-                };
-                
-                int addedCoreModelCount = 0;
-                
-                foreach (var modelName in coreModels)
-                {
-                    string modelKey = $"groq:{modelName.ToLowerInvariant()}";
-                    if (!existingModelKeys.Contains(modelKey))
-                    {
-                        try
-                        {
-                            var model = new AIModel
-                            {
-                                ModelName = modelName,
-                                ProviderName = "Groq",
-                                Description = $"Groq model: {modelName}",
-                                MaxTokens = 4096,
-                                MaxContextWindow = 8192,
-                                SupportsStreaming = true,
-                                IsAvailable = true,
-                                ApiKeyVariable = "AI_KEY_GROQ",
-                                DisplayName = modelName,
-                                IsFavorite = false,
-                                IsSelected = false,
-                                IsDefault = false,
-                                UsageCount = 0
-                            };
-                            
-                            var id = await _modelRepository.AddAsync(model);
-                            Debug.WriteLine($"AIModelManager: Added core Groq model {modelName} with ID {id}");
-                            
-                            existingModelKeys.Add(modelKey);
-                            addedCoreModelCount++;
-                        }
-                        catch (Exception ex)
-                        {
-                            Debug.WriteLine($"Error adding core Groq model {modelName}: {ex.Message}");
-                        }
-                    }
-                }
-                
-                Debug.WriteLine($"AIModelManager: Added {addedCoreModelCount} core Groq models");
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error in LoadGroqModelsAsync: {ex.Message}");
-                Debug.WriteLine($"Stack trace: {ex.StackTrace}");
-            }
-        }
-
-        /// <summary>
-        /// Gets environment variable keys with a specific prefix
-        /// </summary>
-        private List<string> GetEnvironmentVariableKeys(string prefix)
-        {
-            var result = new List<string>();
-            
-            try
-            {
-                foreach (string key in Environment.GetEnvironmentVariables().Keys)
-                {
-                    if (key != null && key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-                    {
-                        result.Add(key);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error getting environment variable keys: {ex.Message}");
-            }
-            
-            return result;
-        }
-        
-        /// <summary>
-        /// Loads dummy models for testing
-        /// </summary>
-        private async Task LoadDummyModelsAsync(HashSet<string> existingModelKeys)
-        {
-            try
-            {
-                Debug.WriteLine("AIModelManager: Loading dummy models for testing...");
-                
-                // Add a test model for development
-                string modelKey = "dummy:dummygpt";
-                if (!existingModelKeys.Contains(modelKey))
-                {
-                    try
-                    {
-                        var model = new AIModel
-                        {
-                            ModelName = "DummyGPT",
-                            ProviderName = "Dummy",
-                            Description = "A simulated model for testing without API calls",
-                            MaxTokens = 4096,
-                            MaxContextWindow = 8192,
-                            SupportsStreaming = true,
-                            IsAvailable = true,
-                            ApiKeyVariable = "AI_KEY_DUMMY",
-                            DisplayName = "Test Model (No API)",
-                            IsFavorite = false,
-                            IsSelected = false,
-                            IsDefault = false,
-                            UsageCount = 0
-                        };
-                        
-                        var id = await _modelRepository.AddAsync(model);
-                        Debug.WriteLine($"AIModelManager: Added dummy test model with ID {id}");
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"Error adding dummy model: {ex.Message}");
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error in LoadDummyModelsAsync: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// Loads models from all providers for refresh
-        /// </summary>
-        public async Task<bool> LoadModelsFromAllProvidersAsync()
-        {
-            try
-            {
-                Debug.WriteLine("AIModelManager: Loading models from all providers...");
-                await LoadModelsFromProvidersAsync();
-                Debug.WriteLine("AIModelManager: Completed loading models from providers");
+                Debug.WriteLine($"AIModelManager: Added {addedCount} new models for provider {providerName}");
                 return true;
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error loading models from providers: {ex.Message}");
+                Debug.WriteLine($"Error discovering models for provider {providerName}: {ex.Message}");
                 return false;
+            }
+        }
+
+        /// <summary>
+        /// Processes a list of discovered models 
+        /// </summary>
+        public async Task<bool> ProcessDiscoveredModelsAsync(List<AIModel> discoveredModels)
+        {
+            if (discoveredModels == null || discoveredModels.Count == 0)
+            {
+                Debug.WriteLine("AIModelManager: No discovered models provided to process");
+                return false;
+            }
+
+            try
+            {
+                Debug.WriteLine($"AIModelManager: Processing {discoveredModels.Count} discovered models with enhanced deduplication");
+                
+                // Pre-filter discovered models to remove duplicates BEFORE database operations
+                var uniqueDiscoveredModels = await Task.Run(() =>
+                {
+                    return discoveredModels
+                        .Where(m => !string.IsNullOrWhiteSpace(m.ProviderName) && !string.IsNullOrWhiteSpace(m.ModelName))
+                        .GroupBy(m => new { 
+                            Provider = m.ProviderName?.Trim().ToLowerInvariant(), 
+                            Model = m.ModelName?.Trim().ToLowerInvariant() 
+                        })
+                        .Select(g => g.First())
+                        .ToList();
+                });
+                
+                if (uniqueDiscoveredModels.Count != discoveredModels.Count)
+                {
+                    Debug.WriteLine($"AIModelManager: Removed {discoveredModels.Count - uniqueDiscoveredModels.Count} duplicates from discovery");
+                }
+                
+                // Clean up database duplicates first
+                await CleanupDatabaseDuplicates();
+                
+                // Get existing models with optimized query
+                var existingModels = await _modelRepository.GetAllAsync();
+                var existingModelKeys = new HashSet<string>(
+                    existingModels.Select(m => $"{m.ProviderName?.Trim().ToLowerInvariant()}:{m.ModelName?.Trim().ToLowerInvariant()}"),
+                    StringComparer.Ordinal);
+                
+                // Filter out models that already exist
+                var newModels = uniqueDiscoveredModels
+                    .Where(model => !existingModelKeys.Contains(
+                        $"{model.ProviderName?.Trim().ToLowerInvariant()}:{model.ModelName?.Trim().ToLowerInvariant()}"))
+                    .ToList();
+                    
+                Debug.WriteLine($"AIModelManager: Found {newModels.Count} genuinely new models to add");
+                
+                if (newModels.Count == 0)
+                {
+                    Debug.WriteLine("AIModelManager: No new models to add - skipping database operations");
+                    return false;
+                }
+                
+                // Add new models in optimized batches
+                int addedCount = 0;
+                const int batchSize = 10;
+                
+                for (int i = 0; i < newModels.Count; i += batchSize)
+                {
+                    var batch = newModels.Skip(i).Take(batchSize);
+                    
+                    var addTasks = batch.Select(async model =>
+                    {
+                        try
+                        {
+                            int id = await _modelRepository.AddAsync(model);
+                            Debug.WriteLine($"AIModelManager: Added model {model.ProviderName}/{model.ModelName} with ID {id}");
+                            return 1;
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"AIModelManager: Error adding model {model.ProviderName}/{model.ModelName}: {ex.Message}");
+                            return 0;
+                        }
+                    });
+                    
+                    var results = await Task.WhenAll(addTasks);
+                    addedCount += results.Sum();
+                    
+                    if (i + batchSize < newModels.Count)
+                    {
+                        await Task.Delay(5);
+                    }
+                }
+                
+                Debug.WriteLine($"AIModelManager: Successfully processed and added {addedCount} new models");
+                return addedCount > 0;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"AIModelManager: Error in ProcessDiscoveredModelsAsync: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Cleans up duplicate entries in the database
+        /// </summary>
+        private async Task CleanupDatabaseDuplicates()
+        {
+            try
+            {
+                Debug.WriteLine("AIModelManager: Starting database duplicate cleanup");
+                
+                var allModels = await _modelRepository.GetAllAsync();
+                var duplicateGroups = allModels
+                    .GroupBy(m => new { 
+                        Provider = m.ProviderName?.Trim().ToLowerInvariant(), 
+                        Model = m.ModelName?.Trim().ToLowerInvariant() 
+                    })
+                    .Where(g => g.Count() > 1)
+                    .ToList();
+                
+                if (duplicateGroups.Count == 0)
+                {
+                    Debug.WriteLine("AIModelManager: No duplicates found in database");
+                    return;
+                }
+                
+                Debug.WriteLine($"AIModelManager: Found {duplicateGroups.Count} duplicate groups");
+                
+                foreach (var group in duplicateGroups)
+                {
+                    var modelsToKeep = group.OrderByDescending(m => m.LastUsed ?? DateTime.MinValue)
+                                          .ThenByDescending(m => m.UsageCount)
+                                          .ThenByDescending(m => m.IsFavorite)
+                                          .First();
+                    
+                    var modelsToDelete = group.Where(m => m.Id != modelsToKeep.Id).ToList();
+                    
+                    foreach (var modelToDelete in modelsToDelete)
+                    {
+                        try
+                        {
+                            
+                            await _modelRepository.DeleteAsync(modelToDelete, CancellationToken.None);  
+                            Debug.WriteLine($"AIModelManager: Deleted duplicate {modelToDelete.ProviderName}/{modelToDelete.ModelName} (ID: {modelToDelete.Id})");
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"AIModelManager: Error deleting duplicate model {modelToDelete.Id}: {ex.Message}");
+                        }
+                    }
+                }
+                
+                Debug.WriteLine("AIModelManager: Database duplicate cleanup completed");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"AIModelManager: Error during database cleanup: {ex.Message}");
             }
         }
     }

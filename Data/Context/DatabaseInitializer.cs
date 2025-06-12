@@ -8,7 +8,7 @@ using System.Diagnostics;
 namespace NexusChat.Data.Context
 {
     /// <summary>
-    /// Initializes the database and creates required tables
+    /// Initializes the database and seeds initial data if needed
     /// </summary>
     public class DatabaseInitializer : IStartupInitializer
     {
@@ -23,20 +23,19 @@ namespace NexusChat.Data.Context
         }
         
         /// <summary>
-        /// Initializes the database
+        /// Initializes the database and seeds initial data
         /// </summary>
         public async Task InitializeAsync()
         {
             try
             {
                 Debug.WriteLine("Initializing database...");
-                var connection = _dbService.GetAsyncConnection();
                 
-                // Create tables for all model classes
-                await connection.CreateTableAsync<AIModel>();
-                await connection.CreateTableAsync<User>();
-                await connection.CreateTableAsync<Conversation>();
-                await connection.CreateTableAsync<Message>();
+                // Initialize the database structure
+                await _dbService.Initialize();
+                
+                // Seed initial data if needed
+                await SeedInitialDataAsync();
                 
                 Debug.WriteLine("Database initialized successfully");
                 return;
@@ -45,6 +44,33 @@ namespace NexusChat.Data.Context
             {
                 Debug.WriteLine($"Error initializing database: {ex.Message}");
                 throw; 
+            }
+        }
+        
+        /// <summary>
+        /// Seeds initial data if database is empty
+        /// </summary>
+        private async Task SeedInitialDataAsync()
+        {
+            var connection = _dbService.GetAsyncConnection();
+            
+            // Check if we need to seed data
+            bool needsSeedData = await connection.Table<User>().CountAsync() == 0;
+            
+            if (needsSeedData)
+            {
+                Debug.WriteLine("Seeding initial data...");
+                
+                // Create default user if none exists
+                var defaultUser = new User
+                {
+                    Username = "default",
+                    DisplayName = "Default User",
+                    CreatedAt = DateTime.UtcNow
+                };
+                
+                await connection.InsertAsync(defaultUser);
+                Debug.WriteLine("Seeded default user");
             }
         }
     }

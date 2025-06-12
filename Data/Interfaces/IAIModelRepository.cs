@@ -1,62 +1,79 @@
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using NexusChat.Core.Models;
 
 namespace NexusChat.Data.Interfaces
 {
     /// <summary>
-    /// Interface for AI model repository operations
+    /// Repository for AI models
     /// </summary>
     public interface IAIModelRepository : IRepository<AIModel>
     {
         /// <summary>
-        /// Gets a model by its provider and name
+        /// Gets available models (where IsAvailable = true)
         /// </summary>
-        Task<AIModel> GetModelByNameAsync(string providerName, string modelName);
+        Task<List<AIModel>> GetAvailableModelsAsync(CancellationToken cancellationToken = default);
         
         /// <summary>
-        /// Gets all models for a specific provider
+        /// Gets models by availability status
         /// </summary>
-        Task<List<AIModel>> GetByProviderAsync(string providerName);
+        Task<List<AIModel>> GetModelsByAvailabilityAsync(bool isAvailable, CancellationToken cancellationToken = default);
         
         /// <summary>
-        /// Gets all favorite models
+        /// Gets models with API key configuration in the database
+        /// Note: This doesn't check if those API keys are currently valid at runtime
         /// </summary>
-        Task<List<AIModel>> GetFavoriteModelsAsync();
+        Task<List<AIModel>> GetModelsWithApiKeyConfigAsync(CancellationToken cancellationToken = default);
+        
+        /// <summary>
+        /// Gets models by provider name
+        /// </summary>
+        Task<List<AIModel>> GetByProviderAsync(string providerName, CancellationToken cancellationToken = default);
+        
+        /// <summary>
+        /// Gets a model by provider name and model name
+        /// </summary>
+        Task<AIModel> GetModelByNameAsync(string providerName, string modelName, CancellationToken cancellationToken = default);
         
         /// <summary>
         /// Gets the currently selected model
         /// </summary>
-        Task<AIModel> GetCurrentModelAsync();
+        Task<AIModel> GetCurrentModelAsync(CancellationToken cancellationToken = default);
         
         /// <summary>
-        /// Gets all default models
+        /// Gets all favorite models
         /// </summary>
-        Task<List<AIModel>> GetDefaultModelsAsync();
+        Task<List<AIModel>> GetFavoriteModelsAsync(CancellationToken cancellationToken = default);
         
         /// <summary>
-        /// Gets all active models (with valid API keys)
+        /// Gets all default models (one per provider)
         /// </summary>
-        Task<List<AIModel>> GetActiveModelsAsync();
+        Task<List<AIModel>> GetDefaultModelsAsync(CancellationToken cancellationToken = default);
         
         /// <summary>
-        /// Sets a model as the current selected model
+        /// Sets a model as the currently selected model
         /// </summary>
-        Task<bool> SetCurrentModelAsync(AIModel model);
+        Task<bool> SetCurrentModelAsync(AIModel model, CancellationToken cancellationToken = default);
         
         /// <summary>
         /// Sets a model as default for its provider
         /// </summary>
-        Task<bool> SetAsDefaultAsync(string providerName, string modelName);
+        Task<bool> SetAsDefaultAsync(string providerName, string modelName, CancellationToken cancellationToken = default);
         
         /// <summary>
         /// Sets a model's favorite status
         /// </summary>
-        Task<bool> SetFavoriteStatusAsync(string providerName, string modelName, bool isFavorite);
+        Task<bool> SetFavoriteStatusAsync(string providerName, string modelName, bool isFavorite, CancellationToken cancellationToken = default);
         
         /// <summary>
         /// Records usage of a model
         /// </summary>
-        Task<bool> RecordUsageAsync(string providerName, string modelName);
+        Task<bool> RecordUsageAsync(string providerName, string modelName, CancellationToken cancellationToken = default);
+        
+        /// <summary>
+        /// Gets active models (models that are available and have API keys configured)
+        /// </summary>
+        Task<List<AIModel>> GetActiveModelsAsync(CancellationToken cancellationToken = default);
     }
 }

@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:viewmodels="clr-namespace:NexusChat.Core.ViewModels"
+             xmlns:controls="clr-namespace:NexusChat.Views.Controls"
+             x:Class="NexusChat.Views.Pages.ChatPage"
+             x:DataType="viewmodels:ChatViewModel"
+             Title="Chat">
+
+    <Grid>
+        <!-- Main chat content -->
+        <Grid x:Name="MainContent" RowDefinitions="Auto,*,Auto">
+            <!-- Header -->
+            <controls:ChatHeader Grid.Row="0"
+                                Title="{Binding Title}"
+                                CurrentModelName="{Binding CurrentModelName}"
+                                MenuCommand="{Binding ToggleSidebarCommand}"
+                                SwitchModelCommand="{Binding ChangeModelCommand}"
+                                OptionsCommand="{Binding ShowMenuCommand}" />
+            
+            <!-- Messages -->
+            <CollectionView x:Name="MessageCollectionView"
+                            Grid.Row="1" 
+                            ItemsSource="{Binding Messages}"
+                            BackgroundColor="{AppThemeBinding Light=#f8f9fa, Dark=#1a1a1a}">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate>
+                        <controls:MessageBubble Message="{Binding}"
+                                               RegenerateCommand="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:ChatViewModel}}, Path=RegenerateMessageCommand}" />
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+            
+            <!-- Input Area -->
+            <Grid Grid.Row="2" 
+                  ColumnDefinitions="*,Auto" 
+                  Padding="12"
+                  BackgroundColor="{AppThemeBinding Light=#ffffff, Dark=#2d2d2d}">
+                <Editor x:Name="MessageEditor"
+                        Grid.Column="0"
+                        Placeholder="Type a message..."
+                        Text="{Binding Message}"
+                        BackgroundColor="{AppThemeBinding Light=#f0f0f0, Dark=#404040}"
+                        Completed="OnEditorCompleted"
+                        HeightRequest="40" />
+                <Button Grid.Column="1"
+                        Text="Send"
+                        Command="{Binding SendMessageCommand}"
+                        Clicked="OnSendButtonClicked"
+                        Margin="8,0,0,0" />
+            </Grid>
+        </Grid>
+
+        <!-- Sidebar -->
+        <Grid x:Name="SidebarContainer"
+              WidthRequest="300"
+              HorizontalOptions="Start"
+              BackgroundColor="{AppThemeBinding Light=#ffffff, Dark=#2d2d2d}"
+              IsVisible="{Binding IsSidebarVisible}">
+            <controls:ConversationsSidebar x:Name="SidebarContent" />
+        </Grid>
+
+        <!-- Sidebar overlay -->
+        <BoxView x:Name="SidebarOverlay"
+                 BackgroundColor="Black"
+                 Opacity="0.5"
+                 IsVisible="{Binding IsSidebarVisible}">
+            <BoxView.GestureRecognizers>
+                <TapGestureRecognizer Command="{Binding ToggleSidebarCommand}" />
+            </BoxView.GestureRecognizers>
+        </BoxView>
+    </Grid>
+
+</ContentPage>

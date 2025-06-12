@@ -5,7 +5,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using NexusChat.Core.Models;
-using NexusChat.Data.Context;
+using NexusChat.Data.Interfaces;
 using NexusChat.Helpers;
 
 namespace NexusChat.Data.Context
@@ -15,15 +15,26 @@ namespace NexusChat.Data.Context
     /// </summary>
     public class DatabaseSearchService
     {
-        private readonly DatabaseService _databaseService;
+        private readonly IUserRepository _userRepository;
+        private readonly IConversationRepository _conversationRepository;
+        private readonly IMessageRepository _messageRepository;
+        private readonly IAIModelRepository _modelRepository;
         private readonly DataObjectConverter _converter;
         
         /// <summary>
         /// Initializes a new instance of DatabaseSearchService
         /// </summary>
-        public DatabaseSearchService(DatabaseService databaseService, DataObjectConverter converter)
+        public DatabaseSearchService(
+            IUserRepository userRepository,
+            IConversationRepository conversationRepository,
+            IMessageRepository messageRepository,
+            IAIModelRepository modelRepository,
+            DataObjectConverter converter)
         {
-            _databaseService = databaseService ?? throw new ArgumentNullException(nameof(databaseService));
+            _userRepository = userRepository ?? throw new ArgumentNullException(nameof(userRepository));
+            _conversationRepository = conversationRepository ?? throw new ArgumentNullException(nameof(conversationRepository));
+            _messageRepository = messageRepository ?? throw new ArgumentNullException(nameof(messageRepository));
+            _modelRepository = modelRepository ?? throw new ArgumentNullException(nameof(modelRepository));
             _converter = converter ?? throw new ArgumentNullException(nameof(converter));
         }
         
@@ -36,8 +47,6 @@ namespace NexusChat.Data.Context
             int pageSize, 
             CancellationToken cancellationToken)
         {
-            await _databaseService.Initialize();
-            
             switch (tableName.ToLower())
             {
                 case "user":
@@ -64,20 +73,14 @@ namespace NexusChat.Data.Context
             var result = new List<Dictionary<string, object>>();
             var searchLower = searchText.ToLower();
             
-            var users = await _databaseService.Database.Table<User>().ToListAsync();
+            // Use repository instead of direct database access
+            var users = await _userRepository.SearchAsync(searchText, pageSize);
             
             foreach (var user in users)
             {
                 token.ThrowIfCancellationRequested();
+                result.Add(_converter.ObjectToDictionary(user));
                 
-                if (ContainsSearchText(user.Username, searchLower) ||
-                    ContainsSearchText(user.DisplayName, searchLower) ||
-                    ContainsSearchText(user.Email, searchLower))
-                {
-                    result.Add(_converter.ObjectToDictionary(user));
-                }
-                
-                // Limit search results for better performance
                 if (result.Count >= pageSize)
                     break;
             }
@@ -96,20 +99,14 @@ namespace NexusChat.Data.Context
             var result = new List<Dictionary<string, object>>();
             var searchLower = searchText.ToLower();
             
-            var conversations = await _databaseService.Database.Table<Conversation>().ToListAsync();
+            // Use repository instead of direct database access
+            var conversations = await _conversationRepository.SearchAsync(searchText, pageSize);
             
             foreach (var conversation in conversations)
             {
                 token.ThrowIfCancellationRequested();
+                result.Add(_converter.ObjectToDictionary(conversation));
                 
-                if (ContainsSearchText(conversation.Title, searchLower) ||
-                    ContainsSearchText(conversation.Category, searchLower) ||
-                    ContainsSearchText(conversation.Summary, searchLower))
-                {
-                    result.Add(_converter.ObjectToDictionary(conversation));
-                }
-                
-                // Limit search results for better performance
                 if (result.Count >= pageSize)
                     break;
             }
@@ -128,50 +125,29 @@ namespace NexusChat.Data.Context
             var result = new List<Dictionary<string, object>>();
             var searchLower = searchText.ToLower();
             
-            // For messages, use paged approach to avoid loading all at once
-            int batchSize = 100;
-            int offset = 0;
-            bool moreRecords = true;
+            // Use repository instead of direct database access
+            var messages = await _messageRepository.SearchAsync(searchText, pageSize);
             
-            while (moreRecords && result.Count < pageSize)
+            foreach (var message in messages)
             {
                 token.ThrowIfCancellationRequested();
                 
-                var messages = await _databaseService.Database.Table<Message>()
-                    .Skip(offset).Take(batchSize).ToListAsync();
+                var dict = _converter.ObjectToDictionary(message);
                 
-                if (messages.Count == 0)
-                    moreRecords = false;
-                
-                foreach (var message in messages)
+                // Further reduce content size for search results to improve performance
+                if (dict.ContainsKey("Content") && dict["Content"] is string content && content.Length > 200)
                 {
-                    token.ThrowIfCancellationRequested();
-                    
-                    if (ContainsSearchText(message.Content, searchLower) ||
-                        ContainsSearchText(message.MessageType, searchLower) ||
-                        ContainsSearchText(message.Status, searchLower))
-                    {
-                        var dict = _converter.ObjectToDictionary(message);
-                        
-                        // Further reduce content size for search results to improve performance
-                        if (dict.ContainsKey("Content") && dict["Content"] is string content && content.Length > 200)
-                        {
-                            dict["Content"] = content.Substring(0, 200) + "...";
-                        }
-                        if (dict.ContainsKey("RawResponse") && dict["RawResponse"] is string raw && raw.Length > 50)
-                        {
-                            dict["RawResponse"] = raw.Substring(0, 50) + "...";
-                        }
-                        
-                        result.Add(dict);
-                        
-                        // Limit search results
-                        if (result.Count >= pageSize)
-                            break;
-                    }
+                    dict["Content"] = content.Substring(0, 200) + "...";
+                }
+                if (dict.ContainsKey("RawResponse") && dict["RawResponse"] is string raw && raw.Length > 50)
+                {
+                    dict["RawResponse"] = raw.Substring(0, 50) + "...";
                 }
                 
-                offset += batchSize;
+                result.Add(dict);
+                
+                if (result.Count >= pageSize)
+                    break;
             }
             
             return result;
@@ -188,20 +164,14 @@ namespace NexusChat.Data.Context
             var result = new List<Dictionary<string, object>>();
             var searchLower = searchText.ToLower();
             
-            var models = await _databaseService.Database.Table<AIModel>().ToListAsync();
+            // Use repository instead of direct database access
+            var models = await _modelRepository.SearchAsync(searchText, pageSize);
             
             foreach (var model in models)
             {
                 token.ThrowIfCancellationRequested();
+                result.Add(_converter.ObjectToDictionary(model));
                 
-                if (ContainsSearchText(model.ModelName, searchLower) ||
-                    ContainsSearchText(model.ProviderName, searchLower) ||
-                    ContainsSearchText(model.Description, searchLower))
-                {
-                    result.Add(_converter.ObjectToDictionary(model));
-                }
-                
-                // Limit search results for better performance
                 if (result.Count >= pageSize)
                     break;
             }

@@ -30,12 +30,12 @@ namespace NexusChat.Services
         /// <summary>
         /// Occurs when streaming data is received
         /// </summary>
-        public event EventHandler<string> StreamingDataReceived;
+        public event EventHandler<string>? StreamingDataReceived;
 
         /// <summary>
         /// Occurs when the model is changed
         /// </summary>
-        public event EventHandler<AIModel> ModelChanged;
+        public event EventHandler<AIModel>? ModelChanged;
 
         /// <summary>
         /// Creates a new ChatService instance
@@ -186,7 +186,7 @@ namespace NexusChat.Services
         /// <summary>
         /// Creates a new conversation
         /// </summary>
-        public async Task<Conversation> CreateConversationAsync(string title, string modelName = null, string providerName = null)
+        public async Task<Conversation> CreateConversationAsync(string title, string? modelName = null, string? providerName = null)
         {
             try
             {
@@ -294,7 +294,7 @@ namespace NexusChat.Services
 
                 // Update message status
                 aiMessage.Status = "complete";
-                await _messageRepository.UpdateAsync(aiMessage);
+                await _messageRepository.UpdateAsync(aiMessage, cancellationToken);
 
                 return aiMessage;
             }
@@ -319,7 +319,7 @@ namespace NexusChat.Services
                 message.Content = content;
 
                 // Update in database
-                await _messageRepository.UpdateAsync(message);
+                await _messageRepository.UpdateAsync(message, CancellationToken.None);
             }
             catch (Exception ex)
             {
@@ -328,20 +328,92 @@ namespace NexusChat.Services
         }
 
         /// <summary>
+        /// Updates AI message status
+        /// </summary>
+        private async Task UpdateAIMessageStatusAsync(Message message, CancellationToken cancellationToken)
+        {
+            try
+            {
+                await _messageRepository.UpdateAsync(message, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error updating AI message status: {ex.Message}");
+            }
+        }
+
+        /// <summary>
         /// Gets the current AI service based on the selected model
         /// </summary>
-        private async Task<IAIProviderService> GetCurrentAIServiceAsync()
+        private async Task<IAIProviderService?> GetCurrentAIServiceAsync()
         {
+            await Task.Delay(1); // Make method truly async
+            
             var currentModel = _modelManager.CurrentModel;
             if (currentModel == null)
             {
                 Debug.WriteLine("No current model selected, using default");
-                // Use correct method from IAIProviderFactory
-                return _providerFactory.GetDefaultService();
+                // return _providerFactory.GetDefaultService();
+                return null; // No model selected, return null
             }
 
-            // Use correct method from IAIProviderFactory
-            return _providerFactory.GetProviderForModel(currentModel.ProviderName, currentModel.ModelName);
+            return await _providerFactory.GetProviderForModelAsync(currentModel.ProviderName, currentModel.ModelName);
+        }
+
+        /// <summary>
+        /// Gets the last message for a conversation
+        /// </summary>
+        public async Task<Message?> GetLastMessageAsync(int conversationId, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                var lastMessage = await _messageRepository.GetLastMessageForConversationAsync(conversationId, cancellationToken);
+                return lastMessage;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error getting last message: {ex.Message}");
+                return null;
+            }
+        }
+
+        public async Task<List<Message>> GetMessagesAsync(int conversationId, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                return await _messageRepository.GetMessagesByConversationIdAsync(conversationId, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error getting messages: {ex.Message}");
+                return new List<Message>();
+            }
+        }
+
+        public async Task RegenerateMessageAsync(int conversationId, int messageId, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                var message = await _messageRepository.GetByIdAsync(messageId, cancellationToken);
+                if (message != null && !message.IsFromUser)
+                {
+                    // Find the previous user message to regenerate from
+                    var messages = await _messageRepository.GetMessagesByConversationIdAsync(conversationId, cancellationToken);
+                    var previousUserMessage = messages
+                        .Where(m => m.IsFromUser && m.Timestamp < message.Timestamp)
+                        .OrderByDescending(m => m.Timestamp)
+                        .FirstOrDefault();
+
+                    if (previousUserMessage != null)
+                    {
+                        await SendAIMessageAsync(conversationId, previousUserMessage.Content);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error regenerating message: {ex.Message}");
+            }
         }
     }
 }

@@ -1,9 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using NexusChat.Data.Context;
 using CommunityToolkit.Maui;
-using NexusChat.Views.Pages.DevTools;
 using NexusChat.Views.Pages;
-using NexusChat.Core.ViewModels.DevTools;
 using NexusChat.Core.ViewModels;
 using NexusChat.Data.Repositories;
 using NexusChat.Services.Interfaces;
@@ -22,127 +20,109 @@ public static class MauiProgram
     public static MauiApp CreateMauiApp()
     {
         var builder = MauiApp.CreateBuilder();
+        
+        // Load environment variables at startup
+        LoadEnvironmentVariables();
+        
         builder
             .UseMauiApp<App>()
-            // Add the CommunityToolkit.Maui
             .UseMauiCommunityToolkit()
             .ConfigureFonts(fonts =>
             {
-                // Open Sans fonts
                 fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
                 fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemiBold");
                 fonts.AddFont("OpenSans-Bold.ttf", "OpenSansBold");
-                
-                // Add FontAwesome font
-                fonts.AddFont("FontAwesome-Solid.otf", "FontAwesome-Solid");
+                fonts.AddFont("fa-solid-900.ttf", "FontAwesome-Solid");
             });
 
-        // Register services and view models
-        builder.Services.AddSingleton<Data.Context.DatabaseService>();
-
-        // Register repositories
-        builder.Services.AddSingleton<Data.Interfaces.IAIModelRepository, Data.Repositories.AIModelRepository>();
-        builder.Services.AddSingleton<Data.Interfaces.IConversationRepository, Data.Repositories.ConversationRepository>();
-        builder.Services.AddSingleton<Data.Interfaces.IMessageRepository, Data.Repositories.MessageRepository>();
-
-        // Register API key management
-        builder.Services.AddSingleton<NexusChat.Services.Interfaces.IApiKeyProvider, NexusChat.Services.ApiKeyManagement.ApiKeyProvider>();
-        builder.Services.AddSingleton<NexusChat.Services.Interfaces.IApiKeyManager, NexusChat.Services.ApiKeyManagement.ApiKeyManager>();
-
-        // Register AI services
-        builder.Services.AddSingleton<NexusChat.Services.Interfaces.IAIProviderFactory, NexusChat.Services.AIProviders.AIProviderFactory>();
-        builder.Services.AddTransient<NexusChat.Services.AIProviders.Implementations.GroqAIService>();
-        builder.Services.AddTransient<NexusChat.Services.AIProviders.Implementations.OpenRouterAIService>();
-        builder.Services.AddTransient<NexusChat.Services.AIProviders.Implementations.DummyAIService>();
-        builder.Services.AddTransient<NexusChat.Services.Interfaces.IAIProviderService, NexusChat.Services.AIProviders.Implementations.DummyAIService>(); // Default IAIProviderService implementation
-
-        // Register model management
-        builder.Services.AddSingleton<NexusChat.Services.Interfaces.IAIModelManager, NexusChat.Services.AIManagement.AIModelManager>();
-
-        // Register chat service
-        builder.Services.AddSingleton<NexusChat.Services.ChatService>();
-        builder.Services.AddSingleton<IChatService, ChatService>();
-
-        // Register view models
-        builder.Services.AddTransient<NexusChat.Core.ViewModels.MainPageViewModel>();
-        builder.Services.AddTransient<NexusChat.Core.ViewModels.AIModelsViewModel>();
-        builder.Services.AddTransient<NexusChat.Core.ViewModels.ChatViewModel>();
-        builder.Services.AddTransient<ConversationsPageViewModel>();
-
-        // Register pages
-        builder.Services.AddTransient<NexusChat.Views.Pages.MainPage>();
-        builder.Services.AddTransient<NexusChat.Views.Pages.AIModelsPage>();
-        builder.Services.AddTransient<NexusChat.Views.Pages.ChatPage>();
-        builder.Services.AddTransient<ConversationsPage>();
-
-        // Make sure the navigation service is registered
-        builder.Services.AddSingleton<INavigationService, NavigationService>();
-
+        // Register Services
         RegisterServices(builder.Services);
+
+        // Register ViewModels
         RegisterViewModels(builder.Services);
+
+        // Register Pages
         RegisterPages(builder.Services);
-        RegisterRoutes();
-        
+
+        // Routes are registered in AppShell.xaml.cs - no need for duplicate registration here
+
 #if DEBUG
         builder.Logging.AddDebug();
 #endif
 
         return builder.Build();
     }
-    
-    private static void RegisterViewModels(IServiceCollection services)
+
+    private static void LoadEnvironmentVariables()
     {
-        // Register view models
-        services.AddTransient<MainPageViewModel>();
-        services.AddTransient<ChatViewModel>();
-        services.AddTransient<AIModelsViewModel>();
-        services.AddTransient<ConversationsPageViewModel>();
+        try
+        {
+            // Centralized .env loading - check multiple common locations
+            var possiblePaths = new[]
+            {
+                ".env",
+                "../.env",
+                "../../.env",
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".env"),
+                Path.Combine(FileSystem.AppDataDirectory, ".env")
+            };
+
+            foreach (var path in possiblePaths)
+            {
+                if (File.Exists(path))
+                {
+                    DotNetEnv.Env.Load(path);
+                    System.Diagnostics.Debug.WriteLine($"Loaded .env from: {path}");
+                    break;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Failed to load .env file: {ex.Message}");
+        }
     }
 
     private static void RegisterServices(IServiceCollection services)
     {
-        // Register required services
-        services.AddSingleton<INavigationService, NavigationService>();
-        services.AddSingleton<ChatService>();
+        // Singletons - Core Services (as per project instructions)
+        services.AddSingleton<DatabaseService>();
+        services.AddSingleton<IAIModelRepository, AIModelRepository>();
+        services.AddSingleton<IConversationRepository, ConversationRepository>();
+        services.AddSingleton<IMessageRepository, MessageRepository>();
+        services.AddSingleton<IApiKeyStorageProvider, ApiKeyStorageProvider>();
+        services.AddSingleton<IApiKeyManager, ApiKeyManager>();
+        services.AddSingleton<IAIProviderFactory, AIProviderFactory>();
+        services.AddSingleton<IAIModelDiscoveryService, AIModelDiscoveryService>();
+        services.AddSingleton<IAIModelManager, AIModelManager>();
         services.AddSingleton<IChatService, ChatService>();
-        
-        // Register transient services for AI providers
-        // These need to be transient since they're created on demand with different model parameters
+        services.AddSingleton<INavigationService, NavigationService>();
+        services.AddSingleton<ConversationService>();
+        services.AddSingleton<DatabaseInitializer>();
+        services.AddSingleton<IStartupInitializer>(sp => sp.GetRequiredService<DatabaseInitializer>());
+        services.AddMemoryCache();
+
+        // Transients - AI Service Implementations and ViewModels
         services.AddTransient<GroqAIService>();
         services.AddTransient<OpenRouterAIService>();
         services.AddTransient<DummyAIService>();
-        
-        services.AddScoped<IMessageRepository, MessageRepository>();
-        services.AddScoped<IConversationRepository, ConversationRepository>();
-        services.AddSingleton<DatabaseService>();
-        services.AddMemoryCache();
-        
-        // Register database service first (needed by repositories)
-        services.AddSingleton<DatabaseService>();
-        
+        services.AddTransient<IAIProviderService, DummyAIService>();
+    }
 
-        // Register API key management services
-        services.AddSingleton<IApiKeyProvider, ApiKeyProvider>();
-        services.AddSingleton<IApiKeyManager, ApiKeyManager>();
-        
-        // Register model management services
-        services.AddSingleton<IAIModelRepository, AIModelRepository>();
-        
-        // Register AI services
-        services.AddSingleton<IAIProviderFactory, AIProviderFactory>();
-        services.AddSingleton<IAIModelManager, AIModelManager>();
+    private static void RegisterViewModels(IServiceCollection services)
+    {
+        // Transients - ViewModels (as per project instructions)
+        services.AddTransient<MainPageViewModel>();
+        services.AddTransient<ChatViewModel>();
+        services.AddTransient<AIModelsViewModel>();
+        services.AddTransient<ConversationsSidebarViewModel>();
     }
 
     private static void RegisterPages(IServiceCollection services)
     {
+        // Transients - Pages (as per project instructions)
         services.AddTransient<MainPage>();
         services.AddTransient<ChatPage>();
         services.AddTransient<AIModelsPage>();
-        services.AddTransient<ConversationsPage>();
-    }
-
-    private static void RegisterRoutes()
-    {
-        Routing.RegisterRoute(nameof(ChatPage), typeof(ChatPage));
     }
 }

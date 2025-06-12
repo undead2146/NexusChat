@@ -5,6 +5,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using NexusChat.Core.Models;
 using SQLite;
+using System.Reflection;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace NexusChat.Data.Context
 {
@@ -31,13 +34,19 @@ namespace NexusChat.Data.Context
             {
                 if (_database == null)
                 {
-                    // Note: This isn't awaitable, so database may not be ready
-                    Initialize().GetAwaiter().GetResult();
+                    lock (_initLock)
+                    {
+                        if (_database == null)
+                        {
+                            _database = new SQLiteAsyncConnection(_databasePath, 
+                                SQLiteOpenFlags.Create | SQLiteOpenFlags.ReadWrite | SQLiteOpenFlags.SharedCache);
+                        }
+                    }
                 }
                 return _database;
             }
         }
-        
+
         /// <summary>
         /// Database filename constant
         /// </summary>
@@ -124,55 +133,11 @@ namespace NexusChat.Data.Context
             {
                 Debug.WriteLine("Creating database tables if needed");
 
-                // Get the model types based on attributes to ensure we're using the right table names
-                var tableInfo = await _database.GetTableInfoAsync("Messages");
-                if (tableInfo == null || tableInfo.Count == 0)
-                {
-                    Debug.WriteLine("Creating Messages table");
-                    await _database.CreateTableAsync<Message>();
-                    Debug.WriteLine("Messages table created");
-                }
-                else
-                {
-                    Debug.WriteLine("Messages table already exists");
-                }
-
-                tableInfo = await _database.GetTableInfoAsync("Users");
-                if (tableInfo == null || tableInfo.Count == 0)
-                {
-                    Debug.WriteLine("Creating Users table");
-                    await _database.CreateTableAsync<User>();
-                    Debug.WriteLine("Users table created");
-                }
-                else
-                {
-                    Debug.WriteLine("Users table already exists");
-                }
-
-                tableInfo = await _database.GetTableInfoAsync("Conversations");
-                if (tableInfo == null || tableInfo.Count == 0)
-                {
-                    Debug.WriteLine("Creating Conversations table");
-                    await _database.CreateTableAsync<Conversation>();
-                    Debug.WriteLine("Conversations table created");
-                }
-                else
-                {
-                    Debug.WriteLine("Conversations table already exists");
-                }
-
-                tableInfo = await _database.GetTableInfoAsync("AIModels");
-                if (tableInfo == null || tableInfo.Count == 0)
-                {
-                    Debug.WriteLine("Creating AIModels table");
-                    await _database.CreateTableAsync<AIModel>();
-                    Debug.WriteLine("AIModels table created");
-                }
-                else
-                {
-                    Debug.WriteLine("AIModels table already exists");
-                }
-                
+                // Create tables if they don't exist
+                await CreateOrUpdateTableAsync<Message>("Messages");
+                await CreateOrUpdateTableAsync<User>("Users");
+                await CreateOrUpdateTableAsync<Conversation>("Conversations");
+                await CreateOrUpdateTableAsync<AIModel>("AIModels");
                 
                 Debug.WriteLine("Database schema verification completed");
             }
@@ -181,6 +146,124 @@ namespace NexusChat.Data.Context
                 Debug.WriteLine($"Error creating tables: {ex}");
                 throw;
             }
+        }
+        
+        /// <summary>
+        /// Creates or updates a table schema to match the model
+        /// </summary>
+        /// <typeparam name="T">The model type</typeparam>
+        /// <param name="tableName">The table name</param>
+        private async Task CreateOrUpdateTableAsync<T>(string tableName) where T : new()
+        {
+            try
+            {
+                // Check if table exists
+                var tableInfo = await _database.GetTableInfoAsync(tableName);
+                if (tableInfo == null || tableInfo.Count == 0)
+                {
+                    Debug.WriteLine($"Creating {tableName} table");
+                    await _database.CreateTableAsync<T>();
+                    Debug.WriteLine($"{tableName} table created");
+                    return;
+                }
+                
+                Debug.WriteLine($"{tableName} table already exists, checking for schema updates");
+                
+                // Get existing columns
+                var existingColumns = new HashSet<string>(
+                    tableInfo.Select(c => c.Name), 
+                    StringComparer.OrdinalIgnoreCase);
+                
+                // Get model properties that should be columns
+                var modelType = typeof(T);
+                var modelProperties = modelType.GetProperties()
+                    .Where(p => !p.GetCustomAttributes(true)
+                        .Any(a => a.GetType().Name == "IgnoreAttribute"))
+                    .ToList();
+                
+                bool needsMigration = false;
+                var missingColumns = new List<PropertyInfo>();
+                
+                // Find missing columns
+                foreach (var prop in modelProperties)
+                {
+                    var columnAttr = prop.GetCustomAttribute<ColumnAttribute>();
+                    var columnName = columnAttr?.Name ?? prop.Name;
+                    
+                    if (!existingColumns.Contains(columnName))
+                    {
+                        missingColumns.Add(prop);
+                        needsMigration = true;
+                    }
+                }
+                
+                // If we have missing columns, alter the table
+                if (needsMigration)
+                {
+                    Debug.WriteLine($"Adding {missingColumns.Count} missing columns to {tableName}");
+                    
+                    foreach (var prop in missingColumns)
+                    {
+                        var columnName = prop.GetCustomAttribute<ColumnAttribute>()?.Name ?? prop.Name;
+                        var columnType = GetSqliteTypeName(prop.PropertyType);
+                        
+                        // Null constraint depends on if the type is nullable
+                        var isNullable = IsNullableType(prop.PropertyType);
+                        var nullConstraint = isNullable ? "" : " NOT NULL DEFAULT ''";
+                        
+                        var alterSql = $"ALTER TABLE {tableName} ADD COLUMN {columnName} {columnType}{nullConstraint}";
+                        Debug.WriteLine($"Executing: {alterSql}");
+                        
+                        await _database.ExecuteAsync(alterSql);
+                    }
+                    Debug.WriteLine($"Schema migration completed for {tableName}");
+                }
+                else
+                {
+                    Debug.WriteLine($"No schema changes needed for {tableName}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error updating schema for {tableName}: {ex.Message}");
+                throw;
+            }
+        }
+        
+        /// <summary>
+        /// Determines if a type is nullable
+        /// </summary>
+        private bool IsNullableType(Type type)
+        {
+            if (!type.IsValueType) return true; // Reference types are nullable
+            return Nullable.GetUnderlyingType(type) != null; // Check for Nullable<T>
+        }
+        
+        /// <summary>
+        /// Maps .NET types to SQLite types
+        /// </summary>
+        private string GetSqliteTypeName(Type type)
+        {
+            // Handle nullable types
+            type = Nullable.GetUnderlyingType(type) ?? type;
+            
+            if (type == typeof(int) || type == typeof(long) || type == typeof(bool) || 
+                type == typeof(byte) || type == typeof(sbyte) || type == typeof(short))
+                return "INTEGER";
+                
+            if (type == typeof(float) || type == typeof(double) || type == typeof(decimal))
+                return "REAL";
+                
+            if (type == typeof(DateTime))
+                return "TEXT"; // Store as ISO8601 strings
+                
+            if (type == typeof(Guid))
+                return "TEXT"; // Store as strings
+                
+            if (type == typeof(byte[]))
+                return "BLOB";
+                
+            return "TEXT"; // Default for strings and other types
         }
         
         /// <summary>
@@ -308,6 +391,54 @@ namespace NexusChat.Data.Context
             await CreateTablesIfNeededAsync();
 
             _isInitialized = true;
+        }
+
+        /// <summary>
+        /// Fast synchronous initialization without deadlocks
+        /// </summary>
+        public void InitializeSync()
+        {
+            if (_isInitialized)
+                return;
+
+            lock (_initLock)
+            {
+                if (_isInitialized)
+                    return;
+
+                try
+                {
+                    Debug.WriteLine("DatabaseService: Fast sync initialization");
+                    
+                    // Create connection immediately without async operations
+                    _database = new SQLiteAsyncConnection(_databasePath, 
+                        SQLiteOpenFlags.Create | SQLiteOpenFlags.ReadWrite | SQLiteOpenFlags.SharedCache);
+                    
+                    // Mark as initialized - table creation can happen in background
+                    _isInitialized = true;
+                    
+                    // Create tables in background without blocking
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            await CreateTablesIfNeededAsync();
+                            Debug.WriteLine("DatabaseService: Background table creation completed");
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"DatabaseService: Background table creation error: {ex.Message}");
+                        }
+                    });
+                    
+                    Debug.WriteLine("DatabaseService: Sync initialization completed immediately");
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"DatabaseService: Error in sync initialization: {ex.Message}");
+                    throw;
+                }
+            }
         }
 
         /// <summary>

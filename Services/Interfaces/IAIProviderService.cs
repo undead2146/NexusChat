@@ -3,6 +3,7 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using NexusChat.Core.Models;
+using System.Collections.Generic;
 
 namespace NexusChat.Services.Interfaces
 {
@@ -57,5 +58,16 @@ namespace NexusChat.Services.Interfaces
         /// Estimates token count for text
         /// </summary>
         int EstimateTokens(string text);
+    }
+
+    /// <summary>
+    /// Interface for AI provider services that can list supported models
+    /// </summary>
+    public interface IModelDiscoveryProvider
+    {
+        /// <summary>
+        /// Gets all available models supported by this provider
+        /// </summary>
+        Task<List<AIModel>> GetSupportedModelsAsync();
     }
 }

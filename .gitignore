@@ -8,7 +8,7 @@ Local/
 .env
 .editorconfig
 .gitignore
-
+docs/
 
 
 # User-specific files

@@ -56,8 +56,20 @@ namespace NexusChat.Services.Interfaces
         Task<bool> RecordModelUsageAsync(string providerName, string modelName);
         
         /// <summary>
-        /// Loads models from all providers
+        /// Discovers and loads models from all available sources
         /// </summary>
-        Task<bool> LoadModelsFromAllProvidersAsync();
+        Task<bool> DiscoverAndLoadModelsAsync();
+        
+        /// <summary>
+        /// Discovers and loads models for a specific provider
+        /// </summary>
+        Task<bool> DiscoverAndLoadProviderModelsAsync(string providerName);
+        
+        /// <summary>
+        /// Processes a list of discovered models and adds new ones to the database
+        /// </summary>
+        /// <param name="discoveredModels">List of models discovered from providers</param>
+        /// <returns>True if new models were added, false otherwise</returns>
+        Task<bool> ProcessDiscoveredModelsAsync(List<AIModel> discoveredModels);
     }
 }

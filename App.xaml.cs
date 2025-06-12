@@ -1,5 +1,6 @@
 ﻿using NexusChat.Helpers;
 using Microsoft.Maui.Controls;
+using Microsoft.Maui.Controls.Shapes;
 using CommunityToolkit.Mvvm.Messaging;
 using NexusChat.Core.ViewModels;
 using NexusChat.Resources.Styles;
@@ -148,50 +149,50 @@ namespace NexusChat
 
         /// <summary>
         /// Ensures message bubble styles are available globally
+        
         /// </summary>
         private void RegisterMessageBubbleStyles()
         {
             try
             {
-                // Create safer styles without using Application.Current in constructor
                 Color userBubbleBackgroundLight = Color.FromArgb("#e3f2fd");
                 Color userBubbleBackgroundDark = Color.FromArgb("#0d47a1");
                 Color aiBubbleBackgroundLight = Color.FromArgb("#f0f0f0");
                 Color aiBubbleBackgroundDark = Color.FromArgb("#303030");
                 
-                // Add user bubble style
-                if (!Resources.TryGetValue("MessageBubbleUserFrame", out _))
+                // Add user bubble style using Border instead of Frame
+                if (!Resources.TryGetValue("MessageBubbleUserBorder", out _))
                 {
-                    var style = new Style(typeof(Frame));
-                    style.Setters.Add(new Setter { Property = Frame.BackgroundColorProperty, Value = new AppThemeBindingExtension 
+                    var style = new Style(typeof(Border));
+                    style.Setters.Add(new Setter { Property = Border.BackgroundColorProperty, Value = new AppThemeBindingExtension 
                     { 
                         Light = userBubbleBackgroundLight,
                         Dark = userBubbleBackgroundDark
                     }});
-                    style.Setters.Add(new Setter { Property = Frame.CornerRadiusProperty, Value = 10 });
-                    style.Setters.Add(new Setter { Property = Frame.PaddingProperty, Value = new Thickness(12, 8) });
-                    style.Setters.Add(new Setter { Property = Frame.BorderColorProperty, Value = Colors.Transparent });
-                    style.Setters.Add(new Setter { Property = Frame.HasShadowProperty, Value = false });
+                    style.Setters.Add(new Setter { Property = Border.StrokeShapeProperty, Value = new RoundRectangle { CornerRadius = new CornerRadius(10) } });
+                    style.Setters.Add(new Setter { Property = Border.PaddingProperty, Value = new Thickness(12, 8) });
+                    style.Setters.Add(new Setter { Property = Border.StrokeProperty, Value = Colors.Transparent });
                     
-                    Resources.Add("MessageBubbleUserFrame", style);
+                    Resources.Add("MessageBubbleUserBorder", style);
                 }
 
-                // Add AI bubble style
-                if (!Resources.TryGetValue("MessageBubbleAIFrame", out _))
+                // Add AI bubble style using Border instead of Frame
+                if (!Resources.TryGetValue("MessageBubbleAIBorder", out _))
                 {
-                    var style = new Style(typeof(Frame));
-                    style.Setters.Add(new Setter { Property = Frame.BackgroundColorProperty, Value = new AppThemeBindingExtension 
+                    var style = new Style(typeof(Border));
+                    style.Setters.Add(new Setter { Property = Border.BackgroundColorProperty, Value = new AppThemeBindingExtension 
                     { 
                         Light = aiBubbleBackgroundLight,
                         Dark = aiBubbleBackgroundDark
                     }});
-                    style.Setters.Add(new Setter { Property = Frame.CornerRadiusProperty, Value = 10 });
-                    style.Setters.Add(new Setter { Property = Frame.PaddingProperty, Value = new Thickness(12, 8) });
-                    style.Setters.Add(new Setter { Property = Frame.BorderColorProperty, Value = Colors.Transparent });
-                    style.Setters.Add(new Setter { Property = Frame.HasShadowProperty, Value = false });
+                    style.Setters.Add(new Setter { Property = Border.StrokeShapeProperty, Value = new RoundRectangle { CornerRadius = new CornerRadius(10) } });
+                    style.Setters.Add(new Setter { Property = Border.PaddingProperty, Value = new Thickness(12, 8) });
+                    style.Setters.Add(new Setter { Property = Border.StrokeProperty, Value = Colors.Transparent });
                     
-                    Resources.Add("MessageBubbleAIFrame", style);
+                    Resources.Add("MessageBubbleAIBorder", style);
                 }
+
+                System.Diagnostics.Debug.WriteLine("App: Message bubble styles registered with Border (Frame constraint compliance)");
             }
             catch (Exception ex)
             {

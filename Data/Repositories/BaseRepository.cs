@@ -11,272 +11,153 @@ using SQLite;
 namespace NexusChat.Data.Repositories
 {
     /// <summary>
-    /// Base repository implementation for database operations
+    /// Base implementation of the repository pattern
     /// </summary>
-    /// <typeparam name="T">Entity type for the repository</typeparam>
     public abstract class BaseRepository<T> : IRepository<T> where T : class, new()
     {
-        /// <summary>
-        /// The database service
-        /// </summary>
-        protected readonly DatabaseService DatabaseService;
+        protected readonly DatabaseService _dbService;
+        protected readonly string _tableName;
 
-        /// <summary>
-        /// Gets the SQLite database connection
-        /// </summary>
-        protected SQLiteAsyncConnection Database => DatabaseService.Database;
-
-        /// <summary>
-        /// Creates a new instance of BaseRepository
-        /// </summary>
-        /// <param name="databaseService">Database service</param>
-        public BaseRepository(DatabaseService databaseService)
+        public BaseRepository(DatabaseService dbService)
         {
-            DatabaseService = databaseService ?? throw new ArgumentNullException(nameof(databaseService));
-        }
-        
-        /// <summary>
-        /// Ensures the database is initialized
-        /// </summary>
-        public virtual async Task EnsureDatabaseAsync(CancellationToken cancellationToken = default)
-        {
-            await DatabaseService.Initialize(cancellationToken);
+            _dbService = dbService ?? throw new ArgumentNullException(nameof(dbService));
+            _tableName = typeof(T).Name;
         }
 
         /// <summary>
-        /// Initializes the repository, ensuring database is ready
+        /// Execute database operation with standardized error handling and cancellation support
         /// </summary>
-        public virtual async Task InitializeRepositoryAsync()
+        protected async Task<TResult> ExecuteDbOperationAsync<TResult>(
+            Func<SQLiteAsyncConnection, CancellationToken, Task<TResult>> operation, 
+            string operationName,
+            CancellationToken cancellationToken = default,
+            TResult defaultValue = default)
         {
-            await DatabaseService.Initialize();
+            try
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var db = await _dbService.GetConnectionAsync();
+                return await operation(db, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                Debug.WriteLine($"Operation {operationName} on {_tableName} was cancelled");
+                throw; // Rethrow cancellation to allow proper handling
+            }
+            catch (SQLiteException ex)
+            {
+                Debug.WriteLine($"SQLite error in {operationName} on {_tableName}: {ex.Message}");
+                return defaultValue;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error in {operationName} on {_tableName}: {ex.Message}");
+                throw;  // Re-throw non-SQLite errors as they may need different handling
+            }
         }
 
-        /// <summary>
-        /// Initialize database connection
-        /// </summary>
-        public async Task InitializeAsync()
+        // IRepository implementation
+        public async Task<T> GetByIdAsync(int id, CancellationToken cancellationToken = default)
         {
-            await DatabaseService.Initialize();
-            
-            // Create table for this entity if it doesn't exist
-            await Database.CreateTableAsync<T>();
+            return await ExecuteDbOperationAsync(
+                async (db, ct) => await db.GetAsync<T>(id),
+                "GetById",
+                cancellationToken);
         }
 
-        /// <summary>
-        /// Gets all entities
-        /// </summary>
         public virtual async Task<List<T>> GetAllAsync(CancellationToken cancellationToken = default)
         {
-            try
-            {
-                await EnsureDatabaseAsync(cancellationToken);
-                return await Database.Table<T>().ToListAsync();
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error in {GetType().Name}.GetAllAsync: {ex.Message}");
-                return new List<T>();
-            }
+            return await ExecuteDbOperationAsync(
+                async (db, ct) => await db.Table<T>().ToListAsync(),
+                "GetAll",
+                cancellationToken,
+                new List<T>());
         }
 
-        /// <summary>
-        /// Gets all entities
-        /// </summary>
-        public virtual async Task<List<T>> GetAllAsync()
+        public async Task<List<T>> FindAsync(Expression<Func<T, bool>> predicate)
         {
-            return await GetAllAsync(CancellationToken.None);
+            return await ExecuteDbOperationAsync(
+                async (db, ct) => await db.Table<T>().Where(predicate).ToListAsync(),
+                "Find",
+                CancellationToken.None,
+                new List<T>());
         }
 
-        /// <summary>
-        /// Gets entities by a predicate
-        /// </summary>
-        public virtual async Task<List<T>> FindAsync(Expression<Func<T, bool>> predicate)
-        {
-            try
-            {
-                await EnsureDatabaseAsync();
-                return await Database.Table<T>().Where(predicate).ToListAsync();
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error in {GetType().Name}.FindAsync: {ex.Message}");
-                return new List<T>();
-            }
-        }
-
-        /// <summary>
-        /// Gets an entity by ID
-        /// </summary>
-        public virtual async Task<T> GetByIdAsync(int id, CancellationToken cancellationToken = default)
-        {
-            try
-            {
-                await EnsureDatabaseAsync(cancellationToken);
-                return await Database.FindAsync<T>(id);
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error in {GetType().Name}.GetByIdAsync: {ex.Message}");
-                return default;
-            }
-        }
-
-        /// <summary>
-        /// Gets an entity by ID
-        /// </summary>
-        public virtual async Task<T> GetByIdAsync(int id)
-        {
-            return await GetByIdAsync(id, CancellationToken.None);
-        }
-
-        /// <summary>
-        /// Adds a new entity
-        /// </summary>
         public virtual async Task<int> AddAsync(T entity, CancellationToken cancellationToken = default)
         {
-            try
-            {
-                await EnsureDatabaseAsync(cancellationToken);
-                return await Database.InsertAsync(entity);
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error in {GetType().Name}.AddAsync: {ex.Message}");
-                return -1;
-            }
+            return await ExecuteDbOperationAsync(
+                async (db, ct) => await db.InsertAsync(entity),
+                "Add",
+                cancellationToken,
+                -1);
         }
 
-        /// <summary>
-        /// Adds a new entity
-        /// </summary>
-        public virtual async Task<int> AddAsync(T entity)
+        public async Task<bool> UpdateAsync(T entity, CancellationToken cancellationToken = default)
         {
-            return await AddAsync(entity, CancellationToken.None);
+            return await ExecuteDbOperationAsync(
+                async (db, ct) =>
+                {
+                    int result = await db.UpdateAsync(entity);
+                    return result > 0;
+                },
+                "Update",
+                cancellationToken,
+                false);
         }
 
-        /// <summary>
-        /// Updates an existing entity
-        /// </summary>
-        public virtual async Task<bool> UpdateAsync(T entity)
+        // For backward compatibility - delegates to cancellation-aware version
+        public Task<bool> UpdateAsync(T entity) => UpdateAsync(entity, CancellationToken.None);
+
+        public async Task<bool> DeleteAsync(T entity, CancellationToken cancellationToken = default)
         {
-            try
-            {
-                await EnsureDatabaseAsync();
-                int result = await Database.UpdateAsync(entity);
-                return result > 0;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error in {GetType().Name}.UpdateAsync: {ex.Message}");
-                return false;
-            }
+            return await ExecuteDbOperationAsync(
+                async (db, ct) =>
+                {
+                    int result = await db.DeleteAsync(entity);
+                    return result > 0;
+                },
+                "Delete",
+                cancellationToken,
+                false);
         }
 
-        /// <summary>
-        /// Updates an existing entity with cancellation support
-        /// </summary>
-        public virtual async Task<bool> UpdateAsync(T entity, CancellationToken cancellationToken)
+        // For backward compatibility - delegates to cancellation-aware version
+        public Task<bool> DeleteAsync(T entity) => DeleteAsync(entity, CancellationToken.None);
+
+        public async Task<bool> DeleteAsync(int id, CancellationToken cancellationToken = default)
         {
-            try
-            {
-                await EnsureDatabaseAsync(cancellationToken);
-                int result = await Database.UpdateAsync(entity);
-                return result > 0;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error in {GetType().Name}.UpdateAsync: {ex.Message}");
-                return false;
-            }
+            return await ExecuteDbOperationAsync(
+                async (db, ct) =>
+                {
+                    int result = await db.DeleteAsync<T>(id);
+                    return result > 0;
+                },
+                "DeleteById",
+                cancellationToken,
+                false);
         }
 
-        /// <summary>
-        /// Deletes an entity
-        /// </summary>
-        public virtual async Task<bool> DeleteAsync(T entity)
+        // For backward compatibility - delegates to cancellation-aware version
+        public Task<bool> DeleteAsync(int id) => DeleteAsync(id, CancellationToken.None);
+
+        public async Task<T> FirstOrDefaultAsync(Expression<Func<T, bool>> predicate)
         {
-            try
-            {
-                await EnsureDatabaseAsync();
-                int result = await Database.DeleteAsync(entity);
-                return result > 0;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error in {GetType().Name}.DeleteAsync: {ex.Message}");
-                return false;
-            }
+            return await ExecuteDbOperationAsync(
+                async (db, ct) => await db.Table<T>().Where(predicate).FirstOrDefaultAsync(),
+                "FirstOrDefault",
+                CancellationToken.None);
         }
 
-        /// <summary>
-        /// Deletes an entity with cancellation support
-        /// </summary>
-        public virtual async Task<bool> DeleteAsync(T entity, CancellationToken cancellationToken)
+        public async Task<bool> ExistsAsync(Expression<Func<T, bool>> predicate)
         {
-            try
-            {
-                await EnsureDatabaseAsync(cancellationToken);
-                int result = await Database.DeleteAsync(entity);
-                return result > 0;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error in {GetType().Name}.DeleteAsync: {ex.Message}");
-                return false;
-            }
+            var result = await ExecuteDbOperationAsync(
+                async (db, ct) => await db.Table<T>().Where(predicate).FirstOrDefaultAsync(),
+                "Exists",
+                CancellationToken.None);
+                
+            return result != null;
         }
 
-        /// <summary>
-        /// Deletes an entity by ID
-        /// </summary>
-        public virtual async Task<bool> DeleteAsync(int id)
-        {
-            try
-            {
-                await EnsureDatabaseAsync();
-                int result = await Database.DeleteAsync<T>(id);
-                return result > 0;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error in {GetType().Name}.DeleteAsync(id): {ex.Message}");
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// Deletes an entity by ID with cancellation support
-        /// </summary>
-        public virtual async Task<bool> DeleteAsync(int id, CancellationToken cancellationToken)
-        {
-            try
-            {
-                await EnsureDatabaseAsync(cancellationToken);
-                int result = await Database.DeleteAsync<T>(id);
-                return result > 0;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error in {GetType().Name}.DeleteAsync(id): {ex.Message}");
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// Gets the first entity matching a predicate
-        /// </summary>
-        public virtual async Task<T> FirstOrDefaultAsync(Expression<Func<T, bool>> predicate)
-        {
-            try
-            {
-                await EnsureDatabaseAsync();
-                return await Database.Table<T>().Where(predicate).FirstOrDefaultAsync();
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error in {GetType().Name}.FirstOrDefaultAsync: {ex.Message}");
-                return default;
-            }
-        }
+        public abstract Task<List<T>> SearchAsync(string searchText, int limit = 50);
     }
 }

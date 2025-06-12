@@ -11,70 +11,152 @@ using System.Threading;
 using System.Threading.Tasks;
 using NexusChat.Core.Models;
 using NexusChat.Services.Interfaces;
-using RestSharp;
+using NexusChat.Services.AIProviders.Implementations;
 
 namespace NexusChat.Services.AIProviders.Implementations
 {
     /// <summary>
     /// OpenRouter AI provider service implementation
     /// </summary>
-    public class OpenRouterAIService : IAIProviderService
+    public class OpenRouterAIService : BaseAIService
     {
-        private readonly IApiKeyManager _apiKeyManager;
-        private readonly string _modelName;
         private readonly string _baseUrl = "https://openrouter.ai/api/v1";
-        private RestClient _client;
         
         /// <summary>
         /// Gets the name of the model
         /// </summary>
-        public string ModelName => _modelName;
+        public override string ModelName { get; }
         
         /// <summary>
         /// Gets the name of the provider
         /// </summary>
-        public string ProviderName => "OpenRouter";
-        
-        /// <summary>
-        /// Gets whether streaming is supported
-        /// </summary>
-        public bool SupportsStreaming => true;
-        
-        /// <summary>
-        /// Gets the maximum context window size
-        /// </summary>
-        public int MaxContextWindow => GetContextWindowSize(_modelName);
+        public override string ProviderName => "OpenRouter";
         
         /// <summary>
         /// Creates a new OpenRouter AI service with the specified model name
         /// </summary>
-        public OpenRouterAIService(IApiKeyManager apiKeyManager, string modelName = "anthropic/claude-3-sonnet")
+        public OpenRouterAIService(IApiKeyManager apiKeyManager, string modelName)
+            : base(apiKeyManager, CreateOpenRouterModel(modelName))
         {
-            _apiKeyManager = apiKeyManager ?? throw new ArgumentNullException(nameof(apiKeyManager));
-            _modelName = !string.IsNullOrEmpty(modelName) ? modelName : "anthropic/claude-3-sonnet";
-            _client = new RestClient(_baseUrl);
-            
-            Debug.WriteLine($"OpenRouterAIService created with model: {_modelName}");
+            if (string.IsNullOrEmpty(modelName))
+            {
+                throw new ArgumentException("Model name must be provided for OpenRouterAIService.", nameof(modelName));
+            }
+            ModelName = modelName;
+            Debug.WriteLine($"OpenRouterAIService created with model: {ModelName}");
+        }
+
+        private static AIModel CreateOpenRouterModel(string modelName)
+        {
+            if (string.IsNullOrEmpty(modelName))
+            {
+                throw new ArgumentException("Model name must be provided for creating OpenRouter AIModel.", nameof(modelName));
+            }
+            // Simplified, as detailed model creation is now in DiscoverModelsAsync
+            return new AIModel
+            {
+                ModelName = modelName,
+                ProviderName = "OpenRouter",
+                MaxContextWindow = GetContextWindowSize(modelName), // Keep for instance specific details
+                SupportsStreaming = true, // Keep for instance specific details
+                ApiKeyVariable = "API_KEY_OPENROUTER"
+            };
+        }
+
+        /// <summary>
+        /// Discovers models available from OpenRouter.
+        /// </summary>
+        /// <param name="apiKeyManager">The API key manager to check for key availability.</param>
+        /// <returns>A list of AIModels from OpenRouter.</returns>
+        public static async Task<List<AIModel>> DiscoverModelsAsync(IApiKeyManager apiKeyManager)
+        {
+            var models = new List<AIModel>();
+            if (apiKeyManager == null)
+            {
+                Debug.WriteLine("OpenRouterAIService.DiscoverModelsAsync: ApiKeyManager is null.");
+                return models;
+            }
+
+            try
+            {
+                Debug.WriteLine("OpenRouterAIService: Discovering OpenRouter models.");
+                bool hasApiKey = await apiKeyManager.HasActiveApiKeyAsync("OpenRouter");
+
+                if (!hasApiKey)
+                {
+                    Debug.WriteLine("OpenRouterAIService: No active OpenRouter API key found. Not listing OpenRouter models.");
+                    return models;
+                }
+
+                // Add comprehensive model collection
+                models.Add(CreateModelInternal("anthropic/claude-3-opus", "Claude 3 Opus", "Claude 3 Opus - Anthropic's most powerful model", 200000, 4096, true, true));
+                models.Add(CreateModelInternal("anthropic/claude-3-sonnet", "Claude 3 Sonnet", "Claude 3 Sonnet - balanced performance & quality", 200000, 4096, true, true));
+                models.Add(CreateModelInternal("anthropic/claude-3-haiku", "Claude 3 Haiku", "Claude 3 Haiku - fastest & most compact Claude model", 200000, 4096, true, true));
+                models.Add(CreateModelInternal("google/gemini-pro", "Gemini Pro", "Google's Gemini Pro model", 32768, 8192, true, false));
+                models.Add(CreateModelInternal("google/gemini-1.5-flash", "Gemini 1.5 Flash", "Gemini 1.5 Flash - Fast response model", 128000, 8192, true, true));
+                models.Add(CreateModelInternal("mistralai/mistral-small", "Mistral Small", "Mistral Small - efficient and powerful", 32768, 4096, true, false));
+                models.Add(CreateModelInternal("mistralai/mistral-medium", "Mistral Medium", "Mistral Medium - versatile model", 32768, 8192, true, false));
+                models.Add(CreateModelInternal("mistralai/mistral-large", "Mistral Large", "Mistral Large - advanced reasoning", 32768, 8192, true, false));
+                models.Add(CreateModelInternal("meta-llama/llama-3-70b-instruct", "Llama 3 70B Instruct", "Llama 3 70B - Meta's flagship model", 8192, 8192, true, false));
+                models.Add(CreateModelInternal("meta-llama/llama-3-8b-instruct", "Llama 3 8B Instruct", "Llama 3 8B - Compact but capable", 8192, 8192, true, false));
+                models.Add(CreateModelInternal("anthropic/claude-2", "Claude 2", "Claude 2 - Anthropic's previous generation model", 100000, 4096, true, false));
+                models.Add(CreateModelInternal("openai/gpt-4-turbo", "GPT-4 Turbo", "GPT-4 Turbo - Latest OpenAI model", 128000, 4096, true, false));
+                models.Add(CreateModelInternal("openai/gpt-3.5-turbo", "GPT-3.5 Turbo", "GPT-3.5 Turbo - Fast and economical", 16385, 4096, true, false));
+
+
+                // Model definitions previously in AIModelDiscoveryService.CreateOpenRouterModelsAsync
+                // and OpenRouterAIService.GetAvailableModels()
+                models.Add(CreateModelInternal("anthropic/claude-3.5-sonnet", "Claude 3.5 Sonnet (via OpenRouter)", "Anthropic's most advanced model", 200000, 4096, true, true));
+                models.Add(CreateModelInternal("openai/gpt-4o", "GPT-4o (via OpenRouter)", "OpenAI's latest multimodal model", 128000, 4096, true, true));
+                models.Add(CreateModelInternal("google/gemini-1.5-pro", "Gemini 1.5 Pro (via OpenRouter)", "Google's advanced model with large context", 1048576, 8192, true, true)); // Max context for Gemini 1.5 Pro is 1M or 2M
+                models.Add(CreateModelInternal("meta-llama/llama-3.1-405b-instruct", "Llama 3.1 405B Instruct (via OpenRouter)", "Meta's largest instruction-tuned model", 131072, 4096, true, false));
+                models.Add(CreateModelInternal("mistralai/mistral-large-latest", "Mistral Large (via OpenRouter)", "Mistral's flagship model", 32768, 4096, true, false));
+                models.Add(CreateModelInternal("microsoft/phi-3-medium-128k-instruct", "Phi-3 Medium 128k Instruct (via OpenRouter)", "Microsoft's efficient model with large context", 131072, 4096, true, false));
+
+
+                Debug.WriteLine($"OpenRouterAIService: Discovered {models.Count} OpenRouter models.");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error discovering OpenRouter models: {ex.Message}");
+            }
+            return models;
+        }
+
+        private static AIModel CreateModelInternal(string modelName, string displayName, string description, int contextWindow, int maxOutputTokens, bool supportsStreaming, bool supportsVision)
+        {
+            return new AIModel
+            {
+                ProviderName = "OpenRouter", // This is key
+                ModelName = modelName, // Full model identifier for OpenRouter
+                DisplayName = displayName,
+                Description = description,
+                IsAvailable = true,
+                MaxTokens = maxOutputTokens,
+                MaxContextWindow = contextWindow,
+                SupportsStreaming = supportsStreaming,
+                SupportsVision = supportsVision,
+                SupportsCodeCompletion = true, // General assumption for most OpenRouter models
+                DefaultTemperature = 0.7f,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+                Status = ModelStatus.Available,
+                ApiKeyVariable = "API_KEY_OPENROUTER"
+            };
         }
         
         /// <summary>
         /// Gets context window size based on model name
         /// </summary>
-        private int GetContextWindowSize(string modelName)
+        private static int GetContextWindowSize(string modelName)
         {
             if (string.IsNullOrEmpty(modelName))
-                return 16384; // Default
+                return 16384;
                 
             string name = modelName.ToLowerInvariant();
             
             // Anthropic Claude models
-            if (name.Contains("claude-3-opus"))
-                return 200000;
-                
-            if (name.Contains("claude-3-sonnet"))
-                return 200000;
-                
-            if (name.Contains("claude-3-haiku"))
+            if (name.Contains("claude-3-opus") || name.Contains("claude-3-sonnet") || name.Contains("claude-3-haiku"))
                 return 200000;
                 
             if (name.Contains("claude-2"))
@@ -102,237 +184,25 @@ namespace NexusChat.Services.AIProviders.Implementations
             if (name.Contains("llama"))
                 return 8192;
                 
-            return 16384; // Default fallback
-        }
-        
-        /// <summary>
-        /// Gets all available models for OpenRouter - Implemented as static for factory usage
-        /// </summary>
-        public static IEnumerable<AIModel> GetAvailableModels()
-        {
-            Debug.WriteLine("OpenRouterAIService.GetAvailableModels [static] called");
-            
-            var models = new List<AIModel>
-            {
-                // Anthropic models
-                new AIModel {
-                    ModelName = "anthropic/claude-3-opus",
-                    ProviderName = "OpenRouter",
-                    Description = "Claude 3 Opus - Anthropic's most powerful model",
-                    MaxTokens = 4096,
-                    MaxContextWindow = 200000,
-                    SupportsStreaming = true,
-                    SupportsVision = true,
-                    IsAvailable = true,
-                    ApiKeyVariable = "API_KEY_OPENROUTER"
-                },
-                new AIModel {
-                    ModelName = "anthropic/claude-3-sonnet",
-                    ProviderName = "OpenRouter",
-                    Description = "Claude 3 Sonnet - balanced performance & quality",
-                    MaxTokens = 4096,
-                    MaxContextWindow = 200000,
-                    SupportsStreaming = true,
-                    SupportsVision = true,
-                    IsAvailable = true,
-                    ApiKeyVariable = "API_KEY_OPENROUTER"
-                },
-                new AIModel {
-                    ModelName = "anthropic/claude-3-haiku",
-                    ProviderName = "OpenRouter",
-                    Description = "Claude 3 Haiku - fastest & most compact Claude model",
-                    MaxTokens = 4096,
-                    MaxContextWindow = 200000,
-                    SupportsStreaming = true,
-                    SupportsVision = true,
-                    IsAvailable = true,
-                    ApiKeyVariable = "API_KEY_OPENROUTER"
-                },
-                
-                // Google models
-                new AIModel {
-                    ModelName = "google/gemini-pro",
-                    ProviderName = "OpenRouter",
-                    Description = "Google's Gemini Pro model",
-                    MaxTokens = 8192,
-                    MaxContextWindow = 32768,
-                    SupportsStreaming = true,
-                    IsAvailable = true,
-                    ApiKeyVariable = "API_KEY_OPENROUTER"
-                },
-                new AIModel {
-                    ModelName = "google/gemini-1.5-flash",
-                    ProviderName = "OpenRouter",
-                    Description = "Gemini 1.5 Flash - Fast response model",
-                    MaxTokens = 8192,
-                    MaxContextWindow = 128000,
-                    SupportsStreaming = true,
-                    SupportsVision = true,
-                    IsAvailable = true,
-                    ApiKeyVariable = "API_KEY_OPENROUTER"
-                },
-                
-                // Mistral models
-                new AIModel {
-                    ModelName = "mistralai/mistral-small",
-                    ProviderName = "OpenRouter",
-                    Description = "Mistral Small - efficient and powerful",
-                    MaxTokens = 4096,
-                    MaxContextWindow = 32768,
-                    SupportsStreaming = true,
-                    IsAvailable = true,
-                    ApiKeyVariable = "API_KEY_OPENROUTER"
-                },
-                new AIModel {
-                    ModelName = "mistralai/mistral-medium",
-                    ProviderName = "OpenRouter",
-                    Description = "Mistral Medium - versatile model",
-                    MaxTokens = 8192,
-                    MaxContextWindow = 32768,
-                    SupportsStreaming = true,
-                    IsAvailable = true,
-                    ApiKeyVariable = "API_KEY_OPENROUTER"
-                },
-                new AIModel {
-                    ModelName = "mistralai/mistral-large",
-                    ProviderName = "OpenRouter",
-                    Description = "Mistral Large - advanced reasoning",
-                    MaxTokens = 8192,
-                    MaxContextWindow = 32768,
-                    SupportsStreaming = true,
-                    IsAvailable = true,
-                    ApiKeyVariable = "API_KEY_OPENROUTER"
-                },
-                
-                // Meta Llama models
-                new AIModel {
-                    ModelName = "meta-llama/llama-3-70b-instruct",
-                    ProviderName = "OpenRouter",
-                    Description = "Llama 3 70B - Meta's flagship model",
-                    MaxTokens = 8192,
-                    MaxContextWindow = 8192,
-                    SupportsStreaming = true,
-                    IsAvailable = true,
-                    ApiKeyVariable = "API_KEY_OPENROUTER"
-                },
-                new AIModel {
-                    ModelName = "meta-llama/llama-3-8b-instruct",
-                    ProviderName = "OpenRouter",
-                    Description = "Llama 3 8B - Compact but capable",
-                    MaxTokens = 8192,
-                    MaxContextWindow = 8192,
-                    SupportsStreaming = true,
-                    IsAvailable = true,
-                    ApiKeyVariable = "API_KEY_OPENROUTER"
-                },
-                
-                // More models
-                new AIModel {
-                    ModelName = "anthropic/claude-2",
-                    ProviderName = "OpenRouter",
-                    Description = "Claude 2 - Anthropic's previous generation model",
-                    MaxTokens = 4096,
-                    MaxContextWindow = 100000,
-                    SupportsStreaming = true,
-                    IsAvailable = true,
-                    ApiKeyVariable = "API_KEY_OPENROUTER"
-                },
-                new AIModel {
-                    ModelName = "openai/gpt-4o",
-                    ProviderName = "OpenRouter",
-                    Description = "GPT-4o - OpenAI's multimodal model",
-                    MaxTokens = 8192,
-                    MaxContextWindow = 128000,
-                    SupportsStreaming = true,
-                    SupportsVision = true,
-                    IsAvailable = true,
-                    ApiKeyVariable = "API_KEY_OPENROUTER"
-                },
-                new AIModel {
-                    ModelName = "openai/gpt-4-turbo",
-                    ProviderName = "OpenRouter",
-                    Description = "GPT-4 Turbo - Latest OpenAI model",
-                    MaxTokens = 4096,
-                    MaxContextWindow = 128000,
-                    SupportsStreaming = true,
-                    IsAvailable = true,
-                    ApiKeyVariable = "API_KEY_OPENROUTER"
-                },
-                new AIModel {
-                    ModelName = "openai/gpt-3.5-turbo",
-                    ProviderName = "OpenRouter",
-                    Description = "GPT-3.5 Turbo - Fast and economical",
-                    MaxTokens = 4096,
-                    MaxContextWindow = 16385,
-                    SupportsStreaming = true,
-                    IsAvailable = true,
-                    ApiKeyVariable = "API_KEY_OPENROUTER"
-                }
-            };
-            
-            Debug.WriteLine($"OpenRouterAIService: Returning {models.Count} models");
-            return models;
-        }
-
-        /// <summary>
-        /// Checks if a model is supported by OpenRouter
-        /// </summary>
-        public static bool SupportsModel(string modelName)
-        {
-            if (string.IsNullOrEmpty(modelName)) 
-                return false;
-            
-            // Normalize model name for comparison
-            string normalizedName = modelName.ToLowerInvariant();
-            
-            // Get all available models
-            var availableModels = GetAvailableModels();
-            
-            // Check for exact match
-            if (availableModels.Any(m => m.ModelName.Equals(normalizedName, StringComparison.OrdinalIgnoreCase)))
-                return true;
-            
-            // OpenRouter is special - it supports many models including those with provider/model pattern
-            // If the model contains a slash, it's likely a valid OpenRouter model identifier
-            if (normalizedName.Contains("/"))
-                return true;
-            
-            // Check for model families
-            string[] supportedFamilies = new[] {
-                "claude", "gpt", "llama", "mistral", "gemini", "command", "phi"
-            };
-            
-            foreach (var family in supportedFamilies)
-            {
-                if (normalizedName.Contains(family))
-                    return true;
-            }
-            
-            return false;
+            return 16384;
         }
         
         /// <summary>
         /// Sends a message to the OpenRouter API
         /// </summary>
-        public async Task<string> SendMessageAsync(string prompt, CancellationToken cancellationToken)
+        public override async Task<string> SendMessageAsync(string prompt, CancellationToken cancellationToken)
         {
-            try
+            return await HandleApiRequestAsync(async () =>
             {
-                string apiKey = await GetApiKeyAsync();
+                string apiKey = await ApiKeyManager.GetApiKeyAsync("OpenRouter");
                 if (string.IsNullOrEmpty(apiKey))
                 {
-                    return $"Error: No API key found for {ProviderName}";
+                    throw new AIServiceException("No API key found for OpenRouter");
                 }
-                
-                var request = new RestRequest("/chat/completions", Method.Post);
-                request.AddHeader("Authorization", $"Bearer {apiKey}");
-                request.AddHeader("Content-Type", "application/json");
-                request.AddHeader("HTTP-Referer", "https://nexuschat.app"); // Required by OpenRouter
-                request.AddHeader("X-Title", "NexusChat");
                 
                 var requestBody = new
                 {
-                    model = _modelName,
+                    model = ModelName,
                     messages = new[]
                     {
                         new { role = "user", content = prompt }
@@ -341,77 +211,75 @@ namespace NexusChat.Services.AIProviders.Implementations
                     max_tokens = 1024
                 };
                 
-                request.AddJsonBody(requestBody);
+                var content = new StringContent(
+                    JsonSerializer.Serialize(requestBody),
+                    Encoding.UTF8,
+                    "application/json");
+
+                // Configure headers for OpenRouter
+                HttpClient.DefaultRequestHeaders.Clear();
+                HttpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
+                HttpClient.DefaultRequestHeaders.Add("HTTP-Referer", "https://nexuschat.app");
+                HttpClient.DefaultRequestHeaders.Add("X-Title", "NexusChat");
                 
-                var response = await _client.ExecuteAsync(request, cancellationToken);
-                if (!response.IsSuccessful)
-                {
-                    Debug.WriteLine($"OpenRouter API error: {response.StatusCode} - {response.Content}");
-                    return $"Error communicating with OpenRouter: {response.ErrorMessage ?? response.StatusCode.ToString()}";
-                }
-                
-                var jsonResponse = JsonDocument.Parse(response.Content);
+                var response = await HttpClient.PostAsync($"{_baseUrl}/chat/completions", content, cancellationToken);
+                response.EnsureSuccessStatusCode();
+
+                var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
+                var jsonResponse = JsonDocument.Parse(responseContent);
                 var choices = jsonResponse.RootElement.GetProperty("choices");
+                
                 if (choices.GetArrayLength() > 0)
                 {
                     var message = choices[0].GetProperty("message");
-                    var content = message.GetProperty("content").GetString();
-                    
-                    return content;
+                    return message.GetProperty("content").GetString() ?? "No response content found.";
                 }
                 
                 return "No response content found.";
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error in OpenRouterAIService.SendMessageAsync: {ex.Message}");
-                return $"Error communicating with OpenRouter: {ex.Message}";
-            }
+            }, "OpenRouter API request failed");
         }
 
         /// <summary>
         /// Sends a message with streaming response
         /// </summary>
-        public async Task<Stream> SendStreamedMessageAsync(string prompt, CancellationToken cancellationToken, Action<string> onMessageUpdate)
+        public override async Task<Stream> SendStreamedMessageAsync(string prompt, CancellationToken cancellationToken, Action<string> onMessageUpdate)
         {
             var responseStream = new MemoryStream();
             var writer = new StreamWriter(responseStream);
             
             try
             {
-                string apiKey = await GetApiKeyAsync();
+                string apiKey = await ApiKeyManager.GetApiKeyAsync("OpenRouter");
                 if (string.IsNullOrEmpty(apiKey))
                 {
                     await WriteErrorToStreamAsync(writer, "No API key found for OpenRouter");
                     return responseStream;
                 }
                 
-                string streamBuffer = string.Empty;
-                var handler = new HttpClientHandler();
-                var client = new HttpClient(handler);
-                
-                client.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
-                client.DefaultRequestHeaders.Add("HTTP-Referer", "https://nexuschat.app"); // Required by OpenRouter
-                client.DefaultRequestHeaders.Add("X-Title", "NexusChat");
-                
                 var content = new
                 {
-                    model = _modelName,
+                    model = ModelName,
                     messages = new[]
                     {
                         new { role = "user", content = prompt }
                     },
                     temperature = 0.7,
                     max_tokens = 1024,
-                    stream = true // Enable streaming
+                    stream = true
                 };
                 
                 var httpContent = new StringContent(
                     JsonSerializer.Serialize(content),
                     Encoding.UTF8,
                     "application/json");
+
+                // Configure headers for OpenRouter
+                HttpClient.DefaultRequestHeaders.Clear();
+                HttpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
+                HttpClient.DefaultRequestHeaders.Add("HTTP-Referer", "https://nexuschat.app");
+                HttpClient.DefaultRequestHeaders.Add("X-Title", "NexusChat");
                     
-                var response = await client.PostAsync($"{_baseUrl}/chat/completions", httpContent, cancellationToken);
+                var response = await HttpClient.PostAsync($"{_baseUrl}/chat/completions", httpContent, cancellationToken);
                 
                 if (!response.IsSuccessStatusCode)
                 {
@@ -427,7 +295,6 @@ namespace NexusChat.Services.AIProviders.Implementations
                     StringBuilder fullResponseBuilder = new StringBuilder();
                     string line;
                     
-                    // Process each line of the streaming response
                     while ((line = await reader.ReadLineAsync()) != null && !cancellationToken.IsCancellationRequested)
                     {
                         if (string.IsNullOrEmpty(line) || line.StartsWith(":"))
@@ -444,7 +311,6 @@ namespace NexusChat.Services.AIProviders.Implementations
                             var jsonData = JsonDocument.Parse(line);
                             var choices = jsonData.RootElement.GetProperty("choices");
                             
-                            
                             if (choices.GetArrayLength() > 0)
                             {
                                 var delta = choices[0].GetProperty("delta");
@@ -453,11 +319,7 @@ namespace NexusChat.Services.AIProviders.Implementations
                                     string deltaContent = contentElement.GetString();
                                     if (!string.IsNullOrEmpty(deltaContent))
                                     {
-                                        // Append to buffer
-                                        streamBuffer += deltaContent;
                                         fullResponseBuilder.Append(deltaContent);
-
-                                        // Call update callback
                                         onMessageUpdate?.Invoke(fullResponseBuilder.ToString());
                                     }
                                 }
@@ -466,11 +328,9 @@ namespace NexusChat.Services.AIProviders.Implementations
                         catch (JsonException jsonEx)
                         {
                             Debug.WriteLine($"JSON parsing error: {jsonEx.Message}");
-                            // Skip malformed JSON but continue processing
                         }
                     }
                     
-                    // Write full response
                     await writer.WriteAsync(fullResponseBuilder.ToString());
                     await writer.FlushAsync();
                 }
@@ -481,7 +341,6 @@ namespace NexusChat.Services.AIProviders.Implementations
                 await WriteErrorToStreamAsync(writer, $"Error communicating with OpenRouter: {ex.Message}");
             }
             
-            // Rewind the stream so it can be read from the beginning
             responseStream.Position = 0;
             return responseStream;
         }
@@ -493,25 +352,7 @@ namespace NexusChat.Services.AIProviders.Implementations
         {
             await writer.WriteAsync(errorMessage);
             await writer.FlushAsync();
-            
-            // Rewind the memory stream
             writer.BaseStream.Position = 0;
-        }
-        
-        /// <summary>
-        /// Gets API key from the manager
-        /// </summary>
-        private async Task<string> GetApiKeyAsync()
-        {
-            try
-            {
-                return await _apiKeyManager.GetApiKeyAsync("OpenRouter");
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error getting OpenRouter API key: {ex.Message}");
-                return null;
-            }
         }
 
         /// <summary>

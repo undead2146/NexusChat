@@ -11,55 +11,144 @@ using System.Threading;
 using System.Threading.Tasks;
 using NexusChat.Core.Models;
 using NexusChat.Services.Interfaces;
-using RestSharp;
+using NexusChat.Services.AIProviders.Implementations;
 
 namespace NexusChat.Services.AIProviders.Implementations
 {
     /// <summary>
     /// Implementation of IAIProviderService for Groq
     /// </summary>
-    public class GroqAIService : IAIProviderService
+    public class GroqAIService : BaseAIService
     {
-        private readonly IApiKeyManager _apiKeyManager;
-        private readonly string _modelName;
         private readonly string _baseUrl = "https://api.groq.com/openai/v1";
-        private RestClient _client;
 
         /// <summary>
         /// Gets the name of the model
         /// </summary>
-        public string ModelName => _modelName;
+        public override string ModelName { get; }
 
         /// <summary>
         /// Gets the name of the provider
         /// </summary>
-        public string ProviderName => "Groq";
-
-        /// <summary>
-        /// Gets whether streaming is supported
-        /// </summary>
-        public bool SupportsStreaming => true;
-
-        /// <summary>
-        /// Gets the maximum context window size
-        /// </summary>
-        public int MaxContextWindow => GetContextWindowSize(_modelName);
+        public override string ProviderName => "Groq";
 
         /// <summary>
         /// Creates a new Groq AI service
         /// </summary>
-        public GroqAIService(IApiKeyManager apiKeyManager, string modelName = "llama3-70b-8192")
+        public GroqAIService(IApiKeyManager apiKeyManager, string modelName) 
+            : base(apiKeyManager, CreateGroqModel(modelName))
         {
-            _apiKeyManager = apiKeyManager ?? throw new ArgumentNullException(nameof(apiKeyManager));
-            _modelName = !string.IsNullOrEmpty(modelName) ? modelName : "llama3-70b-8192";
-            _client = new RestClient(_baseUrl);
-            Debug.WriteLine($"GroqAIService created with model: {_modelName}");
+            if (string.IsNullOrEmpty(modelName))
+            {
+                throw new ArgumentException("Model name must be provided for GroqAIService.", nameof(modelName));
+            }
+            ModelName = modelName;
+            Debug.WriteLine($"GroqAIService created with model: {ModelName}");
+        }
+
+        private static AIModel CreateGroqModel(string modelName)
+        {
+            if (string.IsNullOrEmpty(modelName))
+            {
+                // This exception would be caught by the factory if modelName was initially empty.
+                // This ensures direct instantiation also requires a modelName for the AIModel.
+                throw new ArgumentException("Model name must be provided for creating Groq AIModel.", nameof(modelName));
+            }
+            // Simplified, as detailed model creation is now in DiscoverModelsAsync
+            // The instance model primarily needs its name and provider.
+            // Other details can be fetched from a central model manager if needed post-discovery.
+            return new AIModel
+            {
+                ModelName = modelName,
+                ProviderName = "Groq",
+                MaxContextWindow = GetContextWindowSize(modelName), // Keep for instance specific details
+                SupportsStreaming = true, // Keep for instance specific details
+                ApiKeyVariable = "API_KEY_GROQ"
+            };
+        }
+
+        /// <summary>
+        /// Discovers models available from Groq.
+        /// </summary>
+        /// <param name="apiKeyManager">The API key manager to check for key availability.</param>
+        /// <returns>A list of AIModels from Groq.</returns>
+        public static async Task<List<AIModel>> DiscoverModelsAsync(IApiKeyManager apiKeyManager)
+        {
+            var models = new List<AIModel>();
+            if (apiKeyManager == null)
+            {
+                Debug.WriteLine("GroqAIService.DiscoverModelsAsync: ApiKeyManager is null.");
+                return models;
+            }
+
+            try
+            {
+                Debug.WriteLine("GroqAIService: Discovering Groq models.");
+                bool hasApiKey = await apiKeyManager.HasActiveApiKeyAsync("Groq");
+
+                if (!hasApiKey)
+                {
+                    Debug.WriteLine("GroqAIService: No active Groq API key found. Not listing Groq models.");
+                    return models;
+                }
+
+                // Model definitions previously in AIModelDiscoveryService.CreateGroqModelsAsync
+                // and GroqAIService.GetAvailableModels()
+                models.Add(CreateModelInternal("llama-3.1-70b-versatile", "Llama 3.1 70B Versatile", "Latest and most capable Llama model with improved reasoning", 131072, 131072));
+                models.Add(CreateModelInternal("llama-3.1-8b-instant", "Llama 3.1 8B Instant", "Fast and efficient model for quick responses", 131072, 131072)); // Corrected context from 8192
+                models.Add(CreateModelInternal("gemma2-9b-it", "Gemma 2 9B IT", "Google's Gemma model optimized for instruction following", 8192, 8192));
+                models.Add(CreateModelInternal("llama3-70b-8192", "Llama 3 70B (Legacy)", "Powerful model with large context window", 8192, 8192)); // Kept for compatibility
+                models.Add(CreateModelInternal("mixtral-8x7b-32768", "Mixtral 8x7B", "High performance mixture of experts model", 32768, 32768));
+                models.Add(CreateModelInternal("gemma-7b-it", "Gemma 7B IT", "Google's Gemma 7B instruction-tuned model", 8192, 8192));
+                // Legacy Llama 3 models
+                models.Add(CreateModelInternal("llama3-8b-8192", "Llama 3 8B", "Meta's Llama 3 8B model - balanced speed and quality", 4096, 8192));
+                models.Add(CreateModelInternal("llama-3-70b-chat", "Llama 3 70B Chat", "Llama 3 70B - top performance conversational model", 4096, 8192));
+                models.Add(CreateModelInternal("llama-3-8b-chat", "Llama 3 8B Chat", "Llama 3 8B - efficient conversational model", 4096, 8192));
+                
+                // Gemma 2 models
+                models.Add(CreateModelInternal("gemma-2-27b-it", "Gemma 2 27B IT", "Google's Gemma 2 27B instruction-tuned model", 4096, 8192));
+                
+                // Preview models
+                models.Add(CreateModelInternal("llama-3-3-70b-specdec", "Llama 3.3 70B SpecDec", "Llama 3.3 (70B) SpecDec - Specialized decoder version with enhanced context", 4096, 32768));
+                models.Add(CreateModelInternal("qwen-2-5-32b", "Qwen 2.5 32B", "Qwen 2.5 (32B) - Alibaba's advanced language model", 4096, 32768));
+                models.Add(CreateModelInternal("qwen-2-5-coder-32b", "Qwen 2.5 Coder 32B", "Qwen 2.5 Coder (32B) - Code-specialized version of Qwen", 4096, 32768));
+                models.Add(CreateModelInternal("deepseek-r1-distill-llama-70b", "DeepSeek R1 Distilled Llama 70B", "DeepSeek R1 Distilled Llama (70B) - Knowledge-distilled efficient model", 4096, 16384));
+
+                Debug.WriteLine($"GroqAIService: Discovered {models.Count} Groq models.");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error discovering Groq models: {ex.Message}");
+            }
+            return models;
+        }
+
+        private static AIModel CreateModelInternal(string modelName, string displayName, string description, int maxTokens, int contextWindow)
+        {
+            return new AIModel
+            {
+                ProviderName = "Groq",
+                ModelName = modelName,
+                DisplayName = displayName,
+                Description = description,
+                IsAvailable = true,
+                MaxTokens = maxTokens,
+                MaxContextWindow = contextWindow,
+                SupportsStreaming = true,
+                SupportsVision = false, // Groq models generally don't support vision directly
+                SupportsCodeCompletion = true,
+                DefaultTemperature = 0.7f,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+                Status = ModelStatus.Available,
+                ApiKeyVariable = "API_KEY_GROQ"
+            };
         }
 
         /// <summary>
         /// Gets context window size based on model name
         /// </summary>
-        private int GetContextWindowSize(string modelName)
+        private static int GetContextWindowSize(string modelName)
         {
             if (string.IsNullOrEmpty(modelName))
                 return 8192;
@@ -72,201 +161,21 @@ namespace NexusChat.Services.AIProviders.Implementations
         }
 
         /// <summary>
-        /// Gets all available models for Groq - Implemented as static for factory usage
-        /// </summary>
-        public static IEnumerable<AIModel> GetAvailableModels()
-        {
-            Debug.WriteLine("GroqAIService.GetAvailableModels [static] called");
-
-            return new List<AIModel>
-            {
-                // Llama 3 models
-                new AIModel {
-                    ModelName = "llama3-70b-8192",
-                    ProviderName = "Groq",
-                    Description = "Meta's Llama 3 70B model - optimized for performance",
-                    MaxTokens = 4096,
-                    MaxContextWindow = 8192,
-                    SupportsStreaming = true,
-                    IsAvailable = true,
-                    ApiKeyVariable = "API_KEY_GROQ"
-                },
-                new AIModel {
-                    ModelName = "llama3-8b-8192",
-                    ProviderName = "Groq",
-                    Description = "Meta's Llama 3 8B model - balanced speed and quality",
-                    MaxTokens = 4096,
-                    MaxContextWindow = 8192,
-                    SupportsStreaming = true,
-                    IsAvailable = true,
-                    ApiKeyVariable = "API_KEY_GROQ"
-                },
-                new AIModel {
-                    ModelName = "llama-3-70b-chat",
-                    ProviderName = "Groq",
-                    Description = "Llama 3 70B - top performance conversational model",
-                    MaxTokens = 4096,
-                    MaxContextWindow = 8192,
-                    SupportsStreaming = true,
-                    IsAvailable = true,
-                    ApiKeyVariable = "API_KEY_GROQ"
-                },
-                new AIModel {
-                    ModelName = "llama-3-8b-chat",
-                    ProviderName = "Groq",
-                    Description = "Llama 3 8B - efficient conversational model",
-                    MaxTokens = 4096,
-                    MaxContextWindow = 8192,
-                    SupportsStreaming = true,
-                    IsAvailable = true,
-                    ApiKeyVariable = "API_KEY_GROQ"
-                },
-
-                // Mixtral models
-                new AIModel {
-                    ModelName = "mixtral-8x7b-32768",
-                    ProviderName = "Groq",
-                    Description = "Mixtral 8x7B - high performance mixture of experts model",
-                    MaxTokens = 8192,
-                    MaxContextWindow = 32768,
-                    SupportsStreaming = true,
-                    IsAvailable = true,
-                    ApiKeyVariable = "API_KEY_GROQ"
-                },
-
-                // Gemma models
-                new AIModel {
-                    ModelName = "gemma-7b-it",
-                    ProviderName = "Groq",
-                    Description = "Google's Gemma 7B instruction-tuned model",
-                    MaxTokens = 4096,
-                    MaxContextWindow = 8192,
-                    SupportsStreaming = true,
-                    IsAvailable = true,
-                    ApiKeyVariable = "API_KEY_GROQ"
-                },
-                new AIModel {
-                    ModelName = "gemma-2-27b-it",
-                    ProviderName = "Groq",
-                    Description = "Google's Gemma 2 27B instruction-tuned model",
-                    MaxTokens = 4096,
-                    MaxContextWindow = 8192,
-                    SupportsStreaming = true,
-                    IsAvailable = true,
-                    ApiKeyVariable = "API_KEY_GROQ"
-                },
-                new AIModel {
-                    ModelName = "gemma-2-9b-it",
-                    ProviderName = "Groq",
-                    Description = "Google's Gemma 2 9B instruction-tuned model",
-                    MaxTokens = 4096,
-                    MaxContextWindow = 8192,
-                    SupportsStreaming = true,
-                    IsAvailable = true,
-                    ApiKeyVariable = "API_KEY_GROQ"
-                },
-
-                // Preview models
-                new AIModel {
-                    ModelName = "llama-3-3-70b-specdec",
-                    ProviderName = "Groq",
-                    Description = "Llama 3.3 (70B) SpecDec - Specialized decoder version with enhanced context",
-                    MaxTokens = 4096,
-                    MaxContextWindow = 32768,
-                    SupportsStreaming = true,
-                    DefaultTemperature = 0.7f,
-                    IsAvailable = true,
-                    ApiKeyVariable = "API_KEY_GROQ"
-                },
-                new AIModel {
-                    ModelName = "qwen-2-5-32b",
-                    ProviderName = "Groq",
-                    Description = "Qwen 2.5 (32B) - Alibaba's advanced language model",
-                    MaxTokens = 4096,
-                    MaxContextWindow = 32768,
-                    SupportsStreaming = true,
-                    DefaultTemperature = 0.7f,
-                    IsAvailable = true,
-                    ApiKeyVariable = "API_KEY_GROQ"
-                },
-                new AIModel {
-                    ModelName = "qwen-2-5-coder-32b",
-                    ProviderName = "Groq",
-                    Description = "Qwen 2.5 Coder (32B) - Code-specialized version of Qwen",
-                    MaxTokens = 4096,
-                    MaxContextWindow = 32768,
-                    SupportsStreaming = true,
-                    DefaultTemperature = 0.7f,
-                    SupportsCodeCompletion = true,
-                    IsAvailable = true,
-                    ApiKeyVariable = "API_KEY_GROQ"
-                },
-                new AIModel {
-                    ModelName = "deepseek-r1-distill-llama-70b",
-                    ProviderName = "Groq",
-                    Description = "DeepSeek R1 Distilled Llama (70B) - Knowledge-distilled efficient model",
-                    MaxTokens = 4096,
-                    MaxContextWindow = 16384,
-                    SupportsStreaming = true,
-                    DefaultTemperature = 0.7f,
-                    IsAvailable = true,
-                    ApiKeyVariable = "API_KEY_GROQ"
-                }
-            };
-        }
-
-        /// <summary>
-        /// Checks if Groq supports a specific model
-        /// </summary>
-        public static bool SupportsModel(string modelName)
-        {
-            if (string.IsNullOrEmpty(modelName))
-                return false;
-                
-            // Normalize the input model name
-            string normalizedName = modelName.ToLowerInvariant();
-            
-            // Get all available models
-            var availableModels = GetAvailableModels();
-            
-            // Check for direct match with any available model
-            if (availableModels.Any(m => m.ModelName.Equals(normalizedName, StringComparison.OrdinalIgnoreCase)))
-                return true;
-            
-            // For pattern matching (partial matches like "llama3" for any llama3 model)
-            // This helps with flexibility when exact model versions might differ
-            string[] modelPatterns = new[] { "llama", "mixtral", "gemma" };
-            
-            // Check if the model name contains any of our supported model families
-            foreach (var pattern in modelPatterns)
-            {
-                if (normalizedName.Contains(pattern))
-                    return true;
-            }
-            
-            return false;
-        }
-
-        /// <summary>
         /// Sends a message to Groq API
         /// </summary>
-        public async Task<string> SendMessageAsync(string prompt, CancellationToken cancellationToken)
+        public override async Task<string> SendMessageAsync(string prompt, CancellationToken cancellationToken)
         {
-            try
+            return await HandleApiRequestAsync(async () =>
             {
-                string apiKey = await GetApiKeyAsync();
+                string apiKey = await ApiKeyManager.GetApiKeyAsync("Groq");
                 if (string.IsNullOrEmpty(apiKey))
                 {
-                    return $"Error: No API key found for {ProviderName}";
+                    throw new AIServiceException("No API key found for Groq");
                 }
-
-                var request = new RestRequest("/chat/completions", Method.Post);
-                request.AddHeader("Authorization", $"Bearer {apiKey}");
-                request.AddHeader("Content-Type", "application/json");
 
                 var requestBody = new
                 {
-                    model = _modelName,
+                    model = ModelName,
                     messages = new[]
                     {
                         new { role = "user", content = prompt }
@@ -275,67 +184,58 @@ namespace NexusChat.Services.AIProviders.Implementations
                     max_tokens = 1024
                 };
 
-                request.AddJsonBody(requestBody);
+                var content = new StringContent(
+                    JsonSerializer.Serialize(requestBody),
+                    Encoding.UTF8,
+                    "application/json");
 
-                var response = await _client.ExecuteAsync(request, cancellationToken);
-                if (!response.IsSuccessful)
-                {
-                    Debug.WriteLine($"Groq API error: {response.StatusCode} - {response.Content}");
-                    return $"Error communicating with Groq: {response.ErrorMessage ?? response.StatusCode.ToString()}";
-                }
+                HttpClient.DefaultRequestHeaders.Clear();
+                HttpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
 
-                var jsonResponse = JsonDocument.Parse(response.Content);
+                var response = await HttpClient.PostAsync($"{_baseUrl}/chat/completions", content, cancellationToken);
+                response.EnsureSuccessStatusCode();
+
+                var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
+                var jsonResponse = JsonDocument.Parse(responseContent);
                 var choices = jsonResponse.RootElement.GetProperty("choices");
+                
                 if (choices.GetArrayLength() > 0)
                 {
                     var message = choices[0].GetProperty("message");
-                    var content = message.GetProperty("content").GetString();
-
-                    return content;
+                    return message.GetProperty("content").GetString() ?? "No response content found.";
                 }
 
                 return "No response content found.";
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error in GroqAIService.SendMessageAsync: {ex.Message}");
-                return $"Error communicating with Groq: {ex.Message}";
-            }
+            }, "Groq API request failed");
         }
 
         /// <summary>
         /// Sends a streamed message to Groq
         /// </summary>
-        public async Task<Stream> SendStreamedMessageAsync(string prompt, CancellationToken cancellationToken, Action<string> onMessageUpdate)
+        public override async Task<Stream> SendStreamedMessageAsync(string prompt, CancellationToken cancellationToken, Action<string> onMessageUpdate)
         {
             var responseStream = new MemoryStream();
             var writer = new StreamWriter(responseStream);
 
             try
             {
-                string apiKey = await GetApiKeyAsync();
+                string apiKey = await ApiKeyManager.GetApiKeyAsync("Groq");
                 if (string.IsNullOrEmpty(apiKey))
                 {
                     await WriteErrorToStreamAsync(writer, "No API key found for Groq");
                     return responseStream;
                 }
 
-                string streamBuffer = string.Empty;
-                var handler = new HttpClientHandler();
-                var client = new HttpClient(handler);
-
-                client.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
-
                 var content = new
                 {
-                    model = _modelName,
+                    model = ModelName,
                     messages = new[]
                     {
                         new { role = "user", content = prompt }
                     },
                     temperature = 0.7,
                     max_tokens = 1024,
-                    stream = true // Enable streaming
+                    stream = true
                 };
 
                 var httpContent = new StringContent(
@@ -343,7 +243,11 @@ namespace NexusChat.Services.AIProviders.Implementations
                     Encoding.UTF8,
                     "application/json");
 
-                var response = await client.PostAsync($"{_baseUrl}/chat/completions", httpContent, cancellationToken);
+                // Use the base HttpClient with proper headers
+                HttpClient.DefaultRequestHeaders.Clear();
+                HttpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
+
+                var response = await HttpClient.PostAsync($"{_baseUrl}/chat/completions", httpContent, cancellationToken);
 
                 if (!response.IsSuccessStatusCode)
                 {
@@ -359,7 +263,6 @@ namespace NexusChat.Services.AIProviders.Implementations
                     StringBuilder fullResponseBuilder = new StringBuilder();
                     string line;
 
-                    // Process each line of the streaming response
                     while ((line = await reader.ReadLineAsync()) != null && !cancellationToken.IsCancellationRequested)
                     {
                         if (string.IsNullOrEmpty(line) || line.StartsWith(":"))
@@ -376,7 +279,6 @@ namespace NexusChat.Services.AIProviders.Implementations
                             var jsonData = JsonDocument.Parse(line);
                             var choices = jsonData.RootElement.GetProperty("choices");
 
-
                             if (choices.GetArrayLength() > 0)
                             {
                                 var delta = choices[0].GetProperty("delta");
@@ -385,11 +287,7 @@ namespace NexusChat.Services.AIProviders.Implementations
                                     string deltaContent = contentElement.GetString();
                                     if (!string.IsNullOrEmpty(deltaContent))
                                     {
-                                        // Append to buffer
-                                        streamBuffer += deltaContent;
                                         fullResponseBuilder.Append(deltaContent);
-
-                                        // Call update callback
                                         onMessageUpdate?.Invoke(fullResponseBuilder.ToString());
                                     }
                                 }
@@ -398,11 +296,9 @@ namespace NexusChat.Services.AIProviders.Implementations
                         catch (JsonException jsonEx)
                         {
                             Debug.WriteLine($"JSON parsing error: {jsonEx.Message}");
-                            // Skip malformed JSON but continue processing
                         }
                     }
 
-                    // Write full response
                     await writer.WriteAsync(fullResponseBuilder.ToString());
                     await writer.FlushAsync();
                 }
@@ -413,7 +309,6 @@ namespace NexusChat.Services.AIProviders.Implementations
                 await WriteErrorToStreamAsync(writer, $"Error communicating with Groq: {ex.Message}");
             }
 
-            // Rewind the stream so it can be read from the beginning
             responseStream.Position = 0;
             return responseStream;
         }
@@ -425,25 +320,7 @@ namespace NexusChat.Services.AIProviders.Implementations
         {
             await writer.WriteAsync(errorMessage);
             await writer.FlushAsync();
-
-            // Rewind the memory stream
             writer.BaseStream.Position = 0;
-        }
-
-        /// <summary>
-        /// Gets API key from the manager
-        /// </summary>
-        private async Task<string> GetApiKeyAsync()
-        {
-            try
-            {
-                return await _apiKeyManager.GetApiKeyAsync("Groq");
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error getting Groq API key: {ex.Message}");
-                return null;
-            }
         }
 
         /// <summary>

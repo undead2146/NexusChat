@@ -1,6 +1,7 @@
 using SQLite;
 using SQLiteNetExtensions.Attributes;
 using System;
+using NexusChat.Helpers;
 
 namespace NexusChat.Core.Models
 {
@@ -113,22 +114,10 @@ namespace NexusChat.Core.Models
         }
 
         /// <summary>
-        /// Gets or sets the number of tokens used in this message (compatibility property)
+        /// Gets or sets the number of tokens used in this message
         /// </summary>
         [Ignore]
-        public int TokensUsed => TokenCount ?? EstimateTokens(Content);
-        
-        /// <summary>
-        /// Estimates token count for a string
-        /// </summary>
-        public int EstimateTokens(string text)
-        {
-            if (string.IsNullOrEmpty(text))
-                return 0;
-                
-            // Simple approximation: ~4 characters per token
-            return text.Length / 4 + 1;
-        }
+        public int TokensUsed => TokenCount ?? TokenHelper.EstimateTokens(Content);
         
         /// <summary>
         /// Basic constructor

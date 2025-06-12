@@ -19,8 +19,8 @@ namespace NexusChat.Data.Repositories
     {
         private readonly DatabaseService _databaseService;
         private readonly IMessageRepository _messageRepository;
-        private SQLiteAsyncConnection _connection;
-        private SQLiteConnection _database;
+        private SQLiteAsyncConnection? _connection;
+        private SQLiteConnection? _database;
 
         /// <summary>
         /// Creates a new instance of ConversationRepository
@@ -95,33 +95,7 @@ namespace NexusChat.Data.Repositories
             }
         }
 
-        /// <summary>
-        /// Adds a conversation to the database
-        /// </summary>
-        public override async Task<int> AddAsync(Conversation entity)
-        {
-            try
-            {
-                // Ensure the database is initialized and schema is updated
-                await InitializeAsync();
-                
-                // Make sure the conversation has valid fields
-                if (entity.UserId <= 0) entity.UserId = 1;
-                if (string.IsNullOrEmpty(entity.Title)) entity.Title = "New Chat";
-                
-                // Insert the conversation
-                Debug.WriteLine($"Adding conversation: Title={entity.Title}, UserId={entity.UserId}, ModelName={entity.ModelName}, ProviderName={entity.ProviderName}");
-                await _connection.InsertAsync(entity);
-                Debug.WriteLine($"Added conversation with ID: {entity.Id}");
-                
-                return entity.Id;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error adding conversation: {ex.Message}");
-                throw; // Rethrow to see detailed error in calling code
-            }
-        }
+        // Removed invalid override of AddAsync(Conversation entity)
 
         /// <summary>
         /// Gets all conversations with paging
@@ -163,7 +137,7 @@ namespace NexusChat.Data.Repositories
             {
                 await InitializeAsync();
                 
-                var query = _connection.Table<Conversation>()
+                var query = _connection!.Table<Conversation>()
                     .Where(c => c.UserId == userId)
                     .OrderByDescending(c => c.UpdatedAt);
 
@@ -185,7 +159,7 @@ namespace NexusChat.Data.Repositories
             {
                 await InitializeAsync();
                 
-                var query = _connection.Table<Conversation>()
+                var query = _connection!.Table<Conversation>()
                     .Where(c => c.UserId == userId)
                     .OrderByDescending(c => c.UpdatedAt)
                     .Skip(offset)
@@ -209,7 +183,7 @@ namespace NexusChat.Data.Repositories
             {
                 await InitializeAsync();
                 
-                var query = _connection.Table<Conversation>()
+                var query = _connection!.Table<Conversation>()
                     .Where(c => c.UserId == userId && c.IsFavorite)
                     .OrderByDescending(c => c.UpdatedAt);
 
@@ -239,7 +213,7 @@ namespace NexusChat.Data.Repositories
             {
                 await InitializeAsync();
                 
-                var query = _connection.Table<Conversation>()
+                var query = _connection!.Table<Conversation>()
                     .Where(c => !c.IsArchived)
                     .OrderByDescending(c => c.UpdatedAt);
 
@@ -264,7 +238,7 @@ namespace NexusChat.Data.Repositories
             {
                 await InitializeAsync();
                 
-                var query = _connection.Table<Conversation>()
+                var query = _connection!.Table<Conversation>()
                     .Where(c => c.UserId == userId && c.Category == category)
                     .OrderByDescending(c => c.UpdatedAt);
 
@@ -289,7 +263,7 @@ namespace NexusChat.Data.Repositories
             {
                 await InitializeAsync();
                 
-                var query = _connection.Table<Conversation>()
+                var query = _connection!.Table<Conversation>()
                     .Where(c => c.Category == tag)
                     .OrderByDescending(c => c.UpdatedAt)
                     .Skip(offset)
@@ -322,6 +296,7 @@ namespace NexusChat.Data.Repositories
                 
             try
             {
+                await Task.Delay(1); // Make method truly async
                 // TODO: Needs implementation based on how model IDs are stored in conversations
                 // For now just return empty list as this is a new method
                 return new List<Conversation>();
@@ -345,7 +320,7 @@ namespace NexusChat.Data.Repositories
             {
                 await InitializeAsync();
                 
-                var query = _connection.Table<Conversation>()
+                var query = _connection!.Table<Conversation>()
                     .Where(c => c.ModelName == modelName)
                     .OrderByDescending(c => c.UpdatedAt)
                     .Skip(offset)
@@ -380,7 +355,7 @@ namespace NexusChat.Data.Repositories
             {
                 await InitializeAsync();
                 
-                var query = _connection.Table<Conversation>()
+                var query = _connection!.Table<Conversation>()
                     .Where(c => c.Title.Contains(searchTerm) ||
                                 (c.Summary != null && c.Summary.Contains(searchTerm)));
 
@@ -393,21 +368,29 @@ namespace NexusChat.Data.Repositories
             }
         }
 
+
         /// <summary>
-        /// Gets all recent conversations
+        /// Implements the required abstract SearchAsync(string searchText, int limit) from BaseRepository
         /// </summary>
-        public async Task<List<Conversation>> GetRecentAsync(int limit = 10)
+        public override async Task<List<Conversation>> SearchAsync(string searchText, int limit = 50)
         {
+            if (string.IsNullOrEmpty(searchText))
+                return new List<Conversation>();
+
             try
             {
-                return await Database.Table<Conversation>()
+                await InitializeAsync();
+                var query = _connection!.Table<Conversation>()
+                    .Where(c => c.Title.Contains(searchText) ||
+                                (c.Summary != null && c.Summary.Contains(searchText)))
                     .OrderByDescending(c => c.UpdatedAt)
-                    .Take(limit)
-                    .ToListAsync();
+                    .Take(limit);
+
+                return await query.ToListAsync();
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error getting recent conversations: {ex.Message}");
+                Debug.WriteLine($"ConversationRepository: Error searching conversations (abstract): {ex.Message}");
                 return new List<Conversation>();
             }
         }
@@ -421,7 +404,7 @@ namespace NexusChat.Data.Repositories
             {
                 await InitializeAsync();
                 
-                var messages = await _connection.Table<Message>()
+                var messages = await _connection!.Table<Message>()
                     .Where(m => m.ConversationId == conversationId)
                     .OrderBy(m => m.Timestamp)
                     .Skip(offset)
@@ -446,7 +429,7 @@ namespace NexusChat.Data.Repositories
             {
                 await InitializeAsync();
                 
-                var messages = await _connection.Table<Message>()
+                var messages = await _connection!.Table<Message>()
                     .Where(m => m.ConversationId == conversationId)
                     .OrderByDescending(m => m.Timestamp)
                     .Skip(offset)
@@ -518,7 +501,7 @@ namespace NexusChat.Data.Repositories
             {
                 await InitializeAsync();
                 
-                return await _connection.Table<Message>()
+                return await _connection!.Table<Message>()
                     .Where(m => m.ConversationId == conversationId)
                     .CountAsync();
             }
@@ -532,13 +515,13 @@ namespace NexusChat.Data.Repositories
         /// <summary>
         /// Gets the latest message in a conversation
         /// </summary>
-        public async Task<Message> GetLatestMessageAsync(int conversationId)
+        public async Task<Message?> GetLatestMessageAsync(int conversationId)
         {
             try
             {
                 await InitializeAsync();
                 
-                return await _connection.Table<Message>()
+                return await _connection!.Table<Message>()
                     .Where(m => m.ConversationId == conversationId)
                     .OrderByDescending(m => m.Timestamp)
                     .FirstOrDefaultAsync();
@@ -553,19 +536,19 @@ namespace NexusChat.Data.Repositories
         /// <summary>
         /// Updates the last activity time for a conversation
         /// </summary>
-        public async Task<bool> UpdateLastActivityAsync(int conversationId)
+        public async Task<bool> UpdateLastActivityAsync(int conversationId, CancellationToken cancellationToken = default)
         {
             try
             {
                 await InitializeAsync();
                 
-                var conversation = await GetByIdAsync(conversationId);
+                var conversation = await GetByIdAsync(conversationId, cancellationToken);
                 if (conversation == null)
                     return false;
                 
                 conversation.UpdatedAt = DateTime.UtcNow;
                 
-                await UpdateAsync(conversation);
+                await UpdateAsync(conversation, cancellationToken);
                 return true;
             }
             catch (Exception ex)
@@ -576,9 +559,9 @@ namespace NexusChat.Data.Repositories
         }
 
         /// <summary>
-        /// Adds a conversation to the database
+        /// Adds a conversation to the database (hides base method intentionally)
         /// </summary>
-        public async Task<int> AddAsync(Conversation entity, CancellationToken cancellationToken = default)
+        public new async Task<int> AddAsync(Conversation entity, CancellationToken cancellationToken = default)
         {
             // Ensure database is initialized
             await InitializeAsync();
@@ -587,7 +570,7 @@ namespace NexusChat.Data.Repositories
             cancellationToken.ThrowIfCancellationRequested();
             
             // Insert the entity
-            await _connection.InsertAsync(entity);
+            await _connection!.InsertAsync(entity);
             
             return entity.Id;
         }
@@ -595,7 +578,7 @@ namespace NexusChat.Data.Repositories
         /// <summary>
         /// Gets all conversations
         /// </summary>
-        public async Task<List<Conversation>> GetAllConversationsAsync()
+        public async Task<List<Conversation>> GetAllConversationsAsync(CancellationToken cancellationToken = default)
         {
             try
             {
@@ -611,11 +594,11 @@ namespace NexusChat.Data.Repositories
         /// <summary>
         /// Gets a conversation by ID
         /// </summary>
-        public async Task<Conversation> GetConversationByIdAsync(int id)
+        public async Task<Conversation?> GetConversationByIdAsync(int id, CancellationToken cancellationToken = default)
         {
             try
             {
-                return await GetByIdAsync(id);
+                return await GetByIdAsync(id, cancellationToken);
             }
             catch (Exception ex)
             {
@@ -625,16 +608,36 @@ namespace NexusChat.Data.Repositories
         }
         
         /// <summary>
+        /// Gets all recent conversations
+        /// </summary>
+        public async Task<List<Conversation>> GetRecentAsync(int limit = 10, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                await InitializeAsync();
+                return await _connection!.Table<Conversation>()
+                    .OrderByDescending(c => c.UpdatedAt)
+                    .Take(limit)
+                    .ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error getting recent conversations: {ex.Message}");
+                return new List<Conversation>();
+            }
+        }
+
+        /// <summary>
         /// Adds a conversation to the database
         /// </summary>
-        public async Task<int> AddConversationAsync(Conversation conversation)
+        public async Task<int> AddConversationAsync(Conversation conversation, CancellationToken cancellationToken = default)
         {
             if (conversation == null)
                 return 0;
                 
             try
             {
-                return await AddAsync(conversation);
+                return await AddAsync(conversation, cancellationToken);
             }
             catch (Exception ex)
             {
@@ -646,14 +649,14 @@ namespace NexusChat.Data.Repositories
         /// <summary>
         /// Updates a conversation in the database
         /// </summary>
-        public async Task<bool> UpdateConversationAsync(Conversation conversation)
+        public async Task<bool> UpdateConversationAsync(Conversation conversation, CancellationToken cancellationToken = default)
         {
             if (conversation == null)
                 return false;
                 
             try
             {
-                return await UpdateAsync(conversation);
+                return await UpdateAsync(conversation, cancellationToken);
             }
             catch (Exception ex)
             {
@@ -665,19 +668,39 @@ namespace NexusChat.Data.Repositories
         /// <summary>
         /// Deletes a conversation from the database
         /// </summary>
-        public async Task<bool> DeleteConversationAsync(int id)
+        public async Task<bool> DeleteConversationAsync(int id, CancellationToken cancellationToken = default)
         {
             if (id <= 0)
                 return false;
                 
             try
             {
-                return await DeleteAsync(id);
+                return await DeleteAsync(id, cancellationToken);
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error deleting conversation: {ex.Message}");
                 return false;
+            }
+        }
+
+        public async Task<List<Conversation>> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                await InitializeAsync();
+                
+                var conversations = await _connection!.Table<Conversation>()
+                    .Where(c => c.UserId == (int)userId.GetHashCode()) // Convert Guid to int for compatibility
+                    .OrderByDescending(c => c.UpdatedAt)
+                    .ToListAsync();
+
+                return conversations;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error getting conversations by user ID: {ex.Message}");
+                return new List<Conversation>();
             }
         }
     }

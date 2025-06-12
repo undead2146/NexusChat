@@ -2,7 +2,6 @@
 using Microsoft.Maui.Controls;
 using NexusChat.Services.Interfaces;
 using NexusChat.Views.Pages;
-using NexusChat.Views.Pages.DevTools;
 
 namespace NexusChat
 {
@@ -16,26 +15,25 @@ namespace NexusChat
             
             _navigationService = navigationService;
             
-            // Register routes for navigation
-            RegisterRoutes();
+            // Centralized route registration - single source of truth
+            RegisterAllRoutes();
         }
 
-        private void RegisterRoutes()
+        /// <summary>
+        /// Centralized route registration for all application pages
+        /// This is the single, authoritative location for route definitions
+        /// </summary>
+        private void RegisterAllRoutes()
         {
-            // Register MainPage as a route (even though it's the default)
+            // Main application pages
             Routing.RegisterRoute(nameof(MainPage), typeof(MainPage));
-            
-            // Register routes for all pages that will be navigated to
             Routing.RegisterRoute(nameof(ChatPage), typeof(ChatPage));
             Routing.RegisterRoute(nameof(AIModelsPage), typeof(AIModelsPage));
             
-            // Dev tools routes
-            Routing.RegisterRoute(nameof(DatabaseViewerPage), typeof(DatabaseViewerPage));
-            Routing.RegisterRoute(nameof(ModelTestingPage), typeof(ModelTestingPage));
-            Routing.RegisterRoute(nameof(ThemesPage), typeof(ThemesPage));
-            
-            // Let the navigation service know routes are registered
+            // Notify navigation service that routes are registered
             _navigationService.RegisterRoutes();
+            
+            System.Diagnostics.Debug.WriteLine("AppShell: All routes registered successfully");
         }
     }
 }

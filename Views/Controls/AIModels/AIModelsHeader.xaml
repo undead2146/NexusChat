@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:converters="clr-namespace:NexusChat.Views.Converters"
+             x:Class="NexusChat.Views.Controls.AIModelsHeader"
+             x:Name="AIModelsHeaderRoot">
+
+    <ContentView.Resources>
+        <ResourceDictionary>
+            <converters:StarColorConverter x:Key="StarColorConverter" />
+        </ResourceDictionary>
+    </ContentView.Resources>
+
+    <Grid ColumnDefinitions="Auto,*,Auto,Auto"
+          BackgroundColor="{AppThemeBinding Light=#f5f5f5, Dark=#1e1e1e}" 
+          Padding="16,12,16,12"
+          ColumnSpacing="8">
+        
+        <!-- Back button -->
+        <Button Grid.Column="0" 
+                Text="&#xf053;" 
+                FontFamily="FontAwesome-Solid" 
+                Command="{Binding Source={x:Reference AIModelsHeaderRoot}, Path=GoBackCommand}"
+                BackgroundColor="Transparent"
+                BorderColor="Transparent" 
+                TextColor="{AppThemeBinding Light=#333333, Dark=#ffffff}"
+                WidthRequest="40"
+                HeightRequest="40"
+                FontSize="18"
+                Padding="0"
+                CornerRadius="20"
+                VerticalOptions="Center" />
+        
+        <!-- Search box -->
+        <Border Grid.Column="1" 
+               StrokeShape="RoundRectangle 20,20,20,20"
+               Padding="12,0" 
+               BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#333333}"
+               Stroke="{AppThemeBinding Light=#e0e0e0, Dark=#555555}"
+               HeightRequest="40"
+               VerticalOptions="Center">
+            <Grid ColumnDefinitions="Auto,*">
+                <Label Grid.Column="0"
+                       Text="&#xf002;" 
+                       FontFamily="FontAwesome-Solid"
+                       TextColor="{AppThemeBinding Light=#999999, Dark=#999999}"
+                       FontSize="14"
+                       VerticalOptions="Center" />
+                <Entry Grid.Column="1" 
+                       Placeholder="Search models" 
+                       Text="{Binding SearchText}"
+                       ReturnCommand="{Binding Source={x:Reference AIModelsHeaderRoot}, Path=FilterModelsCommand}"
+                       BackgroundColor="Transparent"
+                       ClearButtonVisibility="WhileEditing"
+                       FontSize="14"
+                       VerticalOptions="Center" />
+            </Grid>
+        </Border>
+        
+        <!-- Favorites filter toggle -->
+        <Button Grid.Column="2"
+                Text="&#xf005;" 
+                FontFamily="FontAwesome-Solid"
+                Command="{Binding Source={x:Reference AIModelsHeaderRoot}, Path=ToggleFavoritesFilterCommand}"
+                BackgroundColor="Transparent"
+                BorderColor="Transparent" 
+                TextColor="{Binding ShowFavoritesOnly, Converter={StaticResource StarColorConverter}}"
+                WidthRequest="40"
+                HeightRequest="40"
+                FontSize="22"
+                Padding="0"
+                CornerRadius="20"
+                VerticalOptions="Center" />
+        
+        <!-- Animated refresh button -->
+        <Button Grid.Column="3"
+                Text="&#xf021;" 
+                FontFamily="FontAwesome-Solid" 
+                Command="{Binding Source={x:Reference AIModelsHeaderRoot}, Path=RefreshModelsCommand}"
+                BackgroundColor="Transparent"
+                BorderColor="Transparent"
+                TextColor="{AppThemeBinding Light=#333333, Dark=#ffffff}"
+                WidthRequest="40"
+                HeightRequest="40"
+                FontSize="18"
+                Padding="0"
+                CornerRadius="20"
+                VerticalOptions="Center"
+                Rotation="{Binding RefreshButtonRotation}" />
+    </Grid>
+</ContentView>

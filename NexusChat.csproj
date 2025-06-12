@@ -3,15 +3,10 @@
 	<PropertyGroup>
 		<TargetFrameworks>net9.0-android;net9.0-ios;net9.0-maccatalyst</TargetFrameworks>
 		<TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows'))">$(TargetFrameworks);net9.0-windows10.0.19041.0</TargetFrameworks>
-		<!-- Uncomment to also build the tizen app. You will need to install tizen by following this: https://github.com/Samsung/Tizen.NET -->
-		<!-- <TargetFrameworks>$(TargetFrameworks);net9.0-tizen</TargetFrameworks> -->
 
-		<!-- Note for MacCatalyst:
-		The default runtime is maccatalyst-x64, except in Release config, in which case the default is maccatalyst-x64;maccatalyst-arm64.
-		When specifying both architectures, use the plural <RuntimeIdentifiers> instead of the singular <RuntimeIdentifier>.
-		The Mac App Store will NOT accept apps with ONLY maccatalyst-arm64 indicated;
-		either BOTH runtimes must be indicated or ONLY macatalyst-x64. -->
-		<!-- For example: <RuntimeIdentifiers>maccatalyst-x64;maccatalyst-arm64</RuntimeIdentifiers> -->
+
+        <NoWarn>CS1591;CS0162;CA1822;CS8618;CS8604;CS8603;CS0618;CS8601;CS8625;CS8600;CS1998;CS8602;CS0169;CS0414;CS1570;CS8767;CS4014;CS0108;CS0114;CS8619;CS8622;XC0024; </NoWarn>
+
 
 		<OutputType>Exe</OutputType>
 		<RootNamespace>NexusChat</RootNamespace>
@@ -30,7 +25,6 @@
 		<ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
 		<ApplicationVersion>1</ApplicationVersion>
 
-		<!-- To develop, package, and publish an app to the Microsoft Store, see: https://aka.ms/MauiTemplateUnpackaged -->
 		<WindowsPackageType>None</WindowsPackageType>
 
 		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">15.0</SupportedOSPlatformVersion>
@@ -39,24 +33,22 @@
 		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</SupportedOSPlatformVersion>
 		<TargetPlatformMinVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</TargetPlatformMinVersion>
 		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'tizen'">6.5</SupportedOSPlatformVersion>
+		
 		<UserSecretsId>c95916de-52ba-4c8a-8302-46b9d0466c68</UserSecretsId>
+		
+		<!-- MAUI Essential Properties -->
 		<EnableDefaultXamlItems>true</EnableDefaultXamlItems>
 		<EnableDefaultEmbeddedResourceItems>true</EnableDefaultEmbeddedResourceItems>
 		<EnableCompileTimeXaml>true</EnableCompileTimeXaml>
-		<XamlRuntime>WinUI</XamlRuntime>
+		
+		<!-- Force XAML compilation -->
+		<XamlCompilationOptions>Compile</XamlCompilationOptions>
+		<GenerateAssemblyInfo>true</GenerateAssemblyInfo>
 
-		<!-- Temporary fix for Resizetizer error -->
+		<!-- Remove problematic properties that might interfere -->
 		<ErrorOnDuplicatePublishOutputFiles>false</ErrorOnDuplicatePublishOutputFiles>
-		<ResizetizerSkipVerification>true</ResizetizerSkipVerification>
 	</PropertyGroup>
 
-	<!-- Add this PropertyGroup to fix the Resizetizer issue -->
-	<PropertyGroup>
-		<ErrorOnDuplicatePublishOutputFiles>false</ErrorOnDuplicatePublishOutputFiles>
-		<ResizetizerSkipVerification>true</ResizetizerSkipVerification>
-	</PropertyGroup>
-
-	<!-- Force the XAML compiler to regenerate all files -->
 	<ItemGroup>
 		<!-- App Icon -->
 		<MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#512BD4" />
@@ -71,18 +63,10 @@
 		<!-- Custom Fonts -->
 		<MauiFont Include="Resources\Fonts\*" />
 
-		<!-- Raw Assets (also remove the "Resources\Raw" prefix) -->
+		<!-- Raw Assets -->
 		<MauiAsset Include="Resources\Raw\**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
 	</ItemGroup>
-
-	<!-- If you have an ItemGroup for MauiImage or MauiFont resources that might be causing issues -->
-	<ItemGroup>
-		<!-- Temporarily comment out problematic resources if needed
-		<MauiImage Include="Resources\Images\**\*" />
-		<MauiFont Include="Resources\Fonts\*" />
-		-->
-	</ItemGroup>
-
+    
 	<ItemGroup>
 		<PackageReference Include="Azure.Core" Version="1.45.0" />
 		<PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
@@ -99,39 +83,9 @@
 		<PackageReference Include="Bogus" Version="35.5.0" />
 		<PackageReference Include="CommunityToolkit.Maui.Markup" Version="5.1.0" />
 		<PackageReference Include="SQLiteNetExtensions.Async" Version="2.1.0" />
-	</ItemGroup>
-
-	<ItemGroup>
-		<Compile Update="Views\Controls\Accessibilities.xaml.cs">
-			<DependentUpon>Accessibilities.xaml</DependentUpon>
-		</Compile>
-		<Compile Update="Views\Controls\Buttons.xaml.cs">
-			<DependentUpon>Buttons.xaml</DependentUpon>
-		</Compile>
-		<Compile Update="Views\Controls\ChatComponents.xaml.cs">
-			<DependentUpon>ChatComponents.xaml</DependentUpon>
-		</Compile>
-		<Compile Update="Views\Controls\ColorPalette.xaml.cs">
-			<DependentUpon>ColorPalette.xaml</DependentUpon>
-		</Compile>
-		<Compile Update="Views\Controls\FormComponents.xaml.cs">
-			<DependentUpon>FormComponents.xaml</DependentUpon>
-		</Compile>
-		<Compile Update="Views\Controls\FunctionalColors.xaml.cs">
-			<DependentUpon>FunctionalColors.xaml</DependentUpon>
-		</Compile>
-		<Compile Update="Views\Controls\InputControls.xaml.cs">
-			<DependentUpon>InputControls.xaml</DependentUpon>
-		</Compile>
-		<Compile Update="Views\Controls\LayoutComponents.xaml.cs">
-			<DependentUpon>LayoutComponents.xaml</DependentUpon>
-		</Compile>
-		<Compile Update="Views\Controls\StatusIndicators.xaml.cs">
-			<DependentUpon>StatusIndicators.xaml</DependentUpon>
-		</Compile>
-		<Compile Update="Views\Controls\Typography.xaml.cs">
-			<DependentUpon>Typography.xaml</DependentUpon>
-		</Compile>
+		<PackageReference Include="Microsoft.Maui.Controls.Compatibility" Version="8.0.90" />
+		<PackageReference Include="Microsoft.Maui.Controls.Maps" Version="8.0.90" />
+		<PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
 	</ItemGroup>
 
 	<ItemGroup>
@@ -142,6 +96,17 @@
 		<MauiXaml Remove="Local\**" />
 		<MauiCss Remove="Local\**" />
 		<MauiAsset Remove="Local\**" />
+        <Content Remove="docs\**" />
+        <MauiCss Remove="docs\**" />
+        <Compile Remove="docs\**" />
+        <EmbeddedResource Remove="docs\**" />
+        <None Include="docs\**" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<MauiAsset Include=".env" />
+		<AndroidAsset Include=".env" />
+		<EmbeddedResource Include=".env" />
 	</ItemGroup>
 
 </Project>

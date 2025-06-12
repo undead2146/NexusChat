@@ -119,5 +119,15 @@ namespace NexusChat.Core.ViewModels
         {
             OnPropertyChanged(new System.ComponentModel.PropertyChangedEventArgs(propertyName));
         }
+
+        /// <summary>
+        /// Dispose of resources used by the ViewModel
+        /// </summary>
+        public virtual void Dispose()
+        {
+            Cleanup();
+        }
+
+
     }
 }

@@ -11,18 +11,12 @@ namespace NexusChat.Views.Converters
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            if (value == null || parameter == null)
-                return false;
-
-            // Try to parse both values as numbers
-            if (int.TryParse(value.ToString(), out int intValue) && 
-                int.TryParse(parameter.ToString(), out int intParam))
+            if (value is int intValue && parameter is string paramStr && int.TryParse(paramStr, out int threshold))
             {
-                return intValue > intParam;
+                return intValue > threshold;
             }
-
-            // For non-integer types, fall back to string comparison
-            return value.ToString().CompareTo(parameter.ToString()) > 0;
+            
+            return false;
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)

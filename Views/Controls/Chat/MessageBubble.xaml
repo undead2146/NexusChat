@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:converters="clr-namespace:NexusChat.Views.Converters"
+             xmlns:controls="clr-namespace:NexusChat.Views.Controls"
+             x:Class="NexusChat.Views.Controls.MessageBubble"
+             x:Name="this">
+
+    <ContentView.Resources>
+        <ResourceDictionary>
+            <converters:BoolToAlignmentConverter x:Key="BoolToAlignmentConverter" 
+                                               TrueValue="Start" 
+                                               FalseValue="End" />
+            <converters:InvertedBoolConverter x:Key="InvertedBoolConverter" />
+            <converters:MessageAuthorConverter x:Key="MessageAuthorConverter" />
+            <converters:DateTimeToTimeStringConverter x:Key="DateTimeToTimeStringConverter" />
+            <converters:BoolToColorConverter x:Key="BoolToColorConverter" />
+        </ResourceDictionary>
+    </ContentView.Resources>
+
+    <Grid ColumnDefinitions="Auto,*,Auto" Margin="5" HorizontalOptions="{Binding IsAI, Source={x:Reference this}, Converter={StaticResource BoolToAlignmentConverter}}">
+        <!-- Author Icon (only for AI) -->
+        <Border Grid.Column="0" 
+               StrokeShape="RoundRectangle 15,15,15,15"
+               HeightRequest="30"
+               WidthRequest="30"
+               Padding="0"
+               StrokeThickness="0"
+               BackgroundColor="White"
+               Margin="0,0,5,0"
+               VerticalOptions="Start"
+               IsVisible="{Binding IsAI, Source={x:Reference this}}">
+            <!-- Purple circle for AI icon -->
+            <Ellipse Fill="#6211DE"
+                    HeightRequest="26"
+                    WidthRequest="26"
+                    HorizontalOptions="Center"
+                    VerticalOptions="Center" />
+        </Border>
+
+        <!-- Message Content -->
+        <VerticalStackLayout Grid.Column="1" Spacing="5">
+            <!-- Author Display (only for AI) -->
+            <Label Text="{Binding IsAI, Source={x:Reference this}, Converter={StaticResource MessageAuthorConverter}}"
+                   FontSize="12"
+                   FontAttributes="Bold"
+                   TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray400}}"
+                   IsVisible="{Binding IsAI, Source={x:Reference this}}" />
+
+            <!-- Message Bubble -->
+            <Border x:Name="MessageFrame"
+                   Padding="10"
+                   StrokeThickness="0"
+                   StrokeShape="RoundRectangle 12,12,12,12">
+                
+                <!-- Setup the frame background color using theme resources -->
+                <Border.Triggers>
+                    <DataTrigger TargetType="Border"
+                                 Binding="{Binding IsAI, Source={x:Reference this}}"
+                                 Value="True">
+                        <Setter Property="BackgroundColor" 
+                                Value="{AppThemeBinding Light={StaticResource Gray100}, Dark={StaticResource Gray800}}" />
+                    </DataTrigger>
+                    <DataTrigger TargetType="Border"
+                                 Binding="{Binding IsAI, Source={x:Reference this}}"
+                                 Value="False">
+                        <Setter Property="BackgroundColor" 
+                                Value="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                    </DataTrigger>
+                </Border.Triggers>
+                
+                <VerticalStackLayout>
+                    <!-- Thinking indicator display -->
+                    <Grid IsVisible="False" x:Name="ThinkingGrid">
+                        <controls:ThinkingIndicator IsActive="True" />
+                    </Grid>
+                    
+                    <!-- Message Content -->
+                    <Label x:Name="ContentLabel"
+                           Text="{Binding MessageContent, Source={x:Reference this}}"
+                           LineBreakMode="WordWrap"
+                           TextType="Text">
+                        <Label.Triggers>
+                            <DataTrigger TargetType="Label"
+                                         Binding="{Binding IsAI, Source={x:Reference this}}"
+                                         Value="True">
+                                <Setter Property="TextColor" 
+                                        Value="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}" />
+                            </DataTrigger>
+                            <DataTrigger TargetType="Label"
+                                         Binding="{Binding IsAI, Source={x:Reference this}}"
+                                         Value="False">
+                                <Setter Property="TextColor" 
+                                        Value="{StaticResource White}" />
+                            </DataTrigger>
+                        </Label.Triggers>
+                    </Label>
+                           
+                    <!-- Timestamp -->
+                    <Label Text="{Binding Timestamp, Source={x:Reference this}, Converter={StaticResource DateTimeToTimeStringConverter}}"
+                           FontSize="10"
+                           HorizontalOptions="End"
+                           Margin="0,5,0,0">
+                        <Label.Triggers>
+                            <DataTrigger TargetType="Label"
+                                         Binding="{Binding IsAI, Source={x:Reference this}}"
+                                         Value="True">
+                                <Setter Property="TextColor" 
+                                        Value="{AppThemeBinding Light={StaticResource SecondaryTextColor}, Dark={StaticResource SecondaryTextColorDark}}" />
+                            </DataTrigger>
+                            <DataTrigger TargetType="Label"
+                                         Binding="{Binding IsAI, Source={x:Reference this}}"
+                                         Value="False">
+                                <Setter Property="TextColor" 
+                                        Value="{StaticResource White}" />
+                            </DataTrigger>
+                        </Label.Triggers>
+                    </Label>
+                    
+                    <!-- Regenerate button for AI messages -->
+                    <Button Text="&#xf2f9;"
+                           FontFamily="FontAwesome-Solid"
+                           FontSize="14"
+                           Padding="8,2"
+                           Margin="0,4,0,0"
+                           BackgroundColor="Transparent"
+                           TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}"
+                           HorizontalOptions="End"
+                           IsVisible="{Binding IsAI, Source={x:Reference this}}"
+                           Command="{Binding Source={x:Reference this}, Path=RegenerateCommand}"
+                           CommandParameter="{Binding Source={x:Reference this}, Path=Message}" />
+                </VerticalStackLayout>
+            </Border>
+        </VerticalStackLayout>
+
+        <!-- User Icon (only for user messages) -->
+        <Border Grid.Column="2" 
+               StrokeShape="RoundRectangle 15,15,15,15"
+               HeightRequest="30"
+               WidthRequest="30"
+               Padding="0"
+               StrokeThickness="0"
+               BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+               Margin="5,0,0,0"
+               VerticalOptions="Start"
+               IsVisible="{Binding IsAI, Source={x:Reference this}, Converter={StaticResource InvertedBoolConverter}}">
+            <Label Text="&#xf007;" 
+                   FontFamily="FontAwesome-Solid"
+                   TextColor="White"
+                   HorizontalOptions="Center"
+                   VerticalOptions="Center"
+                   FontSize="16" />
+        </Border>
+    </Grid>
+</ContentView>

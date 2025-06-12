@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using SQLite;
 using SQLiteNetExtensions.Attributes;
+using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace NexusChat.Core.Models
 {
@@ -9,7 +10,7 @@ namespace NexusChat.Core.Models
     /// Represents a conversation between a user and AI
     /// </summary>
     [Table("Conversations")]
-    public class Conversation
+    public partial class Conversation : ObservableObject
     {
         /// <summary>
         /// Gets or sets the unique identifier
@@ -22,7 +23,7 @@ namespace NexusChat.Core.Models
         /// </summary>
         [Indexed]
         [ForeignKey(typeof(User))]
-        public int UserId { get; set; } = 1; // Default to user ID 1 to prevent null foreign key issues
+        public int UserId { get; set; } = 1;
         
         /// <summary>
         /// Gets or sets the conversation title
@@ -58,7 +59,6 @@ namespace NexusChat.Core.Models
         public bool IsFavorite { get; set; } = false;
         
         /// <summary>
-        /// Gets or sets whether this conversation is archived
         /// </summary>
         public bool IsArchived { get; set; } = false;
         
@@ -83,6 +83,15 @@ namespace NexusChat.Core.Models
         /// </summary>
         [OneToMany]
         public List<Message> Messages { get; set; }
+
+        [ObservableProperty]
+        private bool isSelected;
+
+        [ObservableProperty]
+        private DateTime? lastAccessedAt;
+
+        [ObservableProperty]
+        private string lastMessage = string.Empty;
         
         /// <summary>
         /// Default constructor
@@ -100,15 +109,6 @@ namespace NexusChat.Core.Models
             UserId = userId;
             Title = title ?? "New Conversation";
             Messages = new List<Message>();
-        }
-        
-        /// <summary>
-        /// Updates the conversation with a new message's token count
-        /// </summary>
-        /// <param name="tokensUsed">Number of tokens used in the new message</param>
-        public void AddTokens(int tokensUsed)
-        {
-            UpdatedAt = DateTime.UtcNow;
         }
         
         /// <summary>

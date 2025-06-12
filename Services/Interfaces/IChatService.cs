@@ -56,5 +56,20 @@ namespace NexusChat.Services.Interfaces
         /// Sends a message in a conversation
         /// </summary>
         Task<Message> SendMessageAsync(int conversationId, string content, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Gets the last message in a conversation
+        /// </summary>
+        Task<Message?> GetLastMessageAsync(int conversationId, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Gets messages in a conversation
+        /// </summary>
+        Task<List<Message>> GetMessagesAsync(int conversationId, CancellationToken cancellationToken = default);
+        
+        /// <summary>
+        /// Regenerates a message in a conversation
+        /// </summary>
+        Task RegenerateMessageAsync(int conversationId, int messageId, CancellationToken cancellationToken = default);
     }
 }

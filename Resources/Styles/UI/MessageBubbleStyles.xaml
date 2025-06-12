@@ -4,28 +4,47 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     x:Class="NexusChat.Resources.Styles.UI.MessageBubbleStyles">
 
-    <!-- User message styles -->
-    <Style x:Key="MessageBubbleUserFrame" TargetType="Frame">
-        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light=#e3f2fd, Dark=#0d47a1}" />
-        <Setter Property="CornerRadius" Value="10" />
+    <!-- User Message Bubble Style -->
+    <Style x:Key="UserMessageBubbleStyle" TargetType="Border">
+        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light=#0078D7, Dark=#0078D7}" />
+        <Setter Property="StrokeShape" Value="RoundRectangle 16,16,4,16" />
         <Setter Property="Padding" Value="12,8" />
-        <Setter Property="BorderColor" Value="Transparent" />
-        <Setter Property="HasShadow" Value="False" />
+        <Setter Property="Margin" Value="48,4,12,4" />
+        <Setter Property="HorizontalOptions" Value="End" />
     </Style>
-    
-    <!-- AI message styles -->
-    <Style x:Key="MessageBubbleAIFrame" TargetType="Frame">
-        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light=#f0f0f0, Dark=#303030}" />
-        <Setter Property="CornerRadius" Value="10" />
+
+    <!-- AI Message Bubble Style -->
+    <Style x:Key="AIMessageBubbleStyle" TargetType="Border">
+        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light=#f0f0f0, Dark=#3a3a3a}" />
+        <Setter Property="StrokeShape" Value="RoundRectangle 4,16,16,16" />
         <Setter Property="Padding" Value="12,8" />
-        <Setter Property="BorderColor" Value="Transparent" />
-        <Setter Property="HasShadow" Value="False" />
+        <Setter Property="Margin" Value="12,4,48,4" />
+        <Setter Property="HorizontalOptions" Value="Start" />
     </Style>
-    
-    <!-- Message content text style -->
-    <Style x:Key="MessageContentStyle" TargetType="Label">
-        <Setter Property="TextColor" Value="{AppThemeBinding Light=Black, Dark=White}" />
+
+    <!-- Message Text Style -->
+    <Style x:Key="MessageTextStyle" TargetType="Label">
         <Setter Property="FontSize" Value="14" />
         <Setter Property="LineBreakMode" Value="WordWrap" />
+        <Setter Property="VerticalOptions" Value="Center" />
     </Style>
+
+    <!-- User Message Text Style -->
+    <Style x:Key="UserMessageTextStyle" TargetType="Label" BasedOn="{StaticResource MessageTextStyle}">
+        <Setter Property="TextColor" Value="White" />
+    </Style>
+
+    <!-- AI Message Text Style -->
+    <Style x:Key="AIMessageTextStyle" TargetType="Label" BasedOn="{StaticResource MessageTextStyle}">
+        <Setter Property="TextColor" Value="{AppThemeBinding Light=#333333, Dark=#ffffff}" />
+    </Style>
+
+    <!-- Message Timestamp Style -->
+    <Style x:Key="MessageTimestampStyle" TargetType="Label">
+        <Setter Property="FontSize" Value="10" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light=#999999, Dark=#aaaaaa}" />
+        <Setter Property="HorizontalOptions" Value="End" />
+        <Setter Property="Margin" Value="0,2,0,0" />
+    </Style>
+
 </ResourceDictionary>

@@ -4,20 +4,29 @@
     <style name="MainTheme" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <!-- Primary brand color -->
         <item name="colorPrimary">@color/colorPrimary</item>
-        <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
-        <item name="colorAccent">@color/colorAccent</item>
-        
-        <!-- Material specific attributes (these work with built-in Material Components) -->
         <item name="colorPrimaryVariant">@color/colorPrimaryDark</item>
+        <item name="colorOnPrimary">@color/maui_white</item> 
+        
+        <!-- Secondary brand color -->
         <item name="colorSecondary">@color/colorAccent</item>
-        <item name="colorSecondaryVariant">@color/colorAccent</item>
-        <item name="colorOnPrimary">@android:color/white</item>
-        <item name="colorOnSecondary">@android:color/white</item>
+        <item name="colorSecondaryVariant">@color/colorAccent</item> <!-- You might want a darker variant of Accent here -->
+        <item name="colorOnSecondary">@color/maui_black</item> <!-- Use maui_black for better contrast if Accent is light -->
         
         <!-- Status bar color -->
-        <item name="android:statusBarColor">?attr/colorPrimaryDark</item>
+        <item name="android:statusBarColor">?attr/colorPrimaryVariant</item>
         
-        <!-- Customize your theme here -->
-        <item name="windowActionModeOverlay">true</item>
+        <!-- Enable window content transitions -->
+        <item name="android:windowContentTransitions">true</item>
+
+        <!-- This is crucial for BottomNavigationView text appearance -->
+        <item name="bottomNavigationStyle">@style/Widget.MaterialComponents.BottomNavigationView.Colored</item>
     </style>
+    
+    <!-- Maui Splash Theme 
+    <style name="Maui.SplashTheme" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/maui_splash_color</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/maui_splash</item> 
+        <item name="postSplashScreenTheme">@style/MainTheme</item>
+    </style>
+     -->
 </resources>
