@@ -400,5 +400,107 @@ namespace NexusChat.Core.ViewModels
             }
         }
         #endregion
+
+        #region Provider Model Management
+        /// <summary>
+        /// Cleans up models from database and UI for a specific provider
+        /// </summary>
+        public async Task CleanupProviderModelsAsync(string provider)
+        {
+            try
+            {
+                Debug.WriteLine($"Cleaning up models for provider: {provider}");
+                
+                // Remove models from database first
+                int deletedCount = await _modelRepository.DeleteModelsByProviderAsync(provider);
+                Debug.WriteLine($"Deleted {deletedCount} models from database for provider: {provider}");
+                
+                // Remove models from UI collections
+                await MainThread.InvokeOnMainThreadAsync(() =>
+                {
+                    var modelsToRemove = Models.Where(m => 
+                        m.ProviderName.Equals(provider, StringComparison.OrdinalIgnoreCase))
+                        .ToList();
+                    
+                    var filteredModelsToRemove = FilteredModels.Where(m => 
+                        m.ProviderName.Equals(provider, StringComparison.OrdinalIgnoreCase))
+                        .ToList();
+                    
+                    // Animate out models before removing
+                    foreach (var model in modelsToRemove)
+                    {
+                        model.AnimationOpacity = 0.3;
+                        model.AnimationScale = 0.9;
+                    }
+                });
+                
+                // Wait for animation to complete then remove
+                await Task.Delay(300);
+                
+                await MainThread.InvokeOnMainThreadAsync(() =>
+                {
+                    // Remove from Models collection
+                    var modelsToRemove = Models.Where(m => 
+                        m.ProviderName.Equals(provider, StringComparison.OrdinalIgnoreCase))
+                        .ToList();
+                    
+                    foreach (var model in modelsToRemove)
+                    {
+                        Models.Remove(model);
+                    }
+                    
+                    // Remove from FilteredModels collection
+                    var filteredModelsToRemove = FilteredModels.Where(m => 
+                        m.ProviderName.Equals(provider, StringComparison.OrdinalIgnoreCase))
+                        .ToList();
+                    
+                    foreach (var model in filteredModelsToRemove)
+                    {
+                        FilteredModels.Remove(model);
+                    }
+                    
+                    // Update UI state
+                    ShowNoResults = FilteredModels.Count == 0 && !IsLoading;
+                    OnPropertyChanged(nameof(Models));
+                    OnPropertyChanged(nameof(FilteredModels));
+                });
+                
+                Debug.WriteLine($"Cleaned up models for provider: {provider}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error cleaning up models for provider {provider}: {ex.Message}");
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Discovers and loads models for a specific provider
+        /// </summary>
+        public async Task DiscoverAndLoadProviderModelsAsync(string provider)
+        {
+            try
+            {
+                Debug.WriteLine($"AIModelsViewModel: Discovering models for {provider} after API key save");
+                
+                // Use the model manager to discover models for this provider
+                bool discoverySuccess = await _modelManager.DiscoverAndLoadProviderModelsAsync(provider);
+                
+                if (discoverySuccess)
+                {
+                    Debug.WriteLine($"AIModelsViewModel: Successfully discovered models for {provider}");
+                }
+                else
+                {
+                    Debug.WriteLine($"AIModelsViewModel: No new models found for {provider}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error discovering models for {provider}: {ex.Message}");
+                throw;
+            }
+        }
+        #endregion
     }
 }

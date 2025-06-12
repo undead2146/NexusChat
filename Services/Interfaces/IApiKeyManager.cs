@@ -96,5 +96,15 @@ namespace NexusChat.Services.Interfaces
         /// Forces a refresh of the availability cache
         /// </summary>
         Task RefreshAvailabilityCacheAsync();
+
+        /// <summary>
+        /// Clears all cached API key data to force fresh validation
+        /// </summary>
+        Task ClearCacheAsync();
+
+        /// <summary>
+        /// Clears cache for a specific provider
+        /// </summary>
+        Task ClearProviderCacheAsync(string providerName);
     }
 }

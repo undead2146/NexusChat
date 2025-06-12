@@ -774,5 +774,52 @@ namespace NexusChat.Services.ApiKeyManagement
                 return results;
             }
         }
+
+        /// <summary>
+        /// Clears all cached API key data to force fresh validation
+        /// </summary>
+        public async Task ClearCacheAsync()
+        {
+            await _cacheLock.WaitAsync();
+            try
+            {
+                Debug.WriteLine("ApiKeyManager: Clearing all cache data");
+                
+                _resolvedKeyCache.Clear();
+                _providerAvailabilityCache.Clear();
+                _cacheTimestamps.Clear();
+                _lastBulkCacheRefresh = DateTime.MinValue;
+                
+                Debug.WriteLine("ApiKeyManager: Cache cleared successfully");
+            }
+            finally
+            {
+                _cacheLock.Release();
+            }
+        }
+
+        /// <summary>
+        /// Clears cache for a specific provider
+        /// </summary>
+        public async Task ClearProviderCacheAsync(string providerName)
+        {
+            if (string.IsNullOrEmpty(providerName)) return;
+            
+            await _cacheLock.WaitAsync();
+            try
+            {
+                Debug.WriteLine($"ApiKeyManager: Clearing cache for provider: {providerName}");
+                
+                ClearProviderFromResolvedCache(providerName);
+                _providerAvailabilityCache.Remove(providerName);
+                _cacheTimestamps.Remove(providerName);
+                
+                Debug.WriteLine($"ApiKeyManager: Cache cleared for provider: {providerName}");
+            }
+            finally
+            {
+                _cacheLock.Release();
+            }
+        }
     }
 }

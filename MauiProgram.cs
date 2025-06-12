@@ -44,7 +44,7 @@ public static class MauiProgram
         // Register Pages
         RegisterPages(builder.Services);
 
-        // Routes are registered in AppShell.xaml.cs - no need for duplicate registration here
+        // Note: Routes are registered in AppShell.xaml.cs to avoid conflicts
 
 #if DEBUG
         builder.Logging.AddDebug();

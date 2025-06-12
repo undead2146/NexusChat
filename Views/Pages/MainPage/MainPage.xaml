@@ -14,33 +14,32 @@
     
     <Grid Padding="{OnPlatform iOS='0,47,0,34', Android='0,0,0,0', Default='0,0,0,0'}" RowDefinitions="*,Auto">
         <ScrollView Grid.Row="0">
-            <!-- Simple background instead of gradient which might cause issues -->
-            <VerticalStackLayout Padding="16,24,16,16" Spacing="18">
+            <VerticalStackLayout Padding="20,24,20,16" Spacing="24">
                 
-                <!-- App Header with theme toggle -->
-                <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,12">
+                <!-- Header Section -->
+                <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,8">
                     <VerticalStackLayout Grid.Column="0" Spacing="4">
                         <Label Text="NexusChat" 
                                FontFamily="OpenSansBold" 
-                               FontSize="28" 
+                               FontSize="32" 
                                TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
-                        <Label Text="AI at your fingertips" 
+                        <Label Text="Your AI Assistant Hub" 
                                FontFamily="OpenSansRegular" 
                                FontSize="16" 
                                TextColor="{AppThemeBinding Light={StaticResource SecondaryTextColor}, Dark={StaticResource SecondaryTextColorDark}}" />
                     </VerticalStackLayout>
                     
-                    <!-- Simpler theme toggle button -->
+                    <!-- Theme Toggle -->
                     <Frame Grid.Column="1"
                            Padding="0"
-                           WidthRequest="48" HeightRequest="48"
-                           CornerRadius="24"
-                           HasShadow="False"
-                           BorderColor="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray600}}"
+                           WidthRequest="50" HeightRequest="50"
+                           CornerRadius="25"
+                           HasShadow="True"
+                           BorderColor="Transparent"
                            BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}">
                         <Label Text="{Binding ThemeIconText}"
                                FontFamily="FontAwesome-Solid"
-                               FontSize="22"
+                               FontSize="24"
                                FontAutoScalingEnabled="False"
                                TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
                                HorizontalOptions="Center"
@@ -51,353 +50,287 @@
                     </Frame>
                 </Grid>
                 
-                <!-- Start Chat Panel - Enhanced with better favorites display -->
+                <!-- Quick Start Section -->
                 <Frame Padding="0"
-                       HasShadow="False"
-                       BorderColor="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray600}}"
-                       CornerRadius="16">
-                    <Grid RowDefinitions="Auto,Auto,Auto">
-                        <!-- Simple header instead of gradient -->
-                        <Grid Grid.Row="0"
-                              BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
-                              Padding="20,16">
-                            <Label Text="Start a Conversation"
+                       HasShadow="True"
+                       BorderColor="Transparent"
+                       CornerRadius="20"
+                       BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}">
+                    <VerticalStackLayout Spacing="0">
+                        <!-- Header -->
+                        <Grid BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                              Padding="24,20">
+                            <Label Text="Quick Start"
                                    TextColor="White"
                                    FontFamily="OpenSansBold"
-                                   FontSize="20"/>
+                                   FontSize="20"
+                                   VerticalOptions="Center"/>
                         </Grid>
+                        
+                        <!-- Content -->
+                        <VerticalStackLayout Padding="24,20" Spacing="20">
+                            <!-- New Chat Button -->
+                            <Button Text="Start New Chat"
+                                    BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                    TextColor="White"
+                                    FontFamily="OpenSansSemiBold"
+                                    FontSize="16"
+                                    CornerRadius="12"
+                                    HeightRequest="50"
+                                    Command="{Binding StartNewChatCommand}"/>
                             
-                        <!-- favorite Models area - NEW PROMINENT SECTION -->
-                        <Grid Grid.Row="1" 
-                              BackgroundColor="{AppThemeBinding Light=#FFF5E6, Dark=#332200}" 
-                              Padding="16,12" 
-                              IsVisible="{Binding HasfavoriteModels}">
-                            <VerticalStackLayout Spacing="8">
-                                <Label Text="Your favorite Models"
-                                       FontFamily="OpenSansSemiBold"
-                                       FontSize="16"
-                                       TextColor="{AppThemeBinding Light=#CC7700, Dark=#FFCC66}"/>
-                                       
-                                <!-- Enhanced favorite Models Display -->
-                                <CollectionView ItemsSource="{Binding favoriteModels}"
-                                                HeightRequest="120"
-                                                SelectionMode="None">
-                                    <CollectionView.ItemsLayout>
-                                        <GridItemsLayout Orientation="Vertical" 
-                                                         Span="2" 
-                                                         HorizontalItemSpacing="10" 
-                                                         VerticalItemSpacing="10"/>
-                                    </CollectionView.ItemsLayout>
-                                    
-                                    <CollectionView.ItemTemplate>
-                                        <DataTemplate>
-                                            <Frame Padding="12,10"
-                                                   CornerRadius="10"
+                            <!-- Browse Models Button -->
+                            <Button Text="Browse All AI Models"
+                                    BorderWidth="2"
+                                    BorderColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                    TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                    BackgroundColor="Transparent"
+                                    FontFamily="OpenSansSemiBold"
+                                    FontSize="16"
+                                    CornerRadius="12"
+                                    HeightRequest="50"
+                                    Command="{Binding ModelsCommand}"/>
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+                </Frame>
+                
+                <!-- Favorite Models Section -->
+                <Frame Padding="0"
+                       HasShadow="True"
+                       BorderColor="Transparent"
+                       CornerRadius="20"
+                       BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}"
+                       IsVisible="{Binding HasFavoriteModels}">
+                    <VerticalStackLayout Spacing="0">
+                        <!-- Header -->
+                        <Grid BackgroundColor="{AppThemeBinding Light=#FF6B35, Dark=#FF8C42}"
+                              Padding="24,16">
+                            <Label Text="Favorite Models"
+                                   TextColor="White"
+                                   FontFamily="OpenSansBold"
+                                   FontSize="18"
+                                   VerticalOptions="Center"/>
+                        </Grid>
+                        
+                        <!-- Models Grid -->
+                        <StackLayout Orientation="Vertical" Margin="20,16,20,20">
+                            <CollectionView ItemsSource="{Binding FavoriteModels}"
+                                            SelectionMode="None"
+                                            BackgroundColor="Transparent">
+                                <CollectionView.ItemsLayout>
+                                    <GridItemsLayout Orientation="Vertical" 
+                                                     Span="2" 
+                                                     HorizontalItemSpacing="12" 
+                                                     VerticalItemSpacing="12"/>
+                                </CollectionView.ItemsLayout>
+                                
+                                <CollectionView.ItemTemplate>
+                                    <DataTemplate x:DataType="viewmodels:FavoriteModelItem">
+                                        <Grid>
+                                            <Frame Padding="14"
+                                                   CornerRadius="12"
                                                    Margin="0"
                                                    BackgroundColor="{Binding ColorHex}"
-                                                   HasShadow="True">
-                                                <Grid RowDefinitions="Auto,*" RowSpacing="4">
-                                                    <Label Text="{Binding Name}"
+                                                   HasShadow="True"
+                                                   BorderColor="Transparent"
+                                                   HeightRequest="80">
+                                                <Grid RowDefinitions="Auto,*" RowSpacing="6">
+                                                    <Label Grid.Row="0"
+                                                           Text="{Binding Name}"
                                                            FontFamily="OpenSansBold"
                                                            FontSize="14"
                                                            TextColor="White"
-                                                           LineBreakMode="TailTruncation"/>
+                                                           LineBreakMode="TailTruncation"
+                                                           MaxLines="1"/>
                                                            
                                                     <Label Grid.Row="1"
                                                            Text="{Binding Provider}"
                                                            FontFamily="OpenSansRegular"
                                                            FontSize="12"
-                                                           TextColor="#FFFFFFAA"
-                                                           LineBreakMode="TailTruncation"/>
+                                                           TextColor="#FFFFFFCC"
+                                                           LineBreakMode="TailTruncation"
+                                                           MaxLines="1"
+                                                           VerticalOptions="Start"/>
                                                 </Grid>
                                                 <Frame.GestureRecognizers>
                                                     <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:MainPageViewModel}}, Path=SelectModelCommand}"
                                                                           CommandParameter="{Binding .}"/>
                                                 </Frame.GestureRecognizers>
                                             </Frame>
-                                        </DataTemplate>
-                                    </CollectionView.ItemTemplate>
-                                </CollectionView>
-                            </VerticalStackLayout>
-                        </Grid>
-                            
-                        <!-- Content area -->
-                        <VerticalStackLayout Grid.Row="2" 
-                                          Padding="20" 
-                                          Spacing="20"
-                                          BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}">
-                                
-                            <!-- Model selection message -->
-                            <Label Text="{Binding ModelSelectionMessage}"
-                                  FontFamily="OpenSansRegular"
-                                  FontSize="14"
-                                  TextColor="{AppThemeBinding Light={StaticResource SecondaryTextColor}, Dark={StaticResource SecondaryTextColorDark}}"
-                                  IsVisible="{Binding HasNofavoriteModels}"/>
-
-                            <!-- Action Buttons -->
-                            <Grid ColumnDefinitions="*,*" ColumnSpacing="16">
-                                <!-- Browse Models button -->
-                                <Button Grid.Column="0"
-                                      Text="Browse All Models"
-                                      BorderWidth="1"
-                                      BorderColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
-                                      TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
-                                      BackgroundColor="Transparent"
-                                      CornerRadius="8"
-                                      HeightRequest="44"
-                                      Command="{Binding ModelsCommand}"/>
-                                        
-                                <!-- Start Chat button -->
-                                <Button Grid.Column="1"
-                                      Text="Start New Chat"
-                                      BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
-                                      TextColor="White"
-                                      CornerRadius="8"
-                                      HeightRequest="44"
-                                      Command="{Binding StartNewChatCommand}"/>
-                            </Grid>
-                        </VerticalStackLayout>
-                    </Grid>
+                                        </Grid>
+                                    </DataTemplate>
+                                </CollectionView.ItemTemplate>
+                            </CollectionView>
+                        </StackLayout>
+                    </VerticalStackLayout>
                 </Frame>
                 
-                <!-- Quick Action Cards - Simplified -->
-                <Label Text="Quick Actions"
-                     FontFamily="OpenSansBold"
-                     FontSize="20"
-                     Margin="4,0,0,4"
-                     TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}" />
-                    
-                <Grid ColumnDefinitions="*,*" RowDefinitions="*,*" RowSpacing="16" ColumnSpacing="16">
-                    <!-- Chats -->
-                    <Frame Grid.Row="0" Grid.Column="0"
-                         HasShadow="False"
-                         BorderColor="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray600}}"
-                         CornerRadius="12"
-                         Padding="16"
-                         BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}">
-                        <VerticalStackLayout Spacing="8">
-                            <Label Text="&#xf4ad;"
-                                 FontFamily="FontAwesome-Solid"
-                                 FontSize="24"
-                                 FontAutoScalingEnabled="False"
-                                 TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"/>
-                            <Label Text="Recent Chats"
-                                 FontFamily="OpenSansSemiBold"
-                                 FontSize="14"
-                                 TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}"/>
-                        </VerticalStackLayout>
-                        <Frame.GestureRecognizers>
-                            <TapGestureRecognizer Command="{Binding ChatsCommand}"/>
-                        </Frame.GestureRecognizers>
-                    </Frame>
-                        
-                    <!-- Models -->
-                    <Frame Grid.Row="0" Grid.Column="1"
-                         HasShadow="False"
-                         BorderColor="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray600}}"
-                         CornerRadius="12"
-                         Padding="16"
-                         BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}">
-                        <VerticalStackLayout Spacing="8">
-                            <Label Text="&#xf085;"
-                                 FontFamily="FontAwesome-Solid"
-                                 FontSize="24"
-                                 FontAutoScalingEnabled="False"
-                                 TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"/>
-                            <Label Text="AI Models"
-                                 FontFamily="OpenSansSemiBold"
-                                 FontSize="14"
-                                 TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}"/>
-                        </VerticalStackLayout>
-                        <Frame.GestureRecognizers>
-                            <TapGestureRecognizer Command="{Binding ModelsCommand}"/>
-                        </Frame.GestureRecognizers>
-                    </Frame>
-                        
-                    <!-- Settings -->
-                    <Frame Grid.Row="1" Grid.Column="0"
-                         HasShadow="False"
-                         BorderColor="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray600}}"
-                         CornerRadius="12"
-                         Padding="16"
-                         BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}">
-                        <VerticalStackLayout Spacing="8">
-                            <Label Text="&#xf013;"
-                                 FontFamily="FontAwesome-Solid"
-                                 FontSize="24"
-                                 FontAutoScalingEnabled="False"
-                                 TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"/>
-                            <Label Text="Settings"
-                                 FontFamily="OpenSansSemiBold"
-                                 FontSize="14"
-                                 TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}"/>
-                        </VerticalStackLayout>
-                        <Frame.GestureRecognizers>
-                            <TapGestureRecognizer Command="{Binding SettingsCommand}"/>
-                        </Frame.GestureRecognizers>
-                    </Frame>
-                        
-                    <!-- Profile -->
-                    <Frame Grid.Row="1" Grid.Column="1"
-                         HasShadow="False"
-                         BorderColor="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray600}}"
-                         CornerRadius="12"
-                         Padding="16"
-                         BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}">
-                        <VerticalStackLayout Spacing="8">
-                            <Label Text="&#xf007;"
-                                 FontFamily="FontAwesome-Solid"
-                                 FontSize="24"
-                                 FontAutoScalingEnabled="False"
-                                 TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"/>
-                            <Label Text="Profile"
-                                 FontFamily="OpenSansSemiBold"
-                                 FontSize="14"
-                                 TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}"/>
-                        </VerticalStackLayout>
-                        <Frame.GestureRecognizers>
-                            <TapGestureRecognizer Command="{Binding ProfileCommand}"/>
-                        </Frame.GestureRecognizers>
-                    </Frame>
-                </Grid>
-                
-                <!-- Dev Tools Section - Simplified -->
-                <Frame Padding="16"
-                     HasShadow="False"
-                     BorderColor="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray600}}"
-                     CornerRadius="12"
-                     BackgroundColor="{AppThemeBinding Light={StaticResource Gray100}, Dark={StaticResource Gray800}}">
-                    <VerticalStackLayout Spacing="12">
-                        <Label Text="Developer Tools"
-                             FontFamily="OpenSansBold"
-                             FontSize="18"
-                             TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}"/>
-                            
-                        <!-- Clicker Game simplified with fixed binding -->
-                        <Grid ColumnDefinitions="*,Auto" RowSpacing="8" Margin="0,0,0,12">
-                            <Label Text="{Binding MaxComboScore, StringFormat='Clicker Game - High Score: {0}'}"
-                                 Grid.Column="0"
-                                 FontFamily="OpenSansRegular"
-                                 FontSize="14"
-                                 TextColor="{AppThemeBinding Light={StaticResource SecondaryTextColor}, Dark={StaticResource SecondaryTextColorDark}}"/>
-                                    
-                            <Button x:Name="CounterBtn"
-                                  Grid.Column="1"
-                                  Text="PLAY"
-                                  Command="{Binding CounterClickCommand}"
-                                  BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
-                                  TextColor="White"
-                                  CornerRadius="8"
-                                  HeightRequest="36"
-                                  WidthRequest="70"/>
+                <!-- Recent Conversations Section -->
+                <Frame Padding="0"
+                       HasShadow="True"
+                       BorderColor="Transparent"
+                       CornerRadius="20"
+                       BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}"
+                       IsVisible="{Binding HasRecentConversations}">
+                    <VerticalStackLayout Spacing="0">
+                        <!-- Header -->
+                        <Grid BackgroundColor="{AppThemeBinding Light=#4CAF50, Dark=#66BB6A}"
+                              Padding="24,16">
+                            <Label Text="Recent Conversations"
+                                   TextColor="White"
+                                   FontFamily="OpenSansBold"
+                                   FontSize="18"
+                                   VerticalOptions="Center"/>
                         </Grid>
-                            
-                        <!-- Dev Tool buttons - Horizontal plain buttons -->
-                        <HorizontalStackLayout Spacing="12" HorizontalOptions="Start">
-                            <Button Text="Themes"
-                                  Command="{Binding NavigateToThemesCommand}"
-                                  BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
-                                  TextColor="White"
-                                  CornerRadius="8"
-                                  HeightRequest="36"/>
-                                        
-                            <Button Text="Tests"
-                                  Command="{Binding RunModelTestsCommand}"
-                                  BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
-                                  TextColor="White"
-                                  CornerRadius="8"
-                                  HeightRequest="36"/>
-                                        
-                            <Button Text="DB View"
-                                  Command="{Binding ViewDatabaseCommand}"
-                                  BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
-                                  TextColor="White"
-                                  CornerRadius="8"
-                                  HeightRequest="36"/>
-
-                            <Button Text="Model Debug"
-                                  Command="{Binding ModelDebugCommand}"
-                                  BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
-                                  TextColor="White"
-                                  CornerRadius="8"
-                                  HeightRequest="36"/>
-                        </HorizontalStackLayout>
+                        
+                        <!-- Conversations List -->
+                        <StackLayout Orientation="Vertical" Margin="20,16,20,20">
+                            <CollectionView ItemsSource="{Binding RecentConversations}"
+                                            SelectionMode="None"
+                                            BackgroundColor="Transparent">
+                                <CollectionView.ItemTemplate>
+                                    <DataTemplate x:DataType="viewmodels:RecentConversationItem">
+                                        <Grid>
+                                            <Frame Padding="16"
+                                                   CornerRadius="12"
+                                                   Margin="0,0,0,8"
+                                                   BackgroundColor="{AppThemeBinding Light={StaticResource Gray100}, Dark={StaticResource Gray800}}"
+                                                   HasShadow="False"
+                                                   BorderColor="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray600}}"
+                                                   HeightRequest="85">
+                                                <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" RowSpacing="6">
+                                                    <Label Grid.Column="0" Grid.Row="0"
+                                                           Text="{Binding Title}"
+                                                           FontFamily="OpenSansSemiBold"
+                                                           FontSize="16"
+                                                           TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}"
+                                                           LineBreakMode="TailTruncation"
+                                                           MaxLines="1"/>
+                                                           
+                                                    <Label Grid.Column="0" Grid.Row="1"
+                                                           Text="{Binding UpdatedAt, StringFormat='{0:MMM dd, yyyy}'}"
+                                                           FontFamily="OpenSansRegular"
+                                                           FontSize="13"
+                                                           TextColor="{AppThemeBinding Light={StaticResource SecondaryTextColor}, Dark={StaticResource SecondaryTextColorDark}}"
+                                                           Margin="0,0,0,0"/>
+                                                           
+                                                    <Label Grid.Column="1" Grid.RowSpan="2"
+                                                           Text="&#xf054;"
+                                                           FontFamily="FontAwesome-Solid"
+                                                           FontSize="14"
+                                                           TextColor="{AppThemeBinding Light={StaticResource SecondaryTextColor}, Dark={StaticResource SecondaryTextColorDark}}"
+                                                           VerticalOptions="Center"/>
+                                                </Grid>
+                                                <Frame.GestureRecognizers>
+                                                    <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:MainPageViewModel}}, Path=SelectConversationCommand}"
+                                                                          CommandParameter="{Binding .}"/>
+                                                </Frame.GestureRecognizers>
+                                            </Frame>
+                                        </Grid>
+                                    </DataTemplate>
+                                </CollectionView.ItemTemplate>
+                            </CollectionView>
+                        </StackLayout>
+                    </VerticalStackLayout>
+                </Frame>
+                
+                <!-- Empty State for No Favorites/Conversations -->
+                <Frame Padding="0"
+                       HasShadow="True"
+                       BorderColor="Transparent"
+                       CornerRadius="20"
+                       BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}"
+                       IsVisible="{Binding ShowEmptyState}">
+                    <VerticalStackLayout Padding="40,30" Spacing="16">
+                        <Label Text="&#xf4ad;"
+                               FontFamily="FontAwesome-Solid"
+                               FontSize="48"
+                               TextColor="{AppThemeBinding Light={StaticResource Gray400}, Dark={StaticResource Gray500}}"
+                               HorizontalOptions="Center"/>
+                        <Label Text="Welcome to NexusChat!"
+                               FontFamily="OpenSansBold"
+                               FontSize="18"
+                               TextColor="{AppThemeBinding Light={StaticResource PrimaryTextColor}, Dark={StaticResource PrimaryTextColorDark}}"
+                               HorizontalOptions="Center"/>
+                        <Label Text="Start your first conversation or browse AI models to get started."
+                               FontFamily="OpenSansRegular"
+                               FontSize="14"
+                               TextColor="{AppThemeBinding Light={StaticResource SecondaryTextColor}, Dark={StaticResource SecondaryTextColorDark}}"
+                               HorizontalOptions="Center"
+                               HorizontalTextAlignment="Center"/>
                     </VerticalStackLayout>
                 </Frame>
                 
                 <!-- App Version -->
-                <Label Text="NexusChat v0.5.0 (Alpha)"
-                     HorizontalOptions="Center"
-                     FontSize="12"
-                     Margin="0,6,0,12"
-                     TextColor="{AppThemeBinding Light={StaticResource SecondaryTextColor}, Dark={StaticResource SecondaryTextColorDark}}"/>
+                <Label Text="NexusChat v0.5.0"
+                       HorizontalOptions="Center"
+                       FontSize="12"
+                       Margin="0,16,0,0"
+                       TextColor="{AppThemeBinding Light={StaticResource Gray400}, Dark={StaticResource Gray500}}"/>
             </VerticalStackLayout>
         </ScrollView>
         
-        <!-- Bottom Navigation - Simplified -->
+        <!-- Bottom Navigation -->
         <Grid Grid.Row="1" 
-            ColumnDefinitions="*,*,*"
-            BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}"
-            HeightRequest="60">
+              ColumnDefinitions="*,*,*"
+              BackgroundColor="{AppThemeBinding Light={StaticResource CardBackground}, Dark={StaticResource CardBackgroundDark}}"
+              HeightRequest="70"
+              Padding="0,8,0,8">
             
-            <!-- Home tab - Active -->
+            <!-- Home - Active -->
             <VerticalStackLayout Grid.Column="0"
-                               HorizontalOptions="Center"
-                               VerticalOptions="Center"
-                               Spacing="4">
+                                 HorizontalOptions="Center"
+                                 VerticalOptions="Center"
+                                 Spacing="4">
                 <Label Text="&#xf015;"
-                     FontFamily="FontAwesome-Solid"
-                     FontSize="22"
-                     FontAutoScalingEnabled="False"
-                     TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
-                     HorizontalOptions="Center"/>
+                       FontFamily="FontAwesome-Solid"
+                       FontSize="24"
+                       TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                       HorizontalOptions="Center"/>
                 <Label Text="Home"
-                     FontSize="12"
-                     TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
-                     FontAttributes="Bold"
-                     HorizontalOptions="Center"/>
-                <VerticalStackLayout.GestureRecognizers>
-                    <TapGestureRecognizer Command="{Binding HomeCommand}"/>
-                </VerticalStackLayout.GestureRecognizers>
+                       FontSize="12"
+                       TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                       FontFamily="OpenSansSemiBold"
+                       HorizontalOptions="Center"/>
             </VerticalStackLayout>
             
-            <!-- Chats tab -->
+            <!-- Chats -->
             <VerticalStackLayout Grid.Column="1" 
-                               HorizontalOptions="Center"
-                               VerticalOptions="Center"
-                               Spacing="4">
+                                 HorizontalOptions="Center"
+                                 VerticalOptions="Center"
+                                 Spacing="4">
                 <Label Text="&#xf4ad;"
-                     FontFamily="FontAwesome-Solid"
-                     FontSize="22"
-                     FontAutoScalingEnabled="False"
-                     TextColor="{AppThemeBinding Light={StaticResource SecondaryTextColor}, Dark={StaticResource SecondaryTextColorDark}}"
-                     HorizontalOptions="Center"/>
+                       FontFamily="FontAwesome-Solid"
+                       FontSize="24"
+                       TextColor="{AppThemeBinding Light={StaticResource SecondaryTextColor}, Dark={StaticResource SecondaryTextColorDark}}"
+                       HorizontalOptions="Center"/>
                 <Label Text="Chats"
-                     FontSize="12"
-                     TextColor="{AppThemeBinding Light={StaticResource SecondaryTextColor}, Dark={StaticResource SecondaryTextColorDark}}"
-                     HorizontalOptions="Center"/>
+                       FontSize="12"
+                       TextColor="{AppThemeBinding Light={StaticResource SecondaryTextColor}, Dark={StaticResource SecondaryTextColorDark}}"
+                       FontFamily="OpenSansRegular"
+                       HorizontalOptions="Center"/>
                 <VerticalStackLayout.GestureRecognizers>
-                    <TapGestureRecognizer Command="{Binding ChatsCommand}"/>
+                    <TapGestureRecognizer Command="{Binding ViewChatsCommand}"/>
                 </VerticalStackLayout.GestureRecognizers>
             </VerticalStackLayout>
             
-            <!-- Profile tab -->
+            <!-- Models -->
             <VerticalStackLayout Grid.Column="2" 
-                               HorizontalOptions="Center"
-                               VerticalOptions="Center"
-                               Spacing="4">
-                <Label Text="&#xf007;"
-                     FontFamily="FontAwesome-Solid"
-                     FontSize="22"
-                     FontAutoScalingEnabled="False"
-                     TextColor="{AppThemeBinding Light={StaticResource SecondaryTextColor}, Dark={StaticResource SecondaryTextColorDark}}"
-                     HorizontalOptions="Center"/>
-                <Label Text="Profile"
-                     FontSize="12"
-                     TextColor="{AppThemeBinding Light={StaticResource SecondaryTextColor}, Dark={StaticResource SecondaryTextColorDark}}"
-                     HorizontalOptions="Center"/>
+                                 HorizontalOptions="Center"
+                                 VerticalOptions="Center"
+                                 Spacing="4">
+                <Label Text="&#xf085;"
+                       FontFamily="FontAwesome-Solid"
+                       FontSize="24"
+                       TextColor="{AppThemeBinding Light={StaticResource SecondaryTextColor}, Dark={StaticResource SecondaryTextColorDark}}"
+                       HorizontalOptions="Center"/>
+                <Label Text="Models"
+                       FontSize="12"
+                       TextColor="{AppThemeBinding Light={StaticResource SecondaryTextColor}, Dark={StaticResource SecondaryTextColorDark}}"
+                       FontFamily="OpenSansRegular"
+                       HorizontalOptions="Center"/>
                 <VerticalStackLayout.GestureRecognizers>
-                    <TapGestureRecognizer Command="{Binding ProfileCommand}"/>
+                    <TapGestureRecognizer Command="{Binding ModelsCommand}"/>
                 </VerticalStackLayout.GestureRecognizers>
             </VerticalStackLayout>
         </Grid>

@@ -364,7 +364,6 @@ namespace NexusChat.Core.ViewModels
                 });
                 
                 
-                await Task.Delay(200);
             }
             catch (Exception ex)
             {
@@ -448,11 +447,9 @@ namespace NexusChat.Core.ViewModels
                         {
                             model.AnimationOpacity = i / 10.0;
                         });
-                        await Task.Delay(30);
                     }
                 });
                 
-                await Task.Delay(300);
             }
             catch (Exception ex)
             {
@@ -504,8 +501,11 @@ namespace NexusChat.Core.ViewModels
                         // Clear model cache to force fresh discovery
                         _lastModelRefresh = DateTime.MinValue;
                         
+                        // Clear API key cache to ensure fresh validation
+                        await _apiKeyManager.ClearCacheAsync();
+                        
                         // Trigger model discovery for the new provider
-                        await DiscoverAndLoadProviderModels(provider);
+                        await DiscoverAndLoadProviderModelsAsync(provider);
                         
                         // Refresh models to show new provider's models
                         await LoadModelsAsync();
@@ -522,36 +522,6 @@ namespace NexusChat.Core.ViewModels
             {
                 Debug.WriteLine($"Error saving API key: {ex.Message}");
                 ShowNotification($"Error saving API key: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// Discovers and loads models for a specific provider
-        /// </summary>
-        private async Task DiscoverAndLoadProviderModels(string provider)
-        {
-            try
-            {
-                Debug.WriteLine($"AIModelsViewModel: Discovering models for {provider} after API key save");
-                
-                // Use the model manager to discover models for this provider
-                bool discoverySuccess = await _modelManager.DiscoverAndLoadProviderModelsAsync(provider);
-                
-                if (discoverySuccess)
-                {
-                    Debug.WriteLine($"AIModelsViewModel: Successfully discovered models for {provider}");
-                    ShowNotification($"Discovered models for {provider}");
-                }
-                else
-                {
-                    Debug.WriteLine($"AIModelsViewModel: No new models found for {provider}");
-                    ShowNotification($"No new models found for {provider}");
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error discovering models for {provider}: {ex.Message}");
-                ShowNotification($"Error discovering models for {provider}");
             }
         }
 
@@ -574,6 +544,9 @@ namespace NexusChat.Core.ViewModels
                     if (success)
                     {
                         ShowNotification($"{provider} API key removed successfully");
+                        
+                        // Clean up models from database for this provider
+                        await CleanupProviderModelsAsync(provider);
                         
                         // Refresh existing keys display
                         await UpdateExistingApiKeys();
@@ -598,6 +571,23 @@ namespace NexusChat.Core.ViewModels
             {
                 Debug.WriteLine($"Error removing API key: {ex.Message}");
                 ShowNotification($"Error removing API key: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Discovers and loads models for a specific provider
+        /// </summary>
+        private async Task DiscoverAndLoadProviderModels(string provider)
+        {
+            try
+            {
+                await DiscoverAndLoadProviderModelsAsync(provider);
+                ShowNotification($"Discovered models for {provider}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error discovering models for {provider}: {ex.Message}");
+                ShowNotification($"Error discovering models for {provider}");
             }
         }
 
@@ -774,7 +764,6 @@ namespace NexusChat.Core.ViewModels
                             if (RefreshButtonRotation >= 360)
                                 RefreshButtonRotation = 0;
                         });
-                        await Task.Delay(50);
                     }
                     
                     // Reset rotation when loading is complete
@@ -905,11 +894,7 @@ namespace NexusChat.Core.ViewModels
                         }
                     }
                     
-                    // Brief delay for animation out
-                    if (modelsToAnimate.Count > 0)
-                    {
-                        await Task.Delay(200);
-                    }
+
                     
                     // Clear and re-add in sorted order
                     Models.Clear();

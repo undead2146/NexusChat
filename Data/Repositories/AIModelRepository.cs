@@ -431,6 +431,57 @@ namespace NexusChat.Data.Repositories
                 CancellationToken.None,
                 0);
         }
+
+        /// <summary>
+        /// Deletes all models for a specific provider
+        /// </summary>
+        public async Task<int> DeleteModelsByProviderAsync(string providerName, CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrEmpty(providerName))
+                return 0;
+
+            return await ExecuteDbOperationAsync<int>(async (connection, token) =>
+            {
+                Debug.WriteLine($"AIModelRepository: Deleting models for provider: {providerName}");
+                
+                var sql = @"DELETE FROM AIModels WHERE LOWER(ProviderName) = LOWER(?)";
+                var deletedCount = await connection.ExecuteAsync(sql, providerName);
+                
+                Debug.WriteLine($"AIModelRepository: Deleted {deletedCount} models for provider: {providerName}");
+                return deletedCount;
+            }, $"DeleteModelsByProvider for {providerName}", cancellationToken);
+        }
+
+        /// <summary>
+        /// Checks if any models exist for a specific provider
+        /// </summary>
+        public async Task<bool> HasModelsForProviderAsync(string providerName, CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrEmpty(providerName))
+                return false;
+
+            return await ExecuteDbOperationAsync<bool>(async (connection, token) =>
+            {
+                var sql = @"SELECT COUNT(*) FROM AIModels WHERE LOWER(ProviderName) = LOWER(?) LIMIT 1";
+                var count = await connection.ExecuteScalarAsync<int>(sql, providerName);
+                return count > 0;
+            }, $"HasModelsForProvider for {providerName}", cancellationToken);
+        }
+
+        /// <summary>
+        /// Gets count of models for a specific provider
+        /// </summary>
+        public async Task<int> GetModelCountByProviderAsync(string providerName, CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrEmpty(providerName))
+                return 0;
+
+            return await ExecuteDbOperationAsync<int>(async (connection, token) =>
+            {
+                var sql = @"SELECT COUNT(*) FROM AIModels WHERE LOWER(ProviderName) = LOWER(?)";
+                return await connection.ExecuteScalarAsync<int>(sql, providerName);
+            }, $"GetModelCountByProvider for {providerName}", cancellationToken);
+        }
     }
 }
 

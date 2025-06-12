@@ -5,13 +5,11 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:local="clr-namespace:NexusChat.Views.Pages"
     Title="NexusChat"
-    Shell.FlyoutBehavior="Disabled"
-    Shell.NavBarIsVisible="False">
+    FlyoutBehavior="Disabled">
 
-    <!-- MainPage as the default starting point - routes handled in AppShell.xaml.cs -->
     <ShellContent
         Title="Home"
-        Route="MainPage"
-        ContentTemplate="{DataTemplate local:MainPage}" />
+        ContentTemplate="{DataTemplate local:MainPage}"
+        Route="MainPage" />
 
 </Shell>

@@ -1,6 +1,7 @@
 ﻿using Microsoft.Maui.Controls;
 using NexusChat.Core.ViewModels;
 using System;
+using System.Diagnostics;
 
 namespace NexusChat.Views.Pages
 {
@@ -17,9 +18,6 @@ namespace NexusChat.Views.Pages
             ConfigureStatusBar();
         }
 
-        /// <summary>
-        /// Configures status bar and safe area behavior
-        /// </summary>
         private void ConfigureStatusBar()
         {
 #if ANDROID
@@ -31,14 +29,6 @@ namespace NexusChat.Views.Pages
         protected override void OnAppearing()
         {
             base.OnAppearing();
-            
-#if IOS
-            var statusBarManager = Microsoft.Maui.Controls.Application.Current?.Handler?.PlatformView;
-            if (statusBarManager != null)
-            {
-                // Handle iOS status bar
-            }
-#endif
         }
 
         public void Dispose()

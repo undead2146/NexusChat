@@ -205,7 +205,6 @@ namespace NexusChat.Core.ViewModels
             {
                 Debug.WriteLine($"Starting progressive message loading for conversation {conversationId}");
                 
-                // Get all messages for the conversation
                 var allMessages = await _messageRepository.GetByConversationIdAsync(conversationId, 100, 0);
                 
                 if (allMessages.Count == 0)
@@ -216,50 +215,43 @@ namespace NexusChat.Core.ViewModels
                 
                 Debug.WriteLine($"Found {allMessages.Count} messages to load progressively");
                 
-                // Load messages in small batches with delays
-                const int batchSize = 2; // Load 2 messages at a time
-                const int delayMs = 100;  // 100ms delay between batches
+                // Load messages one by one with longer delays for visual effect
+                const int delayMs = 200; // Increased delay to make progression more visible
                 
-                var messageBatches = allMessages
-                    .Select((message, index) => new { message, index })
-                    .GroupBy(x => x.index / batchSize)
-                    .Select(g => g.Select(x => x.message).ToList())
-                    .ToList();
-                
-                foreach (var batch in messageBatches)
+                foreach (var message in allMessages)
                 {
+                    // Ensure loaded messages have proper status
+                    if (message.IsAI && string.IsNullOrEmpty(message.Status))
+                    {
+                        message.Status = "complete";
+                    }
+                    else if (!message.IsAI && string.IsNullOrEmpty(message.Status))
+                    {
+                        message.Status = "sent";
+                    }
+                    
+                    // Add message individually to UI thread
                     await MainThread.InvokeOnMainThreadAsync(() =>
                     {
-                        foreach (var message in batch)
-                        {
-                            // Ensure loaded messages have proper status
-                            if (message.IsAI && string.IsNullOrEmpty(message.Status))
-                            {
-                                message.Status = "complete";
-                            }
-                            else if (!message.IsAI && string.IsNullOrEmpty(message.Status))
-                            {
-                                message.Status = "sent";
-                            }
-                            
-                            Messages.Add(message);
-                            Debug.WriteLine($"Progressively loaded message: '{message.Content?.Substring(0, Math.Min(50, message.Content?.Length ?? 0))}...', IsAI: {message.IsAI}");
-                        }
-                        
+                        Messages.Add(message);
                         HasMessages = Messages.Count > 0;
+                        
+                        // Force immediate UI update
                         OnPropertyChanged(nameof(Messages));
                         OnPropertyChanged(nameof(HasMessages));
                         
-                        // Scroll to latest message
-                        if (Messages.Count > 0)
-                        {
-                            ScrollTarget = Messages.Last();
-                            OnPropertyChanged(nameof(ScrollTarget));
-                        }
+                        // Scroll to the newly added message
+                        ScrollTarget = message;
+                        OnPropertyChanged(nameof(ScrollTarget));
+                        
+                        Debug.WriteLine($"Progressively loaded message: '{message.Content?.Substring(0, Math.Min(50, message.Content?.Length ?? 0))}...', IsAI: {message.IsAI}");
                     });
                     
-                    // Small delay between batches to keep UI responsive
-                    if (messageBatches.IndexOf(batch) < messageBatches.Count - 1)
+                    // Force a layout update
+                    await Task.Delay(10);
+                    
+                    // Delay before next message (except for the last one)
+                    if (allMessages.IndexOf(message) < allMessages.Count - 1)
                     {
                         await Task.Delay(delayMs);
                     }
@@ -461,57 +453,48 @@ namespace NexusChat.Core.ViewModels
                 IsMessageSending = true;
                 Debug.WriteLine($"Sending message: {Message}");
                 
-                // Store the message locally to avoid issues if cleared during sending
+                // Store the message text and clear input 
                 string messageText = Message.Trim();
-                Message = string.Empty; // Clear input immediately for better UX
+                Message = string.Empty; // Clear input field instantly
                 
-                // Force immediate UI update on main thread
-                await MainThread.InvokeOnMainThreadAsync(() =>
+                // Create user message
+                var userMessage = new Message
                 {
-                    // Create user message and add to UI immediately
-                    var userMessage = new Message
-                    {
-                        ConversationId = CurrentConversation.Id,
-                        Content = messageText,
-                        AuthorType = "user",
-                        IsUserMessage = true,
-                        Status = "sent",
-                        SentAt = DateTime.UtcNow,
-                        CreatedAt = DateTime.UtcNow,
-                        UpdatedAt = DateTime.UtcNow,
-                        Timestamp = DateTime.UtcNow
-                    };
-                    
-                    // Add to collection immediately - no async here
-                    Messages.Add(userMessage);
-                    HasMessages = Messages.Count > 0;
-                    ScrollTarget = userMessage;
-                    Debug.WriteLine($"Added user message to UI instantly: '{userMessage.Content}', IsAI: {userMessage.IsAI}");
-                    
-                    // Force property change notifications
-                    OnPropertyChanged(nameof(Messages));
-                    OnPropertyChanged(nameof(HasMessages));
-                    OnPropertyChanged(nameof(ScrollTarget));
-                });
+                    ConversationId = CurrentConversation.Id,
+                    Content = messageText,
+                    AuthorType = "user",
+                    IsUserMessage = true,
+                    Status = "sent",
+                    SentAt = DateTime.UtcNow,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow,
+                    Timestamp = DateTime.UtcNow
+                };
                 
-                // Update conversation title immediately if it's still "New Chat"
+                // Add user message to UI 
+                Messages.Add(userMessage);
+                HasMessages = Messages.Count > 0;
+                ScrollTarget = userMessage;
+                Debug.WriteLine($"Added user message to UI instantly: '{userMessage.Content}', IsAI: {userMessage.IsAI}");
+                
+                // Force immediate property notifications
+                OnPropertyChanged(nameof(Messages));
+                OnPropertyChanged(nameof(HasMessages));
+                OnPropertyChanged(nameof(ScrollTarget));
+                
+                // Update conversation title if needed (also instant)
                 if (CurrentConversation.Title == "New Chat" && !string.IsNullOrWhiteSpace(messageText))
                 {
                     string newTitle = messageText.Length > 30 ? messageText.Substring(0, 30).Trim() + "..." : messageText.Trim();
                     CurrentConversation.Title = newTitle;
                     Title = newTitle;
                     
-                    // Update UI immediately
-                    await MainThread.InvokeOnMainThreadAsync(() =>
-                    {
-                        OnPropertyChanged(nameof(Title));
-                        OnPropertyChanged(nameof(CurrentConversation));
-                    });
-                    
-                    Debug.WriteLine($"Updated conversation title immediately to: {newTitle}");
+                    OnPropertyChanged(nameof(Title));
+                    OnPropertyChanged(nameof(CurrentConversation));
+                    Debug.WriteLine($"Updated conversation title instantly to: {newTitle}");
                 }
                 
-                // Create AI message with thinking state and add to UI
+                // Create AI message with thinking state
                 var aiMessage = new Message
                 {
                     ConversationId = CurrentConversation.Id,
@@ -527,146 +510,143 @@ namespace NexusChat.Core.ViewModels
                     ProviderName = _AIModelManager.CurrentModel?.ProviderName ?? ""
                 };
                 
-                // Add thinking AI message to UI immediately
-                await MainThread.InvokeOnMainThreadAsync(() =>
-                {
-                    Messages.Add(aiMessage);
-                    HasMessages = Messages.Count > 0;
-                    ScrollTarget = aiMessage;
-                    Debug.WriteLine($"Added thinking AI message to UI: Status='{aiMessage.Status}'");
-                    
-                    // Force property change notifications
-                    OnPropertyChanged(nameof(Messages));
-                    OnPropertyChanged(nameof(HasMessages));
-                    OnPropertyChanged(nameof(ScrollTarget));
-                });
-                
-                // Set thinking status
+                // Add thinking AI message instantly
+                Messages.Add(aiMessage);
+                HasMessages = Messages.Count > 0;
+                ScrollTarget = aiMessage;
                 IsThinking = true;
+                Debug.WriteLine($"Added thinking AI message to UI: Status='{aiMessage.Status}'");
                 
-                // Save user message to database in background (don't block UI)
-                var userMessageFromUI = Messages.Where(m => !m.IsAI).LastOrDefault();
-                if (userMessageFromUI != null)
+                OnPropertyChanged(nameof(Messages));
+                OnPropertyChanged(nameof(HasMessages));
+                OnPropertyChanged(nameof(ScrollTarget));
+                
+                // Now handle all background operations without blocking UI
+                _ = Task.Run(async () =>
                 {
-                    _ = Task.Run(async () =>
+                    try
                     {
+                        // Save user message to database
                         try
                         {
-                            userMessageFromUI.Id = await _messageRepository.AddAsync(userMessageFromUI);
-                            Debug.WriteLine($"Saved user message to database: ID={userMessageFromUI.Id}");
+                            userMessage.Id = await _messageRepository.AddAsync(userMessage);
+                            Debug.WriteLine($"Saved user message to database: ID={userMessage.Id}");
                         }
                         catch (Exception ex)
                         {
                             Debug.WriteLine($"Error saving user message to database: {ex.Message}");
                         }
-                    });
-                }
-                
-                try
-                {
-                    // Get AI response
-                    var aiService = await GetCurrentAIServiceAsync();
-                    if (aiService == null)
-                    {
-                        // Update AI message with error
-                        aiMessage.Content = "No AI service is configured. Please select a model.";
-                        aiMessage.Status = "error";
-                    }
-                    else
-                    {
+                        
                         // Get AI response
-                        string aiResponse = await aiService.SendMessageAsync(messageText, _cts.Token);
-                        
-                        // Update AI message with response
-                        aiMessage.Content = aiResponse;
-                        aiMessage.Status = "complete";
-                    }
-                    
-                    // Update AI message in UI immediately
-                    await MainThread.InvokeOnMainThreadAsync(() =>
-                    {
-                        // Force UI refresh by notifying property change
-                        var index = Messages.IndexOf(aiMessage);
-                        if (index >= 0)
+                        try
                         {
-                            // Trigger collection refresh
-                            Messages.RemoveAt(index);
-                            Messages.Insert(index, aiMessage);
-                            ScrollTarget = aiMessage;
+                            var aiService = await GetCurrentAIServiceAsync();
+                            if (aiService == null)
+                            {
+                                aiMessage.Content = "No AI service is configured. Please select a model.";
+                                aiMessage.Status = "error";
+                            }
+                            else
+                            {
+                                string aiResponse = await aiService.SendMessageAsync(messageText, _cts.Token);
+                                aiMessage.Content = aiResponse;
+                                aiMessage.Status = "complete";
+                            }
                             
-                            // Force property change notifications
-                            OnPropertyChanged(nameof(Messages));
-                            OnPropertyChanged(nameof(ScrollTarget));
-                        }
-                        
-                        Debug.WriteLine($"Updated AI message in UI: Content='{aiMessage.Content}', Status='{aiMessage.Status}'");
-                    });
-                    
-                    // Save AI message to database in background
-                    _ = Task.Run(async () =>
-                    {
-                        try
-                        {
-                            aiMessage.Id = await _messageRepository.AddAsync(aiMessage);
-                            Debug.WriteLine($"Saved AI message to database: ID={aiMessage.Id}");
+                            // Update AI message in UI
+                            await MainThread.InvokeOnMainThreadAsync(() =>
+                            {
+                                var index = Messages.IndexOf(aiMessage);
+                                if (index >= 0)
+                                {
+                                    Messages.RemoveAt(index);
+                                    Messages.Insert(index, aiMessage);
+                                    ScrollTarget = aiMessage;
+                                    
+                                    OnPropertyChanged(nameof(Messages));
+                                    OnPropertyChanged(nameof(ScrollTarget));
+                                }
+                                
+                                Debug.WriteLine($"Updated AI message in UI: Content='{aiMessage.Content}', Status='{aiMessage.Status}'");
+                            });
+                            
+                            // Save AI message to database
+                            try
+                            {
+                                aiMessage.Id = await _messageRepository.AddAsync(aiMessage);
+                                Debug.WriteLine($"Saved AI message to database: ID={aiMessage.Id}");
+                            }
+                            catch (Exception ex)
+                            {
+                                Debug.WriteLine($"Error saving AI message to database: {ex.Message}");
+                            }
+                            
+                            // Update conversation in database
+                            try
+                            {
+                                CurrentConversation.UpdatedAt = DateTime.UtcNow;
+                                await _conversationRepository.UpdateAsync(CurrentConversation, CancellationToken.None);
+                            }
+                            catch (Exception ex)
+                            {
+                                Debug.WriteLine($"Error updating conversation: {ex.Message}");
+                            }
+                            
+                            Debug.WriteLine("AI response received and displayed");
                         }
                         catch (Exception ex)
                         {
-                            Debug.WriteLine($"Error saving AI message to database: {ex.Message}");
+                            Debug.WriteLine($"Error getting AI response: {ex.Message}");
+                            
+                            aiMessage.Content = $"Error: {ex.Message}";
+                            aiMessage.Status = "error";
+                            aiMessage.IsError = true;
+                            
+                            await MainThread.InvokeOnMainThreadAsync(() =>
+                            {
+                                var index = Messages.IndexOf(aiMessage);
+                                if (index >= 0)
+                                {
+                                    Messages.RemoveAt(index);
+                                    Messages.Insert(index, aiMessage);
+                                    OnPropertyChanged(nameof(Messages));
+                                }
+                            });
+                            
+                            await MainThread.InvokeOnMainThreadAsync(async () =>
+                            {
+                                await Shell.Current.DisplayAlert("Error", "Failed to get AI response. Please try again.", "OK");
+                            });
                         }
-                    });
-                    
-                    // Update conversation in database in background
-                    _ = Task.Run(async () =>
+                        finally
+                        {
+                            await MainThread.InvokeOnMainThreadAsync(() =>
+                            {
+                                IsThinking = false;
+                            });
+                        }
+                    }
+                    catch (Exception ex)
                     {
-                        try
+                        Debug.WriteLine($"Error in background processing: {ex.Message}");
+                        await MainThread.InvokeOnMainThreadAsync(() =>
                         {
-                            CurrentConversation.UpdatedAt = DateTime.UtcNow;
-                            await _conversationRepository.UpdateAsync(CurrentConversation, CancellationToken.None);
-                        }
-                        catch (Exception ex)
-                        {
-                            Debug.WriteLine($"Error updating conversation: {ex.Message}");
-                        }
-                    });
-                    
-                    Debug.WriteLine("AI response received and displayed");
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"Error getting AI response: {ex.Message}");
-                    
-                    // Update AI message with error immediately
-                    aiMessage.Content = $"Error: {ex.Message}";
-                    aiMessage.Status = "error";
-                    aiMessage.IsError = true;
-                    
-                    // Update UI immediately
-                    await MainThread.InvokeOnMainThreadAsync(() =>
+                            IsThinking = false;
+                        });
+                    }
+                    finally
                     {
-                        var index = Messages.IndexOf(aiMessage);
-                        if (index >= 0)
+                        await MainThread.InvokeOnMainThreadAsync(() =>
                         {
-                            Messages.RemoveAt(index);
-                            Messages.Insert(index, aiMessage);
-                            OnPropertyChanged(nameof(Messages));
-                        }
-                    });
-                    
-                    await Shell.Current.DisplayAlert("Error", "Failed to get AI response. Please try again.", "OK");
-                }
-                finally
-                {
-                    IsThinking = false;
-                }
+                            IsMessageSending = false;
+                        });
+                    }
+                });
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error in SendMessage: {ex.Message}");
                 Debug.WriteLine($"Stack trace: {ex.StackTrace}");
-            }
-            finally
-            {
                 IsMessageSending = false;
             }
         }
@@ -1204,23 +1184,36 @@ namespace NexusChat.Core.ViewModels
                     _cts.Cancel();
                 }
                 
-                try
-                {
-                    // First try direct navigation
-                    await Shell.Current.Navigation.PopAsync();
-                    Debug.WriteLine("Navigation.PopAsync succeeded");
-                }
-                catch (Exception ex) 
-                {
-                    Debug.WriteLine($"Navigation.PopAsync failed: {ex.Message}, trying GoToAsync");
-                    // Fallback to GoToAsync
-                    await Shell.Current.GoToAsync("..");
-                }
+                // Clear any navigation stack issues by going to root
+                await Shell.Current.GoToAsync("//MainPage");
+                Debug.WriteLine("Navigation to MainPage succeeded");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"All navigation methods failed: {ex.Message}");
+                Debug.WriteLine($"Navigation failed: {ex.Message}");
                 Debug.WriteLine($"Stack trace: {ex.StackTrace}");
+                
+                // Try alternative navigation methods
+                try
+                {
+                    await Application.Current.MainPage.Navigation.PopAsync();
+                    Debug.WriteLine("Alternative PopAsync succeeded");
+                }
+                catch (Exception popEx)
+                {
+                    Debug.WriteLine($"PopAsync also failed: {popEx.Message}");
+                    
+                    // Last resort - try to navigate using the navigation service
+                    try
+                    {
+                        await _navigationService.NavigateToAsync("MainPage");
+                        Debug.WriteLine("NavigationService navigation succeeded");
+                    }
+                    catch (Exception navEx)
+                    {
+                        Debug.WriteLine($"NavigationService also failed: {navEx.Message}");
+                    }
+                }
             }
         }
         
@@ -1275,51 +1268,13 @@ namespace NexusChat.Core.ViewModels
         /// <summary>
         /// Loads a specific conversation
         /// </summary>
-        public void LoadConversation(Conversation conversation)
+        public async void LoadConversation(Conversation conversation)
         {
             try
             {
                 Debug.WriteLine($"Loading conversation: {conversation.Title} (ID: {conversation.Id})");
-                CurrentConversation = conversation;
-                Title = conversation.Title ?? "New Chat";
-                HasConversation = true;
                 
-                // Load messages for this conversation
-                LoadMessagesForConversation(conversation.Id);
-                
-                // Update UI properties
-                OnPropertyChanged(nameof(CurrentConversation));
-                OnPropertyChanged(nameof(Title));
-                OnPropertyChanged(nameof(HasConversation));
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error loading conversation: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// Clears the current conversation
-        /// </summary>
-        public void ClearCurrentConversation()
-        {
-            CurrentConversation = null;
-            Messages.Clear();
-            Title = "Chat";
-            HasMessages = false;
-            HasConversation = false;
-        }
-
-        /// <summary>
-        /// Loads messages for a specific conversation (used by LoadConversation method)
-        /// </summary>
-        private async void LoadMessagesForConversation(int conversationId)
-        {
-            try
-            {
-                Debug.WriteLine($"LoadMessagesForConversation called for conversation {conversationId}");
-                
-                // Clear messages first
+                // Clear messages immediately for instant feedback
                 await MainThread.InvokeOnMainThreadAsync(() =>
                 {
                     Messages.Clear();
@@ -1328,12 +1283,22 @@ namespace NexusChat.Core.ViewModels
                     OnPropertyChanged(nameof(HasMessages));
                 });
                 
-                // Load messages progressively
-                await LoadMessagesProgressively(conversationId);
+                // Update basic conversation info immediately
+                CurrentConversation = conversation;
+                Title = conversation.Title ?? "New Chat";
+                HasConversation = true;
+                
+                // Update UI properties immediately
+                OnPropertyChanged(nameof(CurrentConversation));
+                OnPropertyChanged(nameof(Title));
+                OnPropertyChanged(nameof(HasConversation));
+                
+                // Load messages progressively in background
+                _ = Task.Run(async () => await LoadMessagesProgressively(conversation.Id));
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error loading messages for conversation: {ex.Message}");
+                Debug.WriteLine($"Error loading conversation: {ex.Message}");
             }
         }
     }

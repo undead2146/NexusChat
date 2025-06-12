@@ -59,7 +59,7 @@ namespace NexusChat.Services.AIProviders.Implementations
                 ProviderName = "OpenRouter",
                 MaxContextWindow = GetContextWindowSize(modelName), // Keep for instance specific details
                 SupportsStreaming = true, // Keep for instance specific details
-                ApiKeyVariable = "API_KEY_OPENROUTER"
+                ApiKeyVariable = "AI_KEY_OPENROUTER" // Changed from API_KEY_OPENROUTER to match .env file
             };
         }
 
@@ -127,7 +127,7 @@ namespace NexusChat.Services.AIProviders.Implementations
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
                 Status = ModelStatus.Available,
-                ApiKeyVariable = "API_KEY_OPENROUTER"
+                ApiKeyVariable = "AI_KEY_OPENROUTER" // Changed from API_KEY_OPENROUTER to match .env file
             };
         }
         

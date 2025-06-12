@@ -22,6 +22,8 @@ namespace NexusChat.Views.Controls
         {
             base.OnBindingContextChanged();
             
+            Debug.WriteLine($"ConversationsSidebar BindingContext changed to: {BindingContext?.GetType().Name ?? "null"}");
+            
             // Unsubscribe from previous view model
             if (_viewModel != null)
             {
@@ -30,13 +32,18 @@ namespace NexusChat.Views.Controls
                 _viewModel.ConversationDeleted -= OnConversationDeleted;
             }
             
-            // Subscribe to new view model
+            // Subscribe to new view model only if it's the correct type
             if (BindingContext is ConversationsSidebarViewModel viewModel)
             {
                 _viewModel = viewModel;
                 viewModel.ConversationSelected += OnConversationSelected;
                 viewModel.ConversationCreated += OnConversationCreated;
                 viewModel.ConversationDeleted += OnConversationDeleted;
+                Debug.WriteLine("Successfully bound to ConversationsSidebarViewModel");
+            }
+            else if (BindingContext != null)
+            {
+                Debug.WriteLine($"Warning: Unexpected binding context type: {BindingContext.GetType().Name}");
             }
         }
 

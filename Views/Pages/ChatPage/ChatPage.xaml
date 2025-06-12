@@ -26,11 +26,16 @@
             <CollectionView x:Name="MessageCollectionView"
                             Grid.Row="1" 
                             ItemsSource="{Binding Messages}"
-                            BackgroundColor="{AppThemeBinding Light=#f8f9fa, Dark=#1a1a1a}">
+                            BackgroundColor="{AppThemeBinding Light=#f8f9fa, Dark=#1a1a1a}"
+                            ItemSizingStrategy="MeasureAllItems"
+                            RemainingItemsThreshold="5"
+                            RemainingItemsThresholdReached="OnRemainingItemsThresholdReached"
+                            VerticalScrollBarVisibility="Default">
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="models:Message">
                         <controls:MessageBubble Message="{Binding}"
-                                               RegenerateCommand="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:ChatViewModel}}, Path=RegenerateMessageCommand}" />
+                                               RegenerateCommand="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:ChatViewModel}}, Path=RegenerateMessageCommand}"
+                                               Margin="0,4" />
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
             </CollectionView>

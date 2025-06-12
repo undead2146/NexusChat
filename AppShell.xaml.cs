@@ -2,6 +2,7 @@
 using Microsoft.Maui.Controls;
 using NexusChat.Services.Interfaces;
 using NexusChat.Views.Pages;
+using System.Diagnostics;
 
 namespace NexusChat
 {
@@ -25,15 +26,25 @@ namespace NexusChat
         /// </summary>
         private void RegisterAllRoutes()
         {
-            // Main application pages
-            Routing.RegisterRoute(nameof(MainPage), typeof(MainPage));
-            Routing.RegisterRoute(nameof(ChatPage), typeof(ChatPage));
-            Routing.RegisterRoute(nameof(AIModelsPage), typeof(AIModelsPage));
+            try
+            {
+                // Register routes with unique names to avoid conflicts
+                Routing.RegisterRoute("ChatPage", typeof(ChatPage));
+                Routing.RegisterRoute("AIModelsPage", typeof(AIModelsPage));
+                
+                Debug.WriteLine("AppShell: Routes registered successfully");
+                Debug.WriteLine($"Registered routes: ChatPage -> {typeof(ChatPage).Name}");
+                Debug.WriteLine($"Registered routes: AIModelsPage -> {typeof(AIModelsPage).Name}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error registering routes: {ex.Message}");
+            }
             
             // Notify navigation service that routes are registered
             _navigationService.RegisterRoutes();
             
-            System.Diagnostics.Debug.WriteLine("AppShell: All routes registered successfully");
+            Debug.WriteLine("AppShell: All routes registered successfully");
         }
     }
 }

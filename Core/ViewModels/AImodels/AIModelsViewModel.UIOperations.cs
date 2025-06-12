@@ -102,7 +102,6 @@ namespace NexusChat.Core.ViewModels
                     ScrollToModelRequested?.Invoke(model);
                     
                     // Brief delay for visual feedback
-                    await Task.Delay(150);
                 });
                 
                 Debug.WriteLine($"Animation completed for model: {model.ModelName}");

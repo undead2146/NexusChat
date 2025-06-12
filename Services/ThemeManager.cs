@@ -4,6 +4,12 @@ using System.Diagnostics;
 using System.Threading.Tasks;
 using Microsoft.Maui.Controls;
 using NexusChat.Resources.Styles;
+#if ANDROID
+using AndroidX.Core.View;
+#endif
+#if IOS
+using UIKit;
+#endif
 
 namespace NexusChat.Services
 {
@@ -56,10 +62,8 @@ namespace NexusChat.Services
                     _isChangingTheme = true;
                     Debug.WriteLine($"Changing theme to: {themeName}");
 
-                    // Apply the theme setting
                     if (Application.Current != null)
                     {
-                        // FIXED: Set RequestedTheme first, then UserAppTheme for better theme propagation
                         AppTheme requestedTheme = themeName switch
                         {
                             "Dark" => AppTheme.Dark,
@@ -67,32 +71,26 @@ namespace NexusChat.Services
                             _ => AppTheme.Unspecified
                         };
                         
-                        // Save preference before applying to avoid race conditions
                         Preferences.Default.Set(THEME_PREFERENCE_KEY, themeName);
                         
-                        // Determine actual theme for event
                         bool isDark = themeName == "Dark" || 
                             (themeName == "System" && Application.Current.PlatformAppTheme == AppTheme.Dark);
 
-                        // Apply theme dictionary on the main thread with stronger synchronization
+                        Application.Current.UserAppTheme = requestedTheme;
+                        ForceThemeDictionaryApplication(isDark ? "Dark" : "Light");
+                        
+                        UpdateSystemChrome(isDark);
+
                         MainThread.BeginInvokeOnMainThread(() => {
                             try {
-                                // FIXED: First apply theme dictionary to ensure resources are in place
-                                ForceApplyThemeDictionary(
-                                    GetThemeDictionary(isDark ? "Dark" : "Light"),
-                                    isDark ? "Dark" : "Light"
-                                );
+                                ForceThemeDictionaryApplication(isDark ? "Dark" : "Light");
+                                UpdateSystemChrome(isDark);
+                                ForceWindowRefresh(isDark);
                                 
-                                // FIXED: Then set UserAppTheme which will trigger system theme changes
-                                Application.Current.UserAppTheme = requestedTheme;
-                                
-                                // FIXED: Force an additional refresh after a short delay
-                                Task.Delay(50).ContinueWith(_ => {
+                                Task.Delay(100).ContinueWith(_ => {
                                     MainThread.BeginInvokeOnMainThread(() => {
-                                        // Add a more aggressive app-level theme refresh
                                         ForceAppWideRefresh(isDark);
-                                        
-                                        // Notify subscribers after the theme is fully applied
+                                        UpdateSystemChrome(isDark);
                                         ThemeChanged?.Invoke(null, isDark);
                                     });
                                 });
@@ -109,67 +107,185 @@ namespace NexusChat.Services
                 }
                 finally
                 {
-                    // FIXED: Delay theme lock release to prevent rapid theme toggles
                     Task.Delay(200).ContinueWith(_ => _isChangingTheme = false);
                 }
             }
         }
 
-        // FIXED: New method that ensures full refresh
-        private static void ForceApplyThemeDictionary(ResourceDictionary newTheme, string themeName)
-        {
-            if (Application.Current?.Resources == null) return;
-            
-            var mergedDicts = Application.Current.Resources.MergedDictionaries;
-            
-            // Find and remove existing theme dictionary - more aggressive approach
-            List<ResourceDictionary> toRemove = new List<ResourceDictionary>();
-            foreach (var dict in mergedDicts)
-            {
-                if (dict is DarkTheme || dict is LightTheme)
-                {
-                    toRemove.Add(dict);
-                }
-            }
-            
-            // Remove all found theme dictionaries to avoid conflicts
-            foreach (var dict in toRemove)
-            {
-                mergedDicts.Remove(dict);
-            }
-            
-            // Add the new theme explicitly at the end for higher precedence
-            mergedDicts.Add(newTheme);
-            
-            // FIXED: Force a refresh of key resources
-            ForceResourceRefresh(newTheme, themeName);
-        }
-        
-        // FIXED: New method to ensure key resources are refreshed
-        private static void ForceResourceRefresh(ResourceDictionary theme, string themeName)
+        /// <summary>
+        /// Updates system chrome elements (status bar, navigation bar)
+        /// </summary>
+        private static void UpdateSystemChrome(bool isDark)
         {
             try
             {
-                bool isDark = themeName == "Dark";
-                var resources = Application.Current.Resources;
-                
-                // Force update key colors by explicitly resetting them
-                resources["Primary"] = isDark ? 
-                    theme.TryGetValue("PrimaryDark", out var primaryDark) ? primaryDark : Color.FromArgb("#9982EA") : 
-                    theme.TryGetValue("Primary", out var primary) ? primary : Colors.Purple;
-                
-                resources["Background"] = isDark ? 
-                    theme.TryGetValue("BackgroundDark", out var backgroundDark) ? backgroundDark : Color.FromArgb("#121212") : 
-                    theme.TryGetValue("Background", out var background) ? background : Colors.White;
-                
-                // Force update of other critical resources
-                resources["PrimaryTextColor"] = isDark ? 
-                    theme.TryGetValue("PrimaryTextColorDark", out var textDark) ? textDark : Colors.White : 
-                    theme.TryGetValue("PrimaryTextColor", out var text) ? text : Colors.Black;
+#if ANDROID
+                var activity = Platform.CurrentActivity ?? Microsoft.Maui.ApplicationModel.Platform.CurrentActivity;
+                if (activity?.Window != null)
+                {
+                    var window = activity.Window;
+                    var decorView = window.DecorView;
+                    
+                    if (isDark)
+                    {
+                        // Dark theme - use light content on dark background
+                        window.SetStatusBarColor(Android.Graphics.Color.ParseColor("#121212"));
+                        window.SetNavigationBarColor(Android.Graphics.Color.ParseColor("#121212"));
+                        
+                        // Clear light status bar flag for dark theme
+                        decorView.SystemUiVisibility = (Android.Views.StatusBarVisibility)
+                            ((int)decorView.SystemUiVisibility & ~(int)Android.Views.SystemUiFlags.LightStatusBar);
+                        
+                        // Clear light navigation bar flag
+                        if (Android.OS.Build.VERSION.SdkInt >= Android.OS.BuildVersionCodes.O)
+                        {
+                            decorView.SystemUiVisibility = (Android.Views.StatusBarVisibility)
+                                ((int)decorView.SystemUiVisibility & ~(int)Android.Views.SystemUiFlags.LightNavigationBar);
+                        }
+                    }
+                    else
+                    {
+                        // Light theme - use dark content on light background
+                        window.SetStatusBarColor(Android.Graphics.Color.White);
+                        window.SetNavigationBarColor(Android.Graphics.Color.White);
+                        
+                        // Set light status bar flag for light theme
+                        decorView.SystemUiVisibility = (Android.Views.StatusBarVisibility)
+                            ((int)decorView.SystemUiVisibility | (int)Android.Views.SystemUiFlags.LightStatusBar);
+                        
+                        // Set light navigation bar flag
+                        if (Android.OS.Build.VERSION.SdkInt >= Android.OS.BuildVersionCodes.O)
+                        {
+                            decorView.SystemUiVisibility = (Android.Views.StatusBarVisibility)
+                                ((int)decorView.SystemUiVisibility | (int)Android.Views.SystemUiFlags.LightNavigationBar);
+                        }
+                    }
+                }
+#elif IOS
+                if (UIKit.UIApplication.SharedApplication?.KeyWindow != null)
+                {
+                    var window = UIKit.UIApplication.SharedApplication.KeyWindow;
+                    if (isDark)
+                    {
+                        window.OverrideUserInterfaceStyle = UIKit.UIUserInterfaceStyle.Dark;
+                    }
+                    else
+                    {
+                        window.OverrideUserInterfaceStyle = UIKit.UIUserInterfaceStyle.Light;
+                    }
+                }
+#endif
+                Debug.WriteLine($"System chrome updated for {(isDark ? "dark" : "light")} theme");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error forcing resource refresh: {ex.Message}");
+                Debug.WriteLine($"Error updating system chrome: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Forces a complete window refresh
+        /// </summary>
+        private static void ForceWindowRefresh(bool isDark)
+        {
+            try
+            {
+#if ANDROID
+                var activity = Platform.CurrentActivity;
+                if (activity?.Window != null)
+                {
+                    // Force window to redraw by invalidating the decor view
+                    activity.Window.DecorView.Invalidate();
+                    
+                    // Force recreation of window insets
+                    if (Android.OS.Build.VERSION.SdkInt >= Android.OS.BuildVersionCodes.Kitkat)
+                    {
+                        activity.Window.DecorView.RequestApplyInsets();
+                    }
+                }
+#elif IOS
+                // Force all windows to refresh their appearance
+                foreach (var window in UIKit.UIApplication.SharedApplication.Windows)
+                {
+                    window.SetNeedsDisplay();
+                    window.LayoutIfNeeded();
+                }
+#endif
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error forcing window refresh: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Applies theme immediately without waiting
+        /// </summary>
+        private static void ApplyThemeImmediately(string themeName, bool isDark)
+        {
+            try
+            {
+                Debug.WriteLine($"ThemeManager: Initial theme application starting - {themeName}");
+                
+                Preferences.Default.Set(THEME_PREFERENCE_KEY, themeName);
+                
+                if (Application.Current != null)
+                {
+                    AppTheme requestedTheme = themeName switch
+                    {
+                        "Dark" => AppTheme.Dark,
+                        "Light" => AppTheme.Light,
+                        _ => AppTheme.Unspecified
+                    };
+                    
+                    // Apply theme and resources immediately
+                    Application.Current.UserAppTheme = requestedTheme;
+                    ForceThemeDictionaryApplication(isDark ? "Dark" : "Light");
+                    
+                    // Update system chrome immediately
+                    UpdateSystemChrome(isDark);
+                    
+                    Debug.WriteLine("ThemeManager: Initial theme applied");
+                }
+                
+                MainThread.BeginInvokeOnMainThread(() => {
+                    try
+                    {
+                        Debug.WriteLine("ThemeManager: UI thread theme application starting");
+                        
+                        if (Application.Current != null)
+                        {
+                            ForceThemeDictionaryApplication(isDark ? "Dark" : "Light");
+                            
+                            // Update system chrome on UI thread
+                            UpdateSystemChrome(isDark);
+                            
+                            // Force window refresh
+                            ForceWindowRefresh(isDark);
+                            
+                            ForceAppWideRefresh(isDark);
+                            
+                            Task.Delay(150).ContinueWith(_ => {
+                                MainThread.BeginInvokeOnMainThread(() => {
+                                    // Final system chrome update
+                                    UpdateSystemChrome(isDark);
+                                    SafelyTriggerThemeChanged(isDark);
+                                    Debug.WriteLine("ThemeManager: Theme change event fired");
+                                });
+                            });
+                            
+                            Debug.WriteLine("ThemeManager: UI thread theme application completed");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"ThemeManager: UI thread application error: {ex.Message}");
+                    }
+                });
+            }
+            catch (Exception ex) 
+            {
+                Debug.WriteLine($"ThemeManager: Error in immediate theme application: {ex.Message}");
             }
         }
 
@@ -180,23 +296,21 @@ namespace NexusChat.Services
         {
             try
             {
-                // FIXED: Enhanced app-wide refresh
                 var app = Application.Current;
                 if (app == null) return;
                 
-                // FIXED: Force multiple refresh signals
                 MainThread.BeginInvokeOnMainThread(async () => {
                     try
                     {
-                        // Trigger layout invalidation throughout the application
+                        // Update system chrome first
+                        UpdateSystemChrome(isDark);
+                        
                         if (app.MainPage != null)
                         {
-                            // Force a visual property change on all pages
                             app.MainPage.InvalidateMeasure();
                             
                             if (app.MainPage is Shell shell)
                             {
-                                // Double invalidation for Shell (triggers needed refresh events)
                                 shell.InvalidateMeasure();
                                 shell.ForceLayout();
                                 
@@ -207,19 +321,19 @@ namespace NexusChat.Services
                                 }
                             }
                             
-                            // FIXED: Use additional technique to force redraw
-                            double opacity = app.MainPage.Opacity;  // Changed from Opacity to double
+                            double opacity = app.MainPage.Opacity;
                             app.MainPage.Opacity = 0.99;
                             await Task.Delay(10);
                             app.MainPage.Opacity = opacity;
                             
-                            // Force another UI refresh after a short delay
                             await Task.Delay(50);
                             RefreshUIComponents();
                             
-                            // FIXED: Add a second refresh cycle with a longer delay
                             await Task.Delay(150);
                             RefreshVisualElement(app.MainPage);
+                            
+                            // Final system chrome update
+                            UpdateSystemChrome(isDark);
                         }
                     }
                     catch (Exception ex)
@@ -300,79 +414,6 @@ namespace NexusChat.Services
                 }
             }
             return themeName;
-        }
-
-        /// <summary>
-        /// Applies theme immediately without waiting
-        /// </summary>
-        private static void ApplyThemeImmediately(string themeName, bool isDark)
-        {
-            // First apply on current thread with high priority
-            try
-            {
-                Debug.WriteLine($"ThemeManager: Initial theme application starting - {themeName}");
-                
-                // Set preferences first to ensure consistency
-                Preferences.Default.Set(THEME_PREFERENCE_KEY, themeName);
-                
-                // Force appropriate theme dictionary application
-                ForceThemeDictionaryApplication(isDark ? "Dark" : "Light");
-                
-                // Then set application theme
-                if (Application.Current != null)
-                {
-                    // Translate theme name to AppTheme
-                    AppTheme requestedTheme = themeName switch
-                    {
-                        "Dark" => AppTheme.Dark,
-                        "Light" => AppTheme.Light,
-                        _ => AppTheme.Unspecified
-                    };
-                    
-                    Application.Current.UserAppTheme = requestedTheme;
-                    
-                    // Force initial refresh
-                    ForceResourceRefresh(null, isDark ? "Dark" : "Light");
-                    
-                    Debug.WriteLine("ThemeManager: Initial theme applied");
-                }
-                
-                // Then schedule main thread application for UI
-                MainThread.BeginInvokeOnMainThread(() => {
-                    try
-                    {
-                        Debug.WriteLine("ThemeManager: UI thread theme application starting");
-                        
-                        // Refresh on UI thread
-                        if (Application.Current != null)
-                        {
-                            // Force theme resources again on UI thread
-                            ForceThemeDictionaryApplication(isDark ? "Dark" : "Light");
-                            
-                            // Force app-wide refresh
-                            ForceAppWideRefresh(isDark);
-                            
-                            // Notify subscribers after a delay to ensure UI has updated
-                            Task.Delay(100).ContinueWith(_ => {
-                                MainThread.BeginInvokeOnMainThread(() => {
-                                    SafelyTriggerThemeChanged(isDark);
-                                    Debug.WriteLine("ThemeManager: Theme change event fired");
-                                });
-                            });
-                            
-                            Debug.WriteLine("ThemeManager: UI thread theme application completed");
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"ThemeManager: UI thread application error: {ex.Message}");
-                    }
-                });
-            }
-            catch (Exception ex) 
-            {
-                Debug.WriteLine($"ThemeManager: Error in immediate theme application: {ex.Message}");
-            }
         }
 
         /// <summary>

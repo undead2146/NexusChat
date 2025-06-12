@@ -5,7 +5,6 @@
              xmlns:models="clr-namespace:NexusChat.Core.Models"
              xmlns:converters="clr-namespace:NexusChat.Views.Converters"
              x:Class="NexusChat.Views.Controls.ConversationsSidebar"
-             x:DataType="viewmodels:ConversationsSidebarViewModel"
              x:Name="Root">
 
     <ContentView.Resources>
@@ -17,47 +16,30 @@
     </ContentView.Resources>
     
     <Grid RowDefinitions="Auto,*,Auto">
-        <!-- Header with refresh and new conversation buttons -->
+        <!-- Header with simplified design -->
         <Grid Grid.Row="0" 
-              ColumnDefinitions="Auto,*,Auto,Auto" 
+              ColumnDefinitions="*,Auto" 
               Padding="16,12"
               BackgroundColor="{AppThemeBinding Light=#f5f5f5, Dark=#1e1e1e}">
             
-            <Label Grid.Column="1"
+            <Label Grid.Column="0"
                    Text="Conversations"
                    FontSize="18"
                    FontAttributes="Bold"
-                   HorizontalOptions="Center"
                    VerticalOptions="Center"
                    TextColor="{AppThemeBinding Light=#333333, Dark=#ffffff}" />
             
-            <Button Grid.Column="2"
-                    Text="&#xf021;"
-                    FontFamily="FontAwesome-Solid"
-                    Command="{Binding RefreshConversationsCommand}"
-                    BackgroundColor="Transparent"
-                    TextColor="{AppThemeBinding Light=#333333, Dark=#ffffff}"
-                    FontSize="16"
-                    WidthRequest="32"
-                    HeightRequest="32"
-                    IsEnabled="{Binding IsLoading, Converter={StaticResource InvertedBoolConverter}}"
-                    ToolTipProperties.Text="Refresh conversations">
-                <Button.Triggers>
-                    <DataTrigger TargetType="Button" Binding="{Binding IsRefreshing}" Value="True">
-                        <Setter Property="Rotation" Value="180" />
-                    </DataTrigger>
-                </Button.Triggers>
-            </Button>
-            
-            <Button Grid.Column="3"
+            <Button Grid.Column="1"
                     Text="&#xf067;"
                     FontFamily="FontAwesome-Solid"
                     Command="{Binding NewConversationCommand}"
-                    BackgroundColor="Transparent"
-                    TextColor="{AppThemeBinding Light=#333333, Dark=#ffffff}"
+                    BackgroundColor="{AppThemeBinding Light=#0078D7, Dark=#0078D7}"
+                    TextColor="White"
                     FontSize="16"
-                    WidthRequest="32"
-                    HeightRequest="32"
+                    WidthRequest="36"
+                    HeightRequest="36"
+                    CornerRadius="18"
+                    Padding="0"
                     IsEnabled="{Binding IsLoading, Converter={StaticResource InvertedBoolConverter}}"
                     ToolTipProperties.Text="New conversation" />
         </Grid>
@@ -143,7 +125,7 @@
                             SelectionMode="Single"
                             SelectedItem="{Binding SelectedConversation}">
                 <CollectionView.ItemTemplate>
-                    <DataTemplate x:DataType="models:Conversation">
+                    <DataTemplate>
                         <SwipeView>
                             <SwipeView.LeftItems>
                                 <SwipeItems>

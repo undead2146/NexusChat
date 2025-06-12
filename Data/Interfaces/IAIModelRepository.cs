@@ -75,5 +75,25 @@ namespace NexusChat.Data.Interfaces
         /// Gets active models (models that are available and have API keys configured)
         /// </summary>
         Task<List<AIModel>> GetActiveModelsAsync(CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Deletes all models for a specific provider
+        /// </summary>
+        Task<int> DeleteModelsByProviderAsync(string providerName, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Checks if any models exist for a specific provider
+        /// </summary>
+        Task<bool> HasModelsForProviderAsync(string providerName, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Gets count of models for a specific provider
+        /// </summary>
+        Task<int> GetModelCountByProviderAsync(string providerName, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Removes database duplicates
+        /// </summary>
+        Task<int> CleanupDuplicatesAsync();
     }
 }

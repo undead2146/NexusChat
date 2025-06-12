@@ -13,12 +13,18 @@ namespace NexusChat.Views.Pages
     /// <summary>
     /// Main chat page that shows conversation with AI
     /// </summary>
+    [QueryProperty(nameof(ConversationId), "conversationId")]
+    [QueryProperty(nameof(ConversationObject), "conversation")]
     public partial class ChatPage : ContentPage
     {
         private readonly ChatViewModel _viewModel;
         private readonly INavigationService _navigationService;
         private bool _isScrolling = false;
         private bool _isAnimating = false;
+
+        // Query properties for navigation parameters
+        public string ConversationId { get; set; } = string.Empty;
+        public object ConversationObject { get; set; }
 
         /// <summary>
         /// Creates a new instance of ChatPage
@@ -107,22 +113,52 @@ namespace NexusChat.Views.Pages
             
             Debug.WriteLine("ChatPage.OnAppearing");
             
-            // Configure for immersive experience
-#if IOS
-            var statusBarManager = Microsoft.Maui.Controls.Application.Current?.Handler?.PlatformView;
-            if (statusBarManager != null)
-            {
-                // Handle iOS status bar
-            }
-#endif
-
             _viewModel.OnAppearing();
             
-            // Initialize the page
+            // Handle navigation parameters when page appears
+            await HandleNavigationParametersAsync();
+            
+            // Initialize the page first without sidebar
             await InitializePageAsync();
             
-            // Load the sidebar content
+            // Add delay before loading sidebar to prevent lag
+            await Task.Delay(200);
+            
+            // Load the sidebar content after page is ready
             LoadSidebarContent();
+        }
+
+        /// <summary>
+        /// Handles navigation parameters from query properties
+        /// </summary>
+        private async Task HandleNavigationParametersAsync()
+        {
+            try
+            {
+                Debug.WriteLine("ChatPage: Handling navigation parameters");
+                
+                // Handle conversation ID parameter
+                if (!string.IsNullOrEmpty(ConversationId) && int.TryParse(ConversationId, out int conversationId))
+                {
+                    Debug.WriteLine($"Loading conversation from navigation parameter: {conversationId}");
+                    await _viewModel.InitializeAsync(conversationId);
+                    return;
+                }
+                
+                // Handle conversation object parameter
+                if (ConversationObject is Conversation conversation)
+                {
+                    Debug.WriteLine($"Loading conversation from navigation parameter: {conversation.Title}");
+                    _viewModel.LoadConversation(conversation);
+                    return;
+                }
+                
+                Debug.WriteLine("No navigation parameters found, using default initialization");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error handling navigation parameters: {ex.Message}");
+            }
         }
         
         /// <summary>
@@ -141,13 +177,13 @@ namespace NexusChat.Views.Pages
         /// <summary>
         /// Loads the conversations sidebar content
         /// </summary>
-        private void LoadSidebarContent() 
+        private async void LoadSidebarContent() 
         {
             try 
             {
                 Debug.WriteLine("Loading conversations sidebar content");
                 
-                // Get the ConversationsSidebarViewModel from DI
+                // Get the ConversationsSidebarViewModel from DI FIRST
                 var conversationsSidebarViewModel = Handler?.MauiContext?.Services?.GetService(typeof(ConversationsSidebarViewModel)) as ConversationsSidebarViewModel;
                 if (conversationsSidebarViewModel == null) 
                 {
@@ -156,33 +192,30 @@ namespace NexusChat.Views.Pages
                     return;
                 }
 
-                // Ensure the sidebar content has the correct binding context
-                MainThread.BeginInvokeOnMainThread(() =>
+                // Set the binding context IMMEDIATELY to prevent inheritance
+                SidebarContent.BindingContext = conversationsSidebarViewModel;
+                Debug.WriteLine($"Sidebar BindingContext set to: {SidebarContent.BindingContext?.GetType().Name ?? "null"}");
+                
+                // Handle conversation events
+                conversationsSidebarViewModel.ConversationSelected += OnConversationSelectedFromSidebar;
+                conversationsSidebarViewModel.ConversationDeleted += OnConversationDeletedFromSidebar;
+                conversationsSidebarViewModel.ConversationCreated += OnConversationCreatedFromSidebar;
+                
+                Debug.WriteLine("Sidebar content loaded successfully");
+                
+                // Initialize the sidebar content in background
+                _ = Task.Run(async () => 
                 {
                     try
                     {
-                        // Set the binding context explicitly to prevent inheritance from parent
-                        SidebarContent.BindingContext = conversationsSidebarViewModel;
-                        
-                        // Verify the binding context was set correctly
-                        Debug.WriteLine($"Sidebar BindingContext set to: {SidebarContent.BindingContext?.GetType().Name ?? "null"}");
-                        
-                        // Handle conversation events
-                        conversationsSidebarViewModel.ConversationSelected += OnConversationSelectedFromSidebar;
-                        conversationsSidebarViewModel.ConversationDeleted += OnConversationDeletedFromSidebar;
-                        conversationsSidebarViewModel.ConversationCreated += OnConversationCreatedFromSidebar;
-                        
-                        Debug.WriteLine("Sidebar content loaded successfully");
+                        await conversationsSidebarViewModel.InitializeAsync();
+                        Debug.WriteLine("Sidebar initialization completed in background");
                     }
                     catch (Exception ex)
                     {
-                        Debug.WriteLine($"Error setting sidebar binding context: {ex.Message}");
-                        CreateFallbackSidebar();
+                        Debug.WriteLine($"Error initializing sidebar in background: {ex.Message}");
                     }
                 });
-                
-                // Initialize the sidebar content
-                Task.Run(async () => await conversationsSidebarViewModel.InitializeAsync());
             }
             catch (Exception ex) 
             {
@@ -312,33 +345,9 @@ namespace NexusChat.Views.Pages
         }
         
         /// <summary>
-        /// Handles the Editor Completed event (when Enter key is pressed)
-        /// </summary>
-        private void OnEditorCompleted(object sender, EventArgs e)
-        {
-            Debug.WriteLine("Editor completed (Enter pressed)");
-            
-            if (_viewModel.CanSendMessage)
-            {
-                // Execute on UI thread for immediate response
-                MainThread.BeginInvokeOnMainThread(async () =>
-                {
-                    try
-                    {
-                        await _viewModel.SendMessage();
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"Error in OnEditorCompleted: {ex.Message}");
-                    }
-                });
-            }
-        }
-        
-        /// <summary>
         /// Handles the Send button click
         /// </summary>
-        private async void OnSendButtonClicked(object sender, EventArgs e)
+        private void OnSendButtonClicked(object sender, EventArgs e)
         {
             Debug.WriteLine("Send button clicked directly");
             
@@ -359,18 +368,48 @@ namespace NexusChat.Views.Pages
                 // Force hide keyboard immediately
                 MessageEditor.Unfocus();
                 
-                // Execute on UI thread for immediate response
-                await MainThread.InvokeOnMainThreadAsync(async () =>
+                // Execute immediately without extra thread marshalling
+                _ = Task.Run(async () =>
                 {
-                    await _viewModel.SendMessage();
+                    try
+                    {
+                        await _viewModel.SendMessage();
+                        Debug.WriteLine("Message sent successfully via OnSendButtonClicked");
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Error sending message: {ex.Message}");
+                        Debug.WriteLine($"Stack trace: {ex.StackTrace}");
+                    }
                 });
-                
-                Debug.WriteLine("Message sent successfully via OnSendButtonClicked");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error sending message: {ex.Message}");
-                Debug.WriteLine($"Stack trace: {ex.StackTrace}");
+                Debug.WriteLine($"Error in OnSendButtonClicked: {ex.Message}");
+            }
+        }
+        
+        /// <summary>
+        /// Handles the Editor Completed event (when Enter key is pressed)
+        /// </summary>
+        private void OnEditorCompleted(object sender, EventArgs e)
+        {
+            Debug.WriteLine("Editor completed (Enter pressed)");
+            
+            if (_viewModel.CanSendMessage)
+            {
+                // Execute immediately without extra thread marshalling
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await _viewModel.SendMessage();
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Error in OnEditorCompleted: {ex.Message}");
+                    }
+                });
             }
         }
         
@@ -452,17 +491,35 @@ namespace NexusChat.Views.Pages
         /// <summary>
         /// Handles conversation selection from sidebar
         /// </summary>
-        private void OnConversationSelectedFromSidebar(Conversation conversation)
+        private async void OnConversationSelectedFromSidebar(Conversation conversation)
         {
             try
             {
                 Debug.WriteLine($"Conversation selected from sidebar: {conversation.Title} (ID: {conversation.Id})");
                 
-                // Load the selected conversation in the chat view
-                _viewModel.LoadConversation(conversation);
-                
-                // Close sidebar when conversation is selected
+                // Close sidebar first for immediate UI feedback
                 _viewModel.IsSidebarOpen = false;
+                
+                // Clear current messages immediately to show page is loading
+                await MainThread.InvokeOnMainThreadAsync(() =>
+                {
+                    _viewModel.Messages.Clear();
+                    _viewModel.HasMessages = false;
+                });
+                
+                // Initialize the conversation in the ChatViewModel
+                await Task.Run(async () =>
+                {
+                    try
+                    {
+                        await _viewModel.InitializeAsync(conversation.Id);
+                        Debug.WriteLine($"Successfully loaded conversation: {conversation.Title}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Error loading conversation: {ex.Message}");
+                    }
+                });
             }
             catch (Exception ex)
             {
@@ -506,6 +563,29 @@ namespace NexusChat.Views.Pages
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error handling conversation creation from sidebar: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Handles when the CollectionView reaches the remaining items threshold
+        /// </summary>
+        private void OnRemainingItemsThresholdReached(object sender, EventArgs e)
+        {
+            try
+            {
+                Debug.WriteLine("Remaining items threshold reached");
+                
+                // This could be used for loading more messages in the future
+                // For now, we'll just log that it was reached
+                if (_viewModel?.HasMoreMessages == true && !_viewModel.IsLoadingMoreMessages)
+                {
+                    Debug.WriteLine("Could trigger loading more messages here");
+                    // Future implementation: _viewModel.LoadMoreMessagesCommand?.Execute(null);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error in OnRemainingItemsThresholdReached: {ex.Message}");
             }
         }
     }

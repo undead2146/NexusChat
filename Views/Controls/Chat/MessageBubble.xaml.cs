@@ -156,36 +156,38 @@ namespace NexusChat.Views.Controls
                 
                 if (message != null && message.IsAI)
                 {
-                    // Only show thinking if status is explicitly "thinking" AND content is empty
-                    // AND the message was just created (not loaded from database)
+                    // Only show thinking for new AI messages with thinking status
                     shouldShowThinking = message.Status == "thinking" && 
                                        string.IsNullOrWhiteSpace(message.Content) &&
-                                       message.Id == 0; // New messages have Id = 0 until saved
+                                       message.Id == 0;
                     
                     shouldShowContent = !shouldShowThinking;
-                }
-                else if (message != null && !message.IsAI)
-                {
-                    // User messages always show content
-                    shouldShowThinking = false;
-                    shouldShowContent = true;
                 }
                 
                 Debug.WriteLine($"MessageBubble thinking state: ShowThinking={shouldShowThinking}, ShowContent={shouldShowContent}, Status='{message?.Status}', Content='{message?.Content}', Id={message?.Id}");
                 
-                // Update UI elements
+                // Update UI elements safely
                 if (ThinkingGrid != null)
+                {
                     ThinkingGrid.IsVisible = shouldShowThinking;
+                    // Set fixed height when thinking to prevent layout shifts
+                    ThinkingGrid.HeightRequest = shouldShowThinking ? 30 : 0;
+                }
                     
                 if (ContentLabel != null)
+                {
                     ContentLabel.IsVisible = shouldShowContent;
+                }
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"MessageBubble: Error updating thinking state - {ex.Message}");
                 // Fallback to show content and hide thinking
                 if (ThinkingGrid != null)
+                {
                     ThinkingGrid.IsVisible = false;
+                    ThinkingGrid.HeightRequest = 0;
+                }
                 if (ContentLabel != null)
                     ContentLabel.IsVisible = true;
             }
