@@ -88,30 +88,16 @@ namespace NexusChat.Services.AIProviders.Implementations
                     return models;
                 }
 
-                // Add comprehensive model collection
-                models.Add(CreateModelInternal("anthropic/claude-3-opus", "Claude 3 Opus", "Claude 3 Opus - Anthropic's most powerful model", 200000, 4096, true, true));
-                models.Add(CreateModelInternal("anthropic/claude-3-sonnet", "Claude 3 Sonnet", "Claude 3 Sonnet - balanced performance & quality", 200000, 4096, true, true));
-                models.Add(CreateModelInternal("anthropic/claude-3-haiku", "Claude 3 Haiku", "Claude 3 Haiku - fastest & most compact Claude model", 200000, 4096, true, true));
-                models.Add(CreateModelInternal("google/gemini-pro", "Gemini Pro", "Google's Gemini Pro model", 32768, 8192, true, false));
-                models.Add(CreateModelInternal("google/gemini-1.5-flash", "Gemini 1.5 Flash", "Gemini 1.5 Flash - Fast response model", 128000, 8192, true, true));
-                models.Add(CreateModelInternal("mistralai/mistral-small", "Mistral Small", "Mistral Small - efficient and powerful", 32768, 4096, true, false));
-                models.Add(CreateModelInternal("mistralai/mistral-medium", "Mistral Medium", "Mistral Medium - versatile model", 32768, 8192, true, false));
-                models.Add(CreateModelInternal("mistralai/mistral-large", "Mistral Large", "Mistral Large - advanced reasoning", 32768, 8192, true, false));
-                models.Add(CreateModelInternal("meta-llama/llama-3-70b-instruct", "Llama 3 70B Instruct", "Llama 3 70B - Meta's flagship model", 8192, 8192, true, false));
-                models.Add(CreateModelInternal("meta-llama/llama-3-8b-instruct", "Llama 3 8B Instruct", "Llama 3 8B - Compact but capable", 8192, 8192, true, false));
-                models.Add(CreateModelInternal("anthropic/claude-2", "Claude 2", "Claude 2 - Anthropic's previous generation model", 100000, 4096, true, false));
-                models.Add(CreateModelInternal("openai/gpt-4-turbo", "GPT-4 Turbo", "GPT-4 Turbo - Latest OpenAI model", 128000, 4096, true, false));
-                models.Add(CreateModelInternal("openai/gpt-3.5-turbo", "GPT-3.5 Turbo", "GPT-3.5 Turbo - Fast and economical", 16385, 4096, true, false));
+                // DeepSeek models
+                models.Add(CreateModelInternal("deepseek/deepseek-r1-0528:free", "DeepSeek R1 0528 (Free)", "May 28th update to DeepSeek R1 with performance on par with OpenAI o1, 671B parameters with 37B active", 163840, 163840, true, false));
+                models.Add(CreateModelInternal("deepseek/deepseek-chat-v3-0324:free", "DeepSeek V3 0324 (Free)", "DeepSeek V3 685B-parameter mixture-of-experts flagship chat model", 163840, 163840, true, false));
+                models.Add(CreateModelInternal("deepseek/deepseek-r1:free", "DeepSeek R1 (Free)", "DeepSeek R1 with performance on par with OpenAI o1, open-sourced with full reasoning tokens", 163840, 163840, true, false));
+
+                // Google models
+                models.Add(CreateModelInternal("google/gemini-2.0-flash-exp:free", "Gemini 2.0 Flash Experimental (Free)", "Significantly faster TTFT with enhanced multimodal understanding and coding capabilities", 1048576, 8192, true, true));
+                models.Add(CreateModelInternal("google/gemma-3-27b-it:free", "Gemma 3 27B (Free)", "Latest open source model with multimodal support, 140+ languages, improved math and reasoning", 96000, 8192, true, true));
 
 
-                // Model definitions previously in AIModelDiscoveryService.CreateOpenRouterModelsAsync
-                // and OpenRouterAIService.GetAvailableModels() 
-                models.Add(CreateModelInternal("anthropic/claude-3.5-sonnet", "Claude 3.5 Sonnet (via OpenRouter)", "Anthropic's most advanced model", 200000, 4096, true, true));
-                models.Add(CreateModelInternal("openai/gpt-4o", "GPT-4o (via OpenRouter)", "OpenAI's latest multimodal model", 128000, 4096, true, true));
-                models.Add(CreateModelInternal("google/gemini-1.5-pro", "Gemini 1.5 Pro (via OpenRouter)", "Google's advanced model with large context", 1048576, 8192, true, true)); // Max context for Gemini 1.5 Pro is 1M or 2M
-                models.Add(CreateModelInternal("meta-llama/llama-3.1-405b-instruct", "Llama 3.1 405B Instruct (via OpenRouter)", "Meta's largest instruction-tuned model", 131072, 4096, true, false));
-                models.Add(CreateModelInternal("mistralai/mistral-large-latest", "Mistral Large (via OpenRouter)", "Mistral's flagship model", 32768, 4096, true, false));
-                models.Add(CreateModelInternal("microsoft/phi-3-medium-128k-instruct", "Phi-3 Medium 128k Instruct (via OpenRouter)", "Microsoft's efficient model with large context", 131072, 4096, true, false));
 
 
                 Debug.WriteLine($"OpenRouterAIService: Discovered {models.Count} OpenRouter models.");
