@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
 using NexusChat.Core.Models;
 using NexusChat.Helpers;
 using NexusChat.Services;
@@ -72,6 +73,9 @@ namespace NexusChat.Core.ViewModels
                 ModelsCommand = new AsyncRelayCommand(HandleShowModels);
                 StartNewChatCommand = new AsyncRelayCommand(HandleStartNewChat);
                 ViewChatsCommand = new AsyncRelayCommand(HandleViewChats);
+                
+                // Subscribe to favorites changed message
+                WeakReferenceMessenger.Default.Register<FavoritesChangedMessage>(this, OnFavoritesChanged);
                 
                 // Set default values
                 IsDarkTheme = false;
@@ -459,6 +463,22 @@ namespace NexusChat.Core.ViewModels
             }
         }
 
+        /// <summary>
+        /// Handles favorites changed message to refresh favorite models
+        /// </summary>
+        private async void OnFavoritesChanged(object recipient, FavoritesChangedMessage message)
+        {
+            try
+            {
+                Debug.WriteLine("MainPageViewModel: Received FavoritesChangedMessage, refreshing favorite models");
+                await LoadFavoriteModelsAsync();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error handling favorites changed message: {ex.Message}");
+            }
+        }
+
         public void Dispose()
         {
             try
@@ -468,6 +488,9 @@ namespace NexusChat.Core.ViewModels
                     ThemeManager.ThemeChanged -= OnThemeChanged;
                     _isThemeEventSubscribed = false;
                 }
+                
+                // Unregister from messenger
+                WeakReferenceMessenger.Default.Unregister<FavoritesChangedMessage>(this);
             }
             catch (Exception ex)
             {
