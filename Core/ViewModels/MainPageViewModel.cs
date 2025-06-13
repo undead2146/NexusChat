@@ -234,10 +234,10 @@ namespace NexusChat.Core.ViewModels
                     if (fullConversation != null)
                     {
                         // Navigate to existing conversation with absolute route
+                        // Pass only the ID. ChatPageViewModel will load the conversation.
                         var parameters = new Dictionary<string, object>
                         {
-                            { "conversation", fullConversation },
-                            { "conversationId", conversation.Id }
+                            { "conversationId", conversation.Id.ToString() } // Pass ID as string
                         };
                         
                         await Shell.Current.GoToAsync("//MainPage/ChatPage", parameters);
@@ -255,7 +255,6 @@ namespace NexusChat.Core.ViewModels
                 Debug.WriteLine($"Error selecting conversation: {ex.Message}");
             }
         }
-        
         private async Task LoadFavoriteModelsAsync()
         {
             try
@@ -412,21 +411,10 @@ namespace NexusChat.Core.ViewModels
         {
             try
             {
-                var newConversation = new Conversation
-                {
-                    Title = "New Chat",
-                    CreatedAt = DateTime.Now,
-                    UpdatedAt = DateTime.Now
-                };
-                
-                var parameters = new Dictionary<string, object>
-                {
-                    { "conversation", newConversation }
-                };
-                
-                // Use absolute navigation to avoid route conflicts
-                await Shell.Current.GoToAsync("//MainPage/ChatPage", parameters);
-                Debug.WriteLine("Navigation to ChatPage with new conversation succeeded");
+                // For a new chat, navigate without parameters.
+                // ChatPageViewModel will be responsible for creating a new Conversation instance.
+                await Shell.Current.GoToAsync("//MainPage/ChatPage");
+                Debug.WriteLine("Navigation to ChatPage for new conversation succeeded");
             }
             catch (Exception ex)
             {
