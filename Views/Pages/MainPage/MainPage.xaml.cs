@@ -29,6 +29,17 @@ namespace NexusChat.Views.Pages
         protected override void OnAppearing()
         {
             base.OnAppearing();
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await _viewModel.RefreshDataAsync();
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Error refreshing data: {ex.Message}");
+                }
+            });
         }
 
         public void Dispose()

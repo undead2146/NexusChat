@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using NexusChat.Data.Context;
 using CommunityToolkit.Maui;
+using CommunityToolkit.Mvvm.Messaging;
 using NexusChat.Views.Pages;
 using NexusChat.Core.ViewModels;
 using NexusChat.Data.Repositories;
@@ -112,6 +113,7 @@ public static class MauiProgram
     private static void RegisterViewModels(IServiceCollection services)
     {
         // Register ViewModels as Transient for dependency injection
+        services.AddSingleton<IMessenger>(WeakReferenceMessenger.Default); 
         services.AddTransient<MainPageViewModel>();
         services.AddTransient<ChatViewModel>();
         services.AddTransient<AIModelsViewModel>(); // This will now get the discovery service injected

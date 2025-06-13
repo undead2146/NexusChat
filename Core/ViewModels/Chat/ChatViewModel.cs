@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
 using NexusChat.Core.Models;
 using NexusChat.Services.Interfaces;
 using Microsoft.Maui.Controls;
@@ -28,6 +29,9 @@ namespace NexusChat.Core.ViewModels
         private readonly IChatService _chatService;
         private readonly INavigationService _navigationService;
         private readonly IAIProviderFactory _providerFactory;
+
+        public ChatHeaderViewModel ChatHeaderViewModel { get; }
+
 
         [ObservableProperty]
         private Conversation? _currentConversation;
@@ -106,7 +110,8 @@ namespace NexusChat.Core.ViewModels
             IAIModelManager AIModelManager,
             IChatService chatService,
             INavigationService navigationService,
-            IAIProviderFactory providerFactory)
+            IAIProviderFactory providerFactory,
+            IMessenger messenger) // Add IMessenger for ChatHeaderViewModel
         {
             _messageRepository = messageRepository ?? throw new ArgumentNullException(nameof(messageRepository));
             _conversationRepository = conversationRepository ?? throw new ArgumentNullException(nameof(conversationRepository));
@@ -116,6 +121,8 @@ namespace NexusChat.Core.ViewModels
             _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
             _providerFactory = providerFactory ?? throw new ArgumentNullException(nameof(providerFactory));
             
+            ChatHeaderViewModel = new ChatHeaderViewModel(AIModelManager, navigationService, messenger); // Instantiate ChatHeaderViewModel
+
             Title = "Chat";
             _cts = new CancellationTokenSource();
             
@@ -164,7 +171,8 @@ namespace NexusChat.Core.ViewModels
                 HasConversation = true;
                 
                 // Load current AI model first
-                await LoadCurrentModelAsync();
+                await LoadCurrentModelAsync(); // This updates ChatViewModel.CurrentModelName
+                ChatHeaderViewModel.UpdateCurrentModelName(); // Also update header VM
                 
                 Title = conversation.Title ?? "New Chat";
                 
@@ -331,7 +339,8 @@ namespace NexusChat.Core.ViewModels
                 HasMessages = false;
                 _currentOffset = 0;
                 
-                await LoadCurrentModelAsync();
+                await LoadCurrentModelAsync(); // This updates ChatViewModel.CurrentModelName
+                ChatHeaderViewModel.UpdateCurrentModelName(); // Also update header VM
                 
                 Title = conversation.Title;
                 
@@ -341,6 +350,7 @@ namespace NexusChat.Core.ViewModels
                 OnPropertyChanged(nameof(HasConversation));
                 
                 Debug.WriteLine($"New chat created with ID: {conversation.Id}, title: {Title}");
+                await NotifyConversationsChangedAsync("New conversation created");
             }
             catch (Exception ex)
             {
@@ -586,6 +596,7 @@ namespace NexusChat.Core.ViewModels
                             {
                                 CurrentConversation.UpdatedAt = DateTime.UtcNow;
                                 await _conversationRepository.UpdateAsync(CurrentConversation, CancellationToken.None);
+                                await NotifyConversationsChangedAsync("Conversation updated after new message");
                             }
                             catch (Exception ex)
                             {
@@ -890,6 +901,7 @@ namespace NexusChat.Core.ViewModels
                     await _conversationRepository.UpdateAsync(CurrentConversation, CancellationToken.None);
                     
                     Debug.WriteLine($"Updated conversation title to: {result.Trim()}");
+                    await NotifyConversationsChangedAsync("Conversation title updated");
                 }
             }
             catch (Exception ex)
@@ -954,64 +966,99 @@ namespace NexusChat.Core.ViewModels
         [RelayCommand]
         public async Task ChangeModelAsync()
         {
-            Debug.WriteLine("ChangeModelAsync command executed");
+            Debug.WriteLine("ChatViewModel.ChangeModelAsync: Command executed.");
+            if (_modelRepository == null)
+            {
+                Debug.WriteLine("ChatViewModel.ChangeModelAsync: ModelRepository is null. Cannot change model.");
+                await Shell.Current.DisplayAlert("Error", "Model repository is not available.", "OK");
+                return;
+            }
+
             try
             {
-                // Get favorite models from the model manager
-                var favoriteModels = await _modelRepository?.GetFavoriteModelsAsync();
+                Debug.WriteLine("ChatViewModel.ChangeModelAsync: Fetching favorite models...");
+                var favoriteModels = await _modelRepository.GetFavoriteModelsAsync();
                 
                 if (favoriteModels == null || !favoriteModels.Any())
                 {
+                    Debug.WriteLine("ChatViewModel.ChangeModelAsync: No favorite models found.");
                     await Shell.Current.DisplayAlert("No Favorites", 
                         "You don't have any favorite models. Please go to Models page to set favorites.", 
                         "OK");
                     return;
                 }
+                Debug.WriteLine($"ChatViewModel.ChangeModelAsync: Found {favoriteModels.Count()} favorite models.");
                 
-                // Create a list of model names for the action sheet
                 var modelNames = favoriteModels.Select(m => $"{m.ProviderName}/{m.ModelName}").ToList();
-                
-                // Show action sheet to select model
+                Debug.WriteLine($"ChatViewModel.ChangeModelAsync: Model names for ActionSheet: {string.Join(", ", modelNames)}");
+
                 string result = await Shell.Current.DisplayActionSheet(
                     "Select Model", 
                     "Cancel", 
-                    null,
+                    null, // `destruction` parameter can be null
                     modelNames.ToArray());
+                
+                Debug.WriteLine($"ChatViewModel.ChangeModelAsync: DisplayActionSheet result: '{result}'");
                     
                 if (!string.IsNullOrWhiteSpace(result) && result != "Cancel")
                 {
-                    // Find the selected model
-                    var parts = result.Split('/');
-                    if (parts.Length == 2)
+                    Debug.WriteLine($"ChatViewModel.ChangeModelAsync: User selected: {result}");
+                    
+                    // Adjust splitting logic to handle model names with slashes
+                    int firstSlashIndex = result.IndexOf('/');
+                    if (firstSlashIndex > 0 && firstSlashIndex < result.Length - 1)
                     {
-                        var providerName = parts[0];
-                        var modelName = parts[1];
+                        var providerName = result.Substring(0, firstSlashIndex);
+                        var modelName = result.Substring(firstSlashIndex + 1);
+                        Debug.WriteLine($"ChatViewModel.ChangeModelAsync: Parsed Provider: {providerName}, Model: {modelName}");
                         
                         var selectedModel = favoriteModels.FirstOrDefault(
                             m => m.ProviderName == providerName && m.ModelName == modelName);
                             
                         if (selectedModel != null)
                         {
-                            // Update current conversation model
+                            Debug.WriteLine($"ChatViewModel.ChangeModelAsync: Matched selectedModel: {selectedModel.ProviderName}/{selectedModel.ModelName}");
                             if (CurrentConversation != null)
                             {
                                 CurrentConversation.ModelName = selectedModel.ModelName;
                                 CurrentConversation.ProviderName = selectedModel.ProviderName;
                                 await _conversationRepository.UpdateAsync(CurrentConversation, CancellationToken.None);
+                                Debug.WriteLine($"ChatViewModel.ChangeModelAsync: Updated conversation {CurrentConversation.Id} to use model {selectedModel.ProviderName}/{selectedModel.ModelName}");
                             }
                             
-                            // Update model manager
-                            await _AIModelManager.SetCurrentModelAsync(selectedModel);
+                            bool modelSetSuccess = await _AIModelManager.SetCurrentModelAsync(selectedModel);
+                            Debug.WriteLine($"ChatViewModel.ChangeModelAsync: _AIModelManager.SetCurrentModelAsync success: {modelSetSuccess}");
                             
-                            // Update UI
-                            CurrentModelName = selectedModel.ModelName;
+                            if (modelSetSuccess)
+                            {
+                                CurrentModelName = $"{selectedModel.ProviderName} {selectedModel.ModelName}";
+                                Debug.WriteLine($"ChatViewModel.ChangeModelAsync: CurrentModelName updated to {CurrentModelName}");
+                                OnPropertyChanged(nameof(CurrentModelName));
                             
-                            // Display confirmation
-                            await Shell.Current.DisplayAlert("Model Changed", 
-                                $"Now using {selectedModel.ProviderName}/{selectedModel.ModelName}", 
-                                "OK");
+                                await Shell.Current.DisplayAlert("Model Changed", 
+                                    $"Now using {selectedModel.ProviderName}/{selectedModel.ModelName}", 
+                                    "OK");
+                                Debug.WriteLine($"ChatViewModel.ChangeModelAsync: Model changed successfully to {selectedModel.ProviderName}/{selectedModel.ModelName}");
+                            }
+                            else
+                            {
+                                Debug.WriteLine($"ChatViewModel.ChangeModelAsync: _AIModelManager.SetCurrentModelAsync failed for {selectedModel.ProviderName}/{selectedModel.ModelName}");
+                                await Shell.Current.DisplayAlert("Error", "Failed to set the new model in the AI Model Manager.", "OK");
+                            }
+                        }
+                        else
+                        {
+                            Debug.WriteLine($"ChatViewModel.ChangeModelAsync: No model found matching selection '{result}' (Provider: '{providerName}', Model: '{modelName}')");
                         }
                     }
+                    else
+                    {
+                        Debug.WriteLine($"ChatViewModel.ChangeModelAsync: Selected result '{result}' could not be properly parsed into Provider/ModelName.");
+                    }
+                }
+                else
+                {
+                    Debug.WriteLine($"ChatViewModel.ChangeModelAsync: Selection was null, whitespace, or Cancel. Result: '{result}'");
                 }
             }
             catch (Exception ex)
@@ -1087,6 +1134,9 @@ namespace NexusChat.Core.ViewModels
                     
                     // Request sidebar refresh to remove the deleted conversation
                     SidebarRefreshRequested?.Invoke();
+                    
+                    // Notify that conversations have changed
+                    await NotifyConversationsChangedAsync("Conversation deleted");
                     
                     // Clear current conversation and messages
                     CurrentConversation = null;
@@ -1247,7 +1297,7 @@ namespace NexusChat.Core.ViewModels
                 var currentModel = _AIModelManager.CurrentModel;
                 if (currentModel != null)
                 {
-                    CurrentModelName = currentModel.ModelName ?? "Default Model";
+                    CurrentModelName = $"{currentModel.ProviderName} {currentModel.ModelName}"; // Consistent format
                     Debug.WriteLine($"Current model loaded: {CurrentModelName}");
                 }
                 else
@@ -1257,11 +1307,14 @@ namespace NexusChat.Core.ViewModels
                 }
                 
                 OnPropertyChanged(nameof(CurrentModelName));
+                ChatHeaderViewModel.UpdateCurrentModelName(); // Ensure header is also updated
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error loading current model: {ex.Message}");
                 CurrentModelName = "Unknown Model";
+                OnPropertyChanged(nameof(CurrentModelName));
+                ChatHeaderViewModel.UpdateCurrentModelName(); // Ensure header reflects error/unknown state
             }
         }
 
@@ -1300,6 +1353,23 @@ namespace NexusChat.Core.ViewModels
             {
                 Debug.WriteLine($"Error loading conversation: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// Sends a notification that the conversations have changed
+        /// </summary>
+        private async Task NotifyConversationsChangedAsync(string reason)
+        {
+            try
+            {
+                WeakReferenceMessenger.Default.Send(new ConversationsChangedMessage { Reason = reason });
+                Debug.WriteLine($"Sent ConversationsChangedMessage: {reason}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error sending ConversationsChangedMessage: {ex.Message}");
+            }
+            await Task.CompletedTask; // To make the method async as per convention if needed, though not strictly necessary here.
         }
     }
 }

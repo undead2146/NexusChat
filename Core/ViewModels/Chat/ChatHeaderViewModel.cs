@@ -3,6 +3,8 @@ using System.Diagnostics;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
+using NexusChat.Core.Models;
 using NexusChat.Services.Interfaces;
 
 namespace NexusChat.Core.ViewModels
@@ -10,10 +12,11 @@ namespace NexusChat.Core.ViewModels
     /// <summary>
     /// View model for the ChatHeader control
     /// </summary>
-    public partial class ChatHeaderViewModel : ObservableObject
+    public partial class ChatHeaderViewModel : ObservableObject, IDisposable
     {
         private readonly IAIModelManager _modelManager;
         private readonly INavigationService _navigationService;
+        private readonly IMessenger _messenger;
 
         [ObservableProperty]
         private string _title;
@@ -35,19 +38,44 @@ namespace NexusChat.Core.ViewModels
         /// </summary>
         /// <param name="modelManager">Model preference manager for AI model information</param>
         /// <param name="navigationService">Navigation service for page navigation</param>
+        /// <param name="messenger">Messenger service for inter-component communication</param>
         public ChatHeaderViewModel(
             IAIModelManager modelManager,
-            INavigationService navigationService)
+            INavigationService navigationService,
+            IMessenger messenger)
         {
             _modelManager = modelManager ?? throw new ArgumentNullException(nameof(modelManager));
             _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
+            _messenger = messenger ?? throw new ArgumentNullException(nameof(messenger));
 
             Title = "NexusChat";
             UpdateCurrentModelName();
+
+            // Register for model change messages
+            _messenger.Register<CurrentModelChangedMessage>(this, OnCurrentModelChanged);
+        }
+
+        private void OnCurrentModelChanged(object recipient, CurrentModelChangedMessage message)
+        {
+            Debug.WriteLine($"ChatHeaderViewModel: Received CurrentModelChangedMessage. New model in message: {message.Value?.ModelName ?? "null"}");
+            
+            var newModel = message.Value; // The AIModel? from the message
+            if (newModel != null)
+            {
+                CurrentModelName = $"{newModel.ProviderName} {newModel.ModelName}";
+                Debug.WriteLine($"ChatHeaderViewModel: CurrentModelName updated from message to {CurrentModelName}");
+            }
+            else
+            {
+                // Fallback to querying the manager if message value is unexpectedly null
+                // This indicates an issue with how CurrentModelChangedMessage is sent
+                Debug.WriteLine("ChatHeaderViewModel: CurrentModelChangedMessage.Value was null. Falling back to UpdateCurrentModelName().");
+                UpdateCurrentModelName(); 
+            }
         }
 
         /// <summary>
-        /// Updates the current model name
+        /// Updates the current model name by querying the AIModelManager.
         /// </summary>
         public void UpdateCurrentModelName()
         {
@@ -130,6 +158,15 @@ namespace NexusChat.Core.ViewModels
                         "OK");
                     break;
             }
+        }
+
+        /// <summary>
+        /// Disposes the ChatHeaderViewModel, unregistering from messages
+        /// </summary>
+        public void Dispose()
+        {
+            _messenger.Unregister<CurrentModelChangedMessage>(this);
+            GC.SuppressFinalize(this);
         }
     }
 }

@@ -77,6 +77,9 @@ namespace NexusChat.Core.ViewModels
                 // Subscribe to favorites changed message
                 WeakReferenceMessenger.Default.Register<FavoritesChangedMessage>(this, OnFavoritesChanged);
                 
+                // Subscribe to conversations changed message
+                WeakReferenceMessenger.Default.Register<ConversationsChangedMessage>(this, OnConversationsChanged);
+                
                 // Set default values
                 IsDarkTheme = false;
                 ThemeIconText = "\uf185";
@@ -467,6 +470,22 @@ namespace NexusChat.Core.ViewModels
             }
         }
 
+        /// <summary>
+        /// Handles conversations changed message to refresh recent conversations
+        /// </summary>
+        private async void OnConversationsChanged(object recipient, ConversationsChangedMessage message)
+        {
+            try
+            {
+                Debug.WriteLine("MainPageViewModel: Received ConversationsChangedMessage, refreshing recent conversations");
+                await LoadRecentConversationsAsync();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error handling conversations changed message: {ex.Message}");
+            }
+        }
+
         public void Dispose()
         {
             try
@@ -479,6 +498,7 @@ namespace NexusChat.Core.ViewModels
                 
                 // Unregister from messenger
                 WeakReferenceMessenger.Default.Unregister<FavoritesChangedMessage>(this);
+                WeakReferenceMessenger.Default.Unregister<ConversationsChangedMessage>(this);
             }
             catch (Exception ex)
             {

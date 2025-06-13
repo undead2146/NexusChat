@@ -14,7 +14,7 @@ namespace NexusChat.Data.Interfaces
         /// </summary>
         /// <param name="username">The username to search for</param>
         /// <returns>User if found, null otherwise</returns>
-        Task<User> GetByUsernameAsync(string username);
+        Task<User?> GetByUsernameAsync(string username);
 
         /// <summary>
         /// Gets a user by username with cancellation token

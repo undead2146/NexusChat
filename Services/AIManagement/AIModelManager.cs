@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using NexusChat.Core.Models;
 using NexusChat.Data.Interfaces;
 using NexusChat.Services.Interfaces;
+using CommunityToolkit.Mvvm.Messaging;
 using DotNetEnv;
 
 namespace NexusChat.Services.AIManagement
@@ -20,6 +21,7 @@ namespace NexusChat.Services.AIManagement
         private readonly IApiKeyManager _apiKeyManager;
         private readonly IAIModelDiscoveryService _modelDiscoveryService;
         private readonly SemaphoreSlim _initLock = new SemaphoreSlim(1, 1);
+            private readonly IMessenger _messenger;
         private bool _initialized = false;
         private int _initializeAttempts = 0;
         private const int MAX_INIT_ATTEMPTS = 3;
@@ -30,18 +32,20 @@ namespace NexusChat.Services.AIManagement
         /// Gets the current selected model
         /// </summary>
         public AIModel CurrentModel { get; private set; }
-        
+
         /// <summary>
         /// Creates a new instance of AIModelManager
         /// </summary>
         public AIModelManager(
             IAIModelRepository modelRepository,
             IApiKeyManager apiKeyManager,
-            IAIModelDiscoveryService modelDiscoveryService)
+            IAIModelDiscoveryService modelDiscoveryService,
+            IMessenger messenger)
         {
             _modelRepository = modelRepository ?? throw new ArgumentNullException(nameof(modelRepository));
             _apiKeyManager = apiKeyManager ?? throw new ArgumentNullException(nameof(apiKeyManager));
             _modelDiscoveryService = modelDiscoveryService ?? throw new ArgumentNullException(nameof(modelDiscoveryService));
+            _messenger = messenger ?? throw new ArgumentNullException(nameof(messenger));
         }
         
         /// <summary>
@@ -413,7 +417,9 @@ namespace NexusChat.Services.AIManagement
                     CurrentModel = modelToUpdate;
                     CurrentModelChanged?.Invoke(this, modelToUpdate);
                     Debug.WriteLine($"AIModelManager: Successfully set current model");
-                    
+                    _messenger.Send(new CurrentModelChangedMessage(model));
+
+
                     // Record usage whenever we set a model as current
                     await _modelRepository.RecordUsageAsync(modelToUpdate.ProviderName, modelToUpdate.ModelName);
                     

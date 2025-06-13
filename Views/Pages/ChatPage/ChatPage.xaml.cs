@@ -8,6 +8,7 @@ using NexusChat.Core.ViewModels;
 using NexusChat.Helpers;
 using NexusChat.Services.Interfaces;
 using NexusChat.Data.Interfaces;
+using NexusChat.Views.Controls; // Add this line
 
 namespace NexusChat.Views.Pages
 {
@@ -184,13 +185,6 @@ namespace NexusChat.Views.Pages
             {
                 Debug.WriteLine("Loading conversations sidebar content");
                 
-                // Clear any inherited binding context first
-                SidebarContent.BindingContext = null;
-                
-                // Small delay to ensure UI is ready
-                await Task.Delay(50);
-                
-                // Get the ConversationsSidebarViewModel from DI
                 var serviceProvider = Handler?.MauiContext?.Services;
                 if (serviceProvider == null)
                 {
@@ -203,7 +197,6 @@ namespace NexusChat.Views.Pages
                 if (conversationsSidebarViewModel == null) 
                 {
                     Debug.WriteLine("Failed to resolve ConversationsSidebarViewModel from DI");
-                    
                     // Try to create manually as fallback
                     try
                     {
@@ -232,18 +225,16 @@ namespace NexusChat.Views.Pages
                     }
                 }
 
-                // Set the binding context and verify it's set correctly
-                SidebarContent.BindingContext = conversationsSidebarViewModel;
+                // Instantiate the ConversationsSidebar view
+                var sidebarView = new ConversationsSidebar(); // Ensure this is the correct class name
+
+                // Set the BindingContext of the view itself
+                sidebarView.BindingContext = conversationsSidebarViewModel;
+
+                // Set the view as the Content of the SidebarContent ContentView
+                SidebarContent.Content = sidebarView;
                 
-                // Verify the binding context was set correctly
-                if (SidebarContent.BindingContext != conversationsSidebarViewModel)
-                {
-                    Debug.WriteLine("Failed to set binding context properly, trying again");
-                    await Task.Delay(100);
-                    SidebarContent.BindingContext = conversationsSidebarViewModel;
-                }
-                
-                Debug.WriteLine($"Sidebar BindingContext set to: {SidebarContent.BindingContext?.GetType().Name ?? "null"}");
+                Debug.WriteLine($"SidebarContent.Content set to ConversationsSidebar with BindingContext: {sidebarView.BindingContext?.GetType().Name ?? "null"}");
                 
                 // Handle conversation events
                 conversationsSidebarViewModel.ConversationSelected += OnConversationSelectedFromSidebar;

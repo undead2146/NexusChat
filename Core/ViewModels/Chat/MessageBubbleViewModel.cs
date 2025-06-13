@@ -55,26 +55,33 @@ namespace NexusChat.Core.ViewModels
         /// Gets whether the message is from AI
         /// </summary>
         public bool IsAI => _message?.IsAI ?? false;
-
-        /// <summary>
-        /// Gets the formatted status text based on message status
-        /// </summary>
         public string StatusText 
         {
             get 
             {
-                // Use cached value if available
                 if (_cachedStatusText != null)
                     return _cachedStatusText;
-                    
-                _cachedStatusText = FormatStatusText();
+
+                if (_message == null)
+                {
+                    _cachedStatusText = string.Empty;
+                    return _cachedStatusText;
+                }
+
+                if (_message.IsError)
+                    _cachedStatusText = "Error";
+                else if (_message.IsAI && _message.Status == "thinking")
+                    _cachedStatusText = "Thinking...";
+                else if (_message.IsAI && _message.Status == "streaming")
+                    _cachedStatusText = "Streaming...";
+                else if (!_message.IsAI && _message.Status == "pending")
+                    _cachedStatusText = "Sending...";
+                else
+                    _cachedStatusText = string.Empty; // Or some default like "Sent" / "Received" if desired
+
                 return _cachedStatusText;
             }
         }
-        
-        /// <summary>
-        /// Gets the formatted content with processing for display
-        /// </summary>
         public string FormattedContent
         {
             get
@@ -83,17 +90,14 @@ namespace NexusChat.Core.ViewModels
                     return _formattedContent;
                     
                 if (_message == null || string.IsNullOrEmpty(_message.Content))
-                    return string.Empty;
-                    
-                // Format content for display
-                _formattedContent = FormatMessageContent(_message.Content);
+                {
+                    _formattedContent = string.Empty;
+                    return _formattedContent;
+                }
+                _formattedContent = _message.Content.Trim(); 
                 return _formattedContent;
             }
         }
-        
-        /// <summary>
-        /// Gets whether the message has a status to display
-        /// </summary>
         public bool HasStatus => !string.IsNullOrEmpty(StatusText);
         
         /// <summary>
