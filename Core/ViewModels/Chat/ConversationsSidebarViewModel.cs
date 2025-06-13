@@ -70,48 +70,21 @@ namespace NexusChat.Core.ViewModels
         {
             try
             {
-                IsLoading = true;
-                HasError = false;
-                
-                var newConversation = new Conversation 
-                { 
-                    Title = "New Chat",
-                    CreatedAt = DateTime.Now,
-                    UpdatedAt = DateTime.Now,
-                    LastMessage = "No messages yet",
-                    UserId = GetCurrentUserId()
-                };
-                
-                // Save to database
-                var conversationId = await _conversationRepository.AddAsync(newConversation, CancellationToken.None);
-                newConversation.Id = conversationId;
-                
-                // Add to local collection
-                await MainThread.InvokeOnMainThreadAsync(() =>
-                {
-                    Conversations.Insert(0, newConversation);
-                    SelectedConversation = newConversation;
-                    ShowNoConversations = false;
-                });
-                
-                // Notify parent components
-                ConversationSelected?.Invoke(newConversation);
-                ConversationCreated?.Invoke(newConversation);
-                
-                Debug.WriteLine($"Created new conversation: {newConversation.Id} with title: {newConversation.Title}");
+                // Signal to ChatPage that a new conversation needs to be created by ChatViewModel.
+                // Pass null to indicate this is a "create new" request.
+                // ChatPage will then call ChatViewModel.InitializeNewConversationAsync().
+                ConversationCreated?.Invoke(null); 
+                Debug.WriteLine("ConversationsSidebarViewModel: Requested new conversation creation via ConversationCreated event with null.");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error creating new conversation: {ex.Message}");
+                Debug.WriteLine($"Error in ConversationsSidebarViewModel.NewConversation command: {ex.Message}");
+                // Optionally, display an error to the user if appropriate for the sidebar context.
                 await MainThread.InvokeOnMainThreadAsync(() =>
                 {
                     HasError = true;
-                    ErrorMessage = $"Failed to create new conversation: {ex.Message}";
+                    ErrorMessage = "Failed to initiate new chat.";
                 });
-            }
-            finally
-            {
-                IsLoading = false;
             }
         }
 
@@ -446,7 +419,6 @@ namespace NexusChat.Core.ViewModels
         {
             return 1;
         }
-
         public async Task HandleConversationUpdated(Conversation updatedConversation)
         {
             try

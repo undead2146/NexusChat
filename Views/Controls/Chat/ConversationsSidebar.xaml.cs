@@ -11,7 +11,7 @@ namespace NexusChat.Views.Controls
         private ConversationsSidebarViewModel? _viewModel;
 
         public event Action<Conversation>? ConversationSelected;
-        public event Action<Conversation>? ConversationCreated;
+        public event Action<Conversation?>? ConversationCreated; // Changed to Action<Conversation?>
         public event Action<Conversation>? ConversationDeleted;
 
         public ConversationsSidebar()
@@ -39,7 +39,7 @@ namespace NexusChat.Views.Controls
             {
                 _viewModel = viewModel;
                 viewModel.ConversationSelected += OnConversationSelected;
-                viewModel.ConversationCreated += OnConversationCreated;
+                viewModel.ConversationCreated += OnConversationCreated; // This subscription
                 viewModel.ConversationDeleted += OnConversationDeleted;
                 Debug.WriteLine("Successfully bound to ConversationsSidebarViewModel");
                 
@@ -68,10 +68,12 @@ namespace NexusChat.Views.Controls
             ConversationSelected?.Invoke(conversation);
         }
 
-        private void OnConversationCreated(Conversation conversation)
+        // Changed parameter to Conversation?
+        private void OnConversationCreated(Conversation? conversation) 
         {
-            Debug.WriteLine($"ConversationsSidebar: New conversation created - {conversation.Title}");
-            ConversationCreated?.Invoke(conversation);
+            // Use null-conditional operator for Title
+            Debug.WriteLine($"ConversationsSidebar: New conversation created - {conversation?.Title ?? "Untitled (null conversation object received)"}");
+            ConversationCreated?.Invoke(conversation); // Pass on the (potentially null) conversation
         }
 
         private void OnConversationDeleted(Conversation conversation)

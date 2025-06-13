@@ -597,17 +597,74 @@ namespace NexusChat.Views.Pages
         /// <summary>
         /// Handles conversation creation from sidebar
         /// </summary>
-        private void OnConversationCreatedFromSidebar(Conversation newConversation)
+        private async void OnConversationCreatedFromSidebar(Conversation? conversationMarker)
         {
             try
             {
-                Debug.WriteLine($"New conversation created from sidebar: {newConversation.Title} (ID: {newConversation.Id})");
-                
-                // Load the new conversation
-                _viewModel.LoadConversation(newConversation);
-                
-                // Close sidebar
-                _viewModel.IsSidebarOpen = false;
+                // If conversationMarker is null, it's a request to create a brand new chat.
+                if (conversationMarker == null)
+                {
+                    Debug.WriteLine($"ChatPage: New conversation creation requested from sidebar.");
+                    
+                    _viewModel.IsSidebarOpen = false; // Close sidebar first
+                    
+                    // Clear current messages immediately for UI feedback
+                    await MainThread.InvokeOnMainThreadAsync(() =>
+                    {
+                        _viewModel.Messages.Clear();
+                        _viewModel.HasMessages = false;
+                    });
+                    
+                    // Let ChatViewModel handle the creation, saving, and setup of the new conversation.
+                    // InitializeNewConversationAsync will also send ConversationsChangedMessage.
+                    await _viewModel.InitializeNewConversationAsync();
+                    Debug.WriteLine($"ChatPage: ChatViewModel initialized new conversation: {_viewModel.CurrentConversation?.Title} (ID: {_viewModel.CurrentConversation?.Id})");
+
+                    // After ChatViewModel creates it and ConversationsChangedMessage makes the sidebar refresh,
+                    // explicitly tell the sidebar to select this new conversation.
+                    if (SidebarContent?.Content is ConversationsSidebar sidebarView && _viewModel.CurrentConversation != null)
+                    {
+                        // A small delay might be needed if the sidebar refresh is not instantaneous,
+                        // to ensure the item exists in the sidebar's list before selection.
+                        await Task.Delay(100); // Small delay for sidebar refresh
+                        sidebarView.SelectConversation(_viewModel.CurrentConversation.Id);
+                        Debug.WriteLine($"ChatPage: Instructed sidebar to select new conversation ID: {_viewModel.CurrentConversation.Id}");
+                    }
+                }
+                else
+                {
+                    // This path handles cases where the sidebar might pass an already created conversation.
+                    // This logic remains for compatibility if other parts of the sidebar use it,
+                    // but the "New Chat" button now uses the null marker path above.
+                    Debug.WriteLine($"ChatPage: Sidebar passed an existing conversation: {conversationMarker.Title} (ID: {conversationMarker.Id})");
+                    
+                    _viewModel.IsSidebarOpen = false;
+                    
+                    await MainThread.InvokeOnMainThreadAsync(() =>
+                    {
+                        _viewModel.Messages.Clear();
+                        _viewModel.HasMessages = false;
+                    });
+                    
+                    await Task.Run(async () =>
+                    {
+                        try
+                        {
+                            await Task.Delay(100); // Original delay
+                            await _viewModel.InitializeAsync(conversationMarker.Id);
+                            Debug.WriteLine($"ChatPage: Successfully initialized conversation passed from sidebar: {conversationMarker.Title}");
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"ChatPage: Error initializing conversation passed from sidebar: {ex.Message}");
+                            // Fallback: try to create a new conversation in ChatViewModel
+                            await MainThread.InvokeOnMainThreadAsync(async () =>
+                            {
+                                await _viewModel.InitializeNewConversationAsync();
+                            });
+                        }
+                    });
+                }
             }
             catch (Exception ex)
             {
