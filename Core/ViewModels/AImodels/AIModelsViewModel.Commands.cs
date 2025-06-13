@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Maui.Controls;
 using NexusChat.Core.Models;
 
@@ -504,7 +505,10 @@ namespace NexusChat.Core.ViewModels
                         // Clear API key cache to ensure fresh validation
                         await _apiKeyManager.ClearCacheAsync();
                         
-                        // Trigger model discovery for the new provider
+                        // Clear discovery service cache before triggering discovery
+                        await _modelDiscoveryService.ClearProviderCacheAsync(provider);
+                        
+                        // Force fresh discovery for the new provider
                         await DiscoverAndLoadProviderModelsAsync(provider);
                         
                         // Refresh models to show new provider's models
@@ -534,36 +538,82 @@ namespace NexusChat.Core.ViewModels
             {
                 bool confirm = await Shell.Current.DisplayAlert(
                     "Remove API Key",
-                    $"Are you sure you want to remove the {provider} API key?\n\nThis will hide all {provider} models from the list.",
+                    $"Are you sure you want to remove the {provider} API key?\n\nThis will permanently remove all {provider} models and their favorites from your account.",
                     "Remove",
                     "Cancel");
 
                 if (confirm)
                 {
-                    bool success = await _apiKeyManager.DeleteProviderApiKeyAsync(provider);
-                    if (success)
+                    IsLoading = true;
+                    
+                    // Step 1: Get models to be removed for comprehensive cleanup
+                    var modelsToRemove = Models.Where(m => 
+                        m.ProviderName.Equals(provider, StringComparison.OrdinalIgnoreCase))
+                        .ToList();
+                    
+                    var favoriteModelsToRemove = modelsToRemove.Where(m => m.IsFavorite).ToList();
+                    
+                    Debug.WriteLine($"Removing API key for {provider}: {modelsToRemove.Count} models total, {favoriteModelsToRemove.Count} favorites");
+                    
+                    // Step 2: Remove all favorite status from database BEFORE removing API key
+                    foreach (var model in favoriteModelsToRemove)
                     {
-                        ShowNotification($"{provider} API key removed successfully");
-                        
-                        // Clean up models from database for this provider
-                        await CleanupProviderModelsAsync(provider);
-                        
-                        // Refresh existing keys display
-                        await UpdateExistingApiKeys();
-                        
-                        // Refresh models to hide removed provider's models
-                        _lastModelRefresh = DateTime.MinValue;
-                        await LoadModelsAsync();
-                        
-                        // If no API keys remain, show empty state
-                        if (ExistingApiKeys.Count == 0)
+                        try
                         {
-                            ShowApiKeyOverlay = false;
+                            await _modelManager.SetFavoriteStatusAsync(model.ProviderName, model.ModelName, false);
+                            Debug.WriteLine($"Removed favorite status for {model.ProviderName}/{model.ModelName}");
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"Error removing favorite status for {model.ModelName}: {ex.Message}");
                         }
                     }
-                    else
+                    
+                    // Step 3: Remove current model selection if it belongs to this provider
+                    if (_modelManager.CurrentModel != null && 
+                        _modelManager.CurrentModel.ProviderName.Equals(provider, StringComparison.OrdinalIgnoreCase))
+                    {
+                        await _modelManager.ClearCurrentModelAsync();
+                    }
+                    
+                    // Step 4: Remove API key (this will trigger the ApiKeyRemoved event)
+                    bool apiKeyRemoved = await _apiKeyManager.DeleteProviderApiKeyAsync(provider);
+                    if (!apiKeyRemoved)
                     {
                         ShowNotification($"Failed to remove {provider} API key");
+                        return;
+                    }
+                    
+                    // Step 5: Comprehensive model cleanup from database
+                    await CleanupProviderModelsComprehensiveAsync(provider);
+                    
+                    // Step 6: Clear all caches to prevent stale data
+                    await _apiKeyManager.ClearCacheAsync();
+                    await _modelDiscoveryService.ClearProviderCacheAsync(provider);
+                    await _modelManager.RefreshModelCacheAsync();
+                    
+                    // Step 7: Update existing keys display
+                    await UpdateExistingApiKeys();
+                    
+                    // Step 8: Force complete model refresh
+                    _lastModelRefresh = DateTime.MinValue;
+                    await LoadModelsAsync();
+                    
+                    // Step 9: Notify MainPageViewModel to refresh favorites
+                    await NotifyMainPageToRefreshFavoritesAsync();
+                    
+                    // Show completion notification
+                    string message = favoriteModelsToRemove.Count > 0
+                        ? $"{provider} API key removed. {modelsToRemove.Count} models deleted including {favoriteModelsToRemove.Count} favorites."
+                        : $"{provider} API key removed. {modelsToRemove.Count} models deleted.";
+                    
+                    ShowNotification(message);
+                    
+                    // If no API keys remain, close overlay
+                    if (ExistingApiKeys.Count == 0)
+                    {
+                        ShowApiKeyOverlay = false;
+                        ShowNoResults = true;
                     }
                 }
             }
@@ -571,6 +621,80 @@ namespace NexusChat.Core.ViewModels
             {
                 Debug.WriteLine($"Error removing API key: {ex.Message}");
                 ShowNotification($"Error removing API key: {ex.Message}");
+            }
+            finally
+            {
+                IsLoading = false;
+            }
+        }
+
+        /// <summary>
+        /// Comprehensive cleanup of provider models from database and UI
+        /// </summary>
+        private async Task CleanupProviderModelsComprehensiveAsync(string provider)
+        {
+            try
+            {
+                Debug.WriteLine($"Starting comprehensive cleanup for provider: {provider}");
+                
+                // Step 1: Remove all models for this provider from database with transaction safety
+                int deletedCount = await _modelRepository.DeleteModelsByProviderAsync(provider);
+                Debug.WriteLine($"Deleted {deletedCount} models from database for provider: {provider}");
+                
+                // Step 2: Clear any cached favorites or selections for this provider
+                await _modelRepository.ClearProviderCacheAsync(provider);
+                
+                // Step 3: Remove models from UI collections
+                await MainThread.InvokeOnMainThreadAsync(() =>
+                {
+                    var modelsToRemove = Models.Where(m => 
+                        m.ProviderName.Equals(provider, StringComparison.OrdinalIgnoreCase))
+                        .ToList();
+                    
+                    var filteredModelsToRemove = FilteredModels.Where(m => 
+                        m.ProviderName.Equals(provider, StringComparison.OrdinalIgnoreCase))
+                        .ToList();
+                    
+                    // Remove from both collections
+                    foreach (var model in modelsToRemove.ToList())
+                    {
+                        Models.Remove(model);
+                    }
+                    
+                    foreach (var model in filteredModelsToRemove.ToList())
+                    {
+                        FilteredModels.Remove(model);
+                    }
+                    
+                    // Update UI state
+                    ShowNoResults = FilteredModels.Count == 0 && !IsLoading;
+                    OnPropertyChanged(nameof(Models));
+                    OnPropertyChanged(nameof(FilteredModels));
+                });
+                
+                Debug.WriteLine($"Successfully completed comprehensive cleanup for provider: {provider}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error in comprehensive cleanup for provider {provider}: {ex.Message}");
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Notifies MainPageViewModel to refresh its favorite models
+        /// </summary>
+        private async Task NotifyMainPageToRefreshFavoritesAsync()
+        {
+            try
+            {
+                // Use MessagingCenter or WeakReferenceMessenger to notify MainPageViewModel
+                WeakReferenceMessenger.Default.Send(new FavoritesChangedMessage());
+                Debug.WriteLine("Sent FavoritesChangedMessage to refresh MainPage favorites");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error notifying MainPage to refresh favorites: {ex.Message}");
             }
         }
 

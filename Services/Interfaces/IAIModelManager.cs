@@ -71,5 +71,21 @@ namespace NexusChat.Services.Interfaces
         /// <param name="discoveredModels">List of models discovered from providers</param>
         /// <returns>True if new models were added, false otherwise</returns>
         Task<bool> ProcessDiscoveredModelsAsync(List<AIModel> discoveredModels);
+        
+        /// <summary>
+        /// Handles cleanup when a provider is removed
+        /// </summary>
+        /// <param name="providerName">Name of the provider that was removed</param>
+        Task OnProviderRemovedAsync(string providerName);
+        
+        /// <summary>
+        /// Clears the current model selection
+        /// </summary>
+        Task ClearCurrentModelAsync();
+        
+        /// <summary>
+        /// Refreshes the model cache
+        /// </summary>
+        Task RefreshModelCacheAsync();
     }
 }

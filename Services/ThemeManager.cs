@@ -20,7 +20,6 @@ namespace NexusChat.Services
         private const string THEME_PREFERENCE_KEY = "theme";
         private static bool _isChangingTheme = false;
         private static readonly object _themeLock = new object();
-        // Cache theme dictionaries to prevent repeatedly creating new instances
         private static readonly Dictionary<string, ResourceDictionary> _cachedThemes = new Dictionary<string, ResourceDictionary>();
 
         /// <summary>
@@ -529,58 +528,164 @@ namespace NexusChat.Services
         {
             if (!_cachedThemes.TryGetValue(themeName, out ResourceDictionary theme))
             {
-                theme = themeName == "Dark" ? new DarkTheme() : new LightTheme();
-                _cachedThemes[themeName] = theme;
+                try
+                {
+                    theme = themeName == "Dark" ? CreateDarkTheme() : CreateLightTheme();
+                    _cachedThemes[themeName] = theme;
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Error creating theme dictionary for {themeName}: {ex.Message}");
+                    theme = CreateFallbackTheme(themeName == "Dark");
+                    _cachedThemes[themeName] = theme;
+                }
             }
             return theme;
         }
-        
+
         /// <summary>
-        /// Ensures all required theme resources exist
+        /// Creates a dark theme dictionary safely
         /// </summary>
-        private static void EnsureRequiredResourcesExist()
+        private static ResourceDictionary CreateDarkTheme()
         {
-            if (Application.Current?.Resources == null) return;
-            
-            // Light theme resources
-            EnsureResource("Primary", Colors.Purple);
-            EnsureResource("Secondary", Colors.LavenderBlush);
-            EnsureResource("Tertiary", Colors.MidnightBlue);
-            EnsureResource("Background", Colors.White);
-            EnsureResource("CardBackground", Colors.WhiteSmoke);
-            EnsureResource("SurfaceBackground", Colors.White);
-            EnsureResource("PrimaryTextColor", Colors.Black);
-            EnsureResource("SecondaryTextColor", Colors.DarkGray);
-            EnsureResource("Gray200", Color.FromArgb("#E5E5E5"));
-            EnsureResource("Gray600", Color.FromArgb("#757575"));
-            
-            // Dark theme resources
-            EnsureResource("PrimaryDark", Color.FromArgb("#9982EA"));
-            EnsureResource("SecondaryDark", Color.FromArgb("#625B71"));
-            EnsureResource("TertiaryDark", Color.FromArgb("#A09FFF"));
-            EnsureResource("BackgroundDark", Color.FromArgb("#121212"));
-            EnsureResource("CardBackgroundDark", Color.FromArgb("#1E1E1E"));
-            EnsureResource("SurfaceBackgroundDark", Color.FromArgb("#1E1E1E"));
-            EnsureResource("PrimaryTextColorDark", Colors.White);
-            EnsureResource("SecondaryTextColorDark", Color.FromArgb("#B3B3B3"));
-            
-            // Common values
-            EnsureResource("MessageBubbleWidth", 280.0);
-        }
-        
-        /// <summary>
-        /// Ensures a resource exists, adding it if missing
-        /// </summary>
-        private static void EnsureResource(string key, object defaultValue)
-        {
-            var resources = Application.Current?.Resources;
-            if (resources != null && !resources.ContainsKey(key))
+            try
             {
-                resources[key] = defaultValue;
-                Debug.WriteLine($"Added missing resource: {key}");
+                return new DarkTheme();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error creating DarkTheme instance: {ex.Message}");
+                return CreateFallbackTheme(true);
             }
         }
 
+        /// <summary>
+        /// Creates a light theme dictionary safely
+        /// </summary>
+        private static ResourceDictionary CreateLightTheme()
+        {
+            try
+            {
+                return new LightTheme();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error creating LightTheme instance: {ex.Message}");
+                return CreateFallbackTheme(false);
+            }
+        }
+
+        /// <summary>
+        /// Creates a fallback theme dictionary with essential colors
+        /// </summary>
+        private static ResourceDictionary CreateFallbackTheme(bool isDark)
+        {
+            var fallbackTheme = new ResourceDictionary();
+            
+            if (isDark)
+            {
+                fallbackTheme["Primary"] = Color.FromArgb("#7B68EE");
+                fallbackTheme["Background"] = Color.FromArgb("#121212");
+                fallbackTheme["CardBackground"] = Color.FromArgb("#252525");
+                fallbackTheme["PrimaryTextColor"] = Colors.White;
+                fallbackTheme["SecondaryTextColor"] = Color.FromArgb("#B0B0B0");
+            }
+            else
+            {
+                fallbackTheme["Primary"] = Color.FromArgb("#512BD4");
+                fallbackTheme["Background"] = Colors.White;
+                fallbackTheme["CardBackground"] = Colors.White;
+                fallbackTheme["PrimaryTextColor"] = Colors.Black;
+                fallbackTheme["SecondaryTextColor"] = Color.FromArgb("#616161");
+            }
+            
+            return fallbackTheme;
+        }
+
+        /// <summary>
+        /// Ensures all required resources exist in the application resources
+        /// </summary>
+        private static void EnsureRequiredResourcesExist()
+        {
+            try
+            {
+                if (Application.Current?.Resources == null)
+                {
+                    Debug.WriteLine("Application.Current.Resources is null, cannot ensure required resources");
+                    return;
+                }
+
+                var resources = Application.Current.Resources;
+                
+                // Essential colors that must exist for the app to function
+                var requiredColors = new Dictionary<string, Color>
+                {
+                    ["Primary"] = Color.FromArgb("#512BD4"),
+                    ["PrimaryDark"] = Color.FromArgb("#7B68EE"),
+                    ["Background"] = Colors.White,
+                    ["BackgroundDark"] = Color.FromArgb("#121212"),
+                    ["CardBackground"] = Colors.White,
+                    ["CardBackgroundDark"] = Color.FromArgb("#252525"),
+                    ["PrimaryTextColor"] = Colors.Black,
+                    ["PrimaryTextColorDark"] = Colors.White,
+                    ["SecondaryTextColor"] = Color.FromArgb("#616161"),
+                    ["SecondaryTextColorDark"] = Color.FromArgb("#B0B0B0"),
+                    ["White"] = Colors.White,
+                    ["Black"] = Colors.Black,
+                    ["Gray100"] = Color.FromArgb("#F5F5F5"),
+                    ["Gray200"] = Color.FromArgb("#EEEEEE"),
+                    ["Gray600"] = Color.FromArgb("#757575"),
+                    ["Gray800"] = Color.FromArgb("#424242"),
+                    ["Gray900"] = Color.FromArgb("#212121"),
+                    ["Gray950"] = Color.FromArgb("#121212"),
+                    ["OffBlack"] = Color.FromArgb("#121212")
+                };
+
+                // Add missing colors
+                foreach (var colorPair in requiredColors)
+                {
+                    if (!resources.ContainsKey(colorPair.Key))
+                    {
+                        try
+                        {
+                            resources[colorPair.Key] = colorPair.Value;
+                            Debug.WriteLine($"Added missing color resource: {colorPair.Key}");
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"Error adding color resource {colorPair.Key}: {ex.Message}");
+                        }
+                    }
+                }
+
+                Debug.WriteLine("Required resources verification completed");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error ensuring required resources exist: {ex.Message}");
+            }
+        }
+        
+        /// <summary>
+        /// Initializes the theme manager (for internal use)
+        /// </summary>
+        internal static void Init()
+        {
+            // Preload both themes to ensure their dictionaries are created
+            try
+            {
+                var darkTheme = CreateDarkTheme();
+                var lightTheme = CreateLightTheme();
+                
+                _cachedThemes["Dark"] = darkTheme;
+                _cachedThemes["Light"] = lightTheme;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error preloading themes: {ex.Message}");
+            }
+        }
+        
         /// <summary>
         /// Performs a more thorough UI refresh to ensure theme changes are reflected
         /// </summary>

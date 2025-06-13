@@ -185,7 +185,7 @@ namespace NexusChat.Services.AIManagement
                 
                 if (!models.Any() && providerName.ToLowerInvariant() != "dummy") // Avoid caching empty for known if error, unless it's truly no models
                 {
-                     Debug.WriteLine($"AIModelDiscoveryService: No models returned from {providerName}'s discovery method.");
+                    Debug.WriteLine($"AIModelDiscoveryService: No models returned from {providerName}'s discovery method.");
                 }
 
                 await _cacheLock.WaitAsync();
@@ -220,6 +220,30 @@ namespace NexusChat.Services.AIManagement
                 _modelCache.Clear();
                 _cacheTimestamps.Clear();
                 Debug.WriteLine("AIModelDiscoveryService: Cache cleared");
+            }
+            finally
+            {
+                _cacheLock.Release();
+            }
+        }
+
+        /// <summary>
+        /// Clears cached models for a specific provider to force fresh discovery
+        /// </summary>
+        public async Task ClearProviderCacheAsync(string providerName)
+        {
+            if (string.IsNullOrEmpty(providerName)) return;
+            
+            await _cacheLock.WaitAsync();
+            try
+            {
+                string cacheKey = providerName.ToLowerInvariant();
+                Debug.WriteLine($"AIModelDiscoveryService: Clearing cache for provider: {providerName}");
+                
+                _modelCache.Remove(cacheKey);
+                _cacheTimestamps.Remove(cacheKey);
+                
+                Debug.WriteLine($"AIModelDiscoveryService: Cache cleared for provider: {providerName}");
             }
             finally
             {

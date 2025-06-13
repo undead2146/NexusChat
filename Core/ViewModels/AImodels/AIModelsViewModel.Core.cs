@@ -21,6 +21,7 @@ namespace NexusChat.Core.ViewModels
         private readonly INavigationService _navigationService;
         private readonly IAIProviderFactory _providerFactory;
         private readonly IAIModelRepository _modelRepository;
+        private readonly IAIModelDiscoveryService _modelDiscoveryService;
 
         private bool _hasBeenInitialized = false;
         private bool _isAnAnimationInProgress = false;
@@ -114,7 +115,8 @@ namespace NexusChat.Core.ViewModels
             IApiKeyManager apiKeyManager,
             INavigationService navigationService,
             IAIProviderFactory providerFactory,
-            IAIModelRepository modelRepository)
+            IAIModelRepository modelRepository,
+            IAIModelDiscoveryService modelDiscoveryService)
         {
             Title = "AI Models";
             _modelManager = modelManager ?? throw new ArgumentNullException(nameof(modelManager));
@@ -122,13 +124,64 @@ namespace NexusChat.Core.ViewModels
             _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
             _providerFactory = providerFactory ?? throw new ArgumentNullException(nameof(providerFactory));
             _modelRepository = modelRepository ?? throw new ArgumentNullException(nameof(modelRepository));
+            _modelDiscoveryService = modelDiscoveryService ?? throw new ArgumentNullException(nameof(modelDiscoveryService));
 
             Models = new ObservableRangeCollection<AIModel>();
             GroupedModels = new ObservableRangeCollection<ModelGroup>();
-            
+            FilteredModels = new ObservableCollection<AIModel>();
             IsLoading = false;
             
             _modelManager.CurrentModelChanged += OnCurrentModelChanged;
+            _apiKeyManager.ApiKeyRemoved += OnApiKeyRemovedEvent;
+        }
+
+        /// <summary>
+        /// Handles API key removal events to clean up associated models
+        /// </summary>
+        private async void OnApiKeyRemovedEvent(object? sender, string provider)
+        {
+            try
+            {
+                Debug.WriteLine($"AIModelsViewModel: API key removed event received for provider: {provider}");
+                
+                // Comprehensive cleanup for this provider
+                await CleanupProviderModelsComprehensiveAsync(provider);
+                
+                // Refresh models to ensure UI is updated
+                _lastModelRefresh = DateTime.MinValue;
+                await LoadModelsAsync();
+                
+                // Notify other components
+                await NotifyMainPageToRefreshFavoritesAsync();
+                
+                Debug.WriteLine($"AIModelsViewModel: Completed cleanup for removed API key: {provider}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"AIModelsViewModel: Error handling API key removal for {provider}: {ex.Message}");
+            }
+        }
+
+        private void OnCurrentModelChanged(object? sender, AIModel e)
+        {
+            Debug.WriteLine("AIModelsViewModel: Current model changed event received");
+            SelectedModel = e;
+            
+            foreach (var item in Models)
+            {
+                item.IsSelected = string.Equals(item.ProviderName, e.ProviderName, StringComparison.OrdinalIgnoreCase) &&
+                                  string.Equals(item.ModelName, e.ModelName, StringComparison.OrdinalIgnoreCase);
+            }
+            
+            var selectedModel = Models.FirstOrDefault(m => m.IsSelected);
+            if (selectedModel != null)
+            {
+                ScrollToModel = selectedModel;
+                TriggerModelAnimation(selectedModel).ConfigureAwait(false);
+                ScrollToModelRequested?.Invoke(selectedModel);
+            }
+            
+            Debug.WriteLine("AIModelsViewModel: Model selection updated");
         }
         #endregion
 
@@ -146,6 +199,13 @@ namespace NexusChat.Core.ViewModels
                 }
                 
                 await InitializeServicesOnly();
+                
+                // Clean up any orphaned models on startup
+                _ = Task.Run(async () =>
+                {
+                    await Task.Delay(2000); // Wait for services to fully initialize
+                    await ValidateAndCleanupOrphanedModelsAsync();
+                });
                 
                 Debug.WriteLine("AIModelsViewModel: Services initialization completed");
             }
@@ -218,29 +278,6 @@ namespace NexusChat.Core.ViewModels
         }
         #endregion
 
-        #region Model Changed Event Handler
-        private void OnCurrentModelChanged(object? sender, AIModel e)
-        {
-            Debug.WriteLine("AIModelsViewModel: Current model changed event received");
-            SelectedModel = e;
-            
-            foreach (var item in Models)
-            {
-                item.IsSelected = string.Equals(item.ProviderName, e.ProviderName, StringComparison.OrdinalIgnoreCase) &&
-                                  string.Equals(item.ModelName, e.ModelName, StringComparison.OrdinalIgnoreCase);
-            }
-            
-            var selectedModel = Models.FirstOrDefault(m => m.IsSelected);
-            if (selectedModel != null)
-            {
-                ScrollToModel = selectedModel;
-                TriggerModelAnimation(selectedModel).ConfigureAwait(false);
-                ScrollToModelRequested?.Invoke(selectedModel);
-            }
-            
-            Debug.WriteLine("AIModelsViewModel: Model selection updated");
-        }
-        #endregion
     }
 
     public class ModelGroup : ObservableRangeCollection<AIModel>

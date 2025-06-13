@@ -40,6 +40,11 @@ namespace NexusChat.Services.ApiKeyManagement
         public event EventHandler<string> ApiKeyChanged;
 
         /// <summary>
+        /// Event triggered when an API key is removed
+        /// </summary>
+        public event EventHandler<string> ApiKeyRemoved;
+
+        /// <summary>
         /// Event fired when an API key is successfully saved
         /// </summary>
         public event EventHandler<string> ApiKeySaved;
@@ -406,7 +411,9 @@ namespace NexusChat.Services.ApiKeyManagement
                         _cacheLock.Release();
                     }
                     
-                    Debug.WriteLine($"ApiKeyManager: Deleted provider key for {providerName}");
+                    // Notify listeners about the removal
+                    ApiKeyRemoved?.Invoke(this, providerName);
+                    Debug.WriteLine($"ApiKeyManager: Deleted provider key for {providerName} and fired ApiKeyRemoved event");
                 }
                 
                 return success;

@@ -829,5 +829,115 @@ namespace NexusChat.Services.AIManagement
                 Debug.WriteLine($"AIModelManager: Error during database cleanup: {ex.Message}");
             }
         }
+        
+      /// <summary>
+        /// Handles cleanup when a provider is removed
+        /// </summary>
+        public async Task OnProviderRemovedAsync(string providerName)
+        {
+            if (string.IsNullOrEmpty(providerName))
+                return;
+                
+            try
+            {
+                Debug.WriteLine($"AIModelManager: Handling comprehensive provider removal for {providerName}");
+                
+                // Step 1: If the current model belongs to the removed provider, clear it
+                if (CurrentModel != null && 
+                    CurrentModel.ProviderName.Equals(providerName, StringComparison.OrdinalIgnoreCase))
+                {
+                    Debug.WriteLine($"AIModelManager: Current model belongs to removed provider {providerName}, clearing current model");
+                    await ClearCurrentModelAsync();
+                }
+                
+                // Step 2: Remove all favorites for this provider first
+                var providerModels = await _modelRepository.GetByProviderAsync(providerName);
+                var favoriteModels = providerModels.Where(m => m.IsFavorite).ToList();
+                
+                foreach (var favoriteModel in favoriteModels)
+                {
+                    try
+                    {
+                        await SetFavoriteStatusAsync(favoriteModel.ProviderName, favoriteModel.ModelName, false);
+                        Debug.WriteLine($"AIModelManager: Removed favorite status for {favoriteModel.ProviderName}/{favoriteModel.ModelName}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"AIModelManager: Error removing favorite status for {favoriteModel.ModelName}: {ex.Message}");
+                    }
+                }
+                
+                // Step 3: Remove all models for this provider from the database
+                int deletedCount = await _modelRepository.DeleteModelsByProviderAsync(providerName);
+                Debug.WriteLine($"AIModelManager: Removed {deletedCount} models for provider {providerName}");
+                
+                // Step 4: Clear any cached data for this provider
+                await _modelRepository.ClearProviderCacheAsync(providerName);
+                
+                Debug.WriteLine($"AIModelManager: Completed comprehensive provider removal cleanup for {providerName}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"AIModelManager: Error in OnProviderRemovedAsync for {providerName}: {ex.Message}");
+            }
+        }
+        
+        /// <summary>
+        /// Clears the current model selection
+        /// </summary>
+        public async Task ClearCurrentModelAsync()
+        {
+            try
+            {
+                Debug.WriteLine("AIModelManager: Clearing current model selection");
+                
+                bool success = await _modelRepository.ClearCurrentModelAsync();
+                if (success)
+                {
+                    var previousModel = CurrentModel;
+                    CurrentModel = null;
+                    
+                    // Notify listeners about the change
+                    if (previousModel != null)
+                    {
+                        CurrentModelChanged?.Invoke(this, null);
+                        Debug.WriteLine($"AIModelManager: Cleared current model (was {previousModel.ProviderName}/{previousModel.ModelName})");
+                    }
+                    else
+                    {
+                        Debug.WriteLine("AIModelManager: Current model was already null");
+                    }
+                }
+                else
+                {
+                    Debug.WriteLine("AIModelManager: Failed to clear current model in database");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"AIModelManager: Error clearing current model: {ex.Message}");
+            }
+        }
+        
+        /// <summary>
+        /// Refreshes the model cache by clearing internal state
+        /// </summary>
+        public async Task RefreshModelCacheAsync()
+        {
+            try
+            {
+                Debug.WriteLine("AIModelManager: Refreshing model cache");
+                
+                // Clear any internal caches if we had them
+                // For now, just log that cache refresh was requested
+                Debug.WriteLine("AIModelManager: Model cache refresh completed");
+                
+                await Task.CompletedTask;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"AIModelManager: Error refreshing model cache: {ex.Message}");
+            }
+        }
     }
 }

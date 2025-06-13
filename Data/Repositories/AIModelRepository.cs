@@ -442,12 +442,19 @@ namespace NexusChat.Data.Repositories
 
             return await ExecuteDbOperationAsync<int>(async (connection, token) =>
             {
-                Debug.WriteLine($"AIModelRepository: Deleting models for provider: {providerName}");
+                Debug.WriteLine($"AIModelRepository: Deleting all models for provider: {providerName}");
                 
-                var sql = @"DELETE FROM AIModels WHERE LOWER(ProviderName) = LOWER(?)";
-                var deletedCount = await connection.ExecuteAsync(sql, providerName);
+                // First, clear favorite status for all models of this provider
+                var clearFavoritesQuery = @"UPDATE AIModels 
+                                          SET IsFavorite = 0, IsSelected = 0, IsDefault = 0, UpdatedAt = CURRENT_TIMESTAMP 
+                                          WHERE LOWER(ProviderName) = LOWER(?)";
+                await connection.ExecuteAsync(clearFavoritesQuery, providerName);
                 
-                Debug.WriteLine($"AIModelRepository: Deleted {deletedCount} models for provider: {providerName}");
+                // Then delete all models for this provider
+                var deleteQuery = @"DELETE FROM AIModels WHERE LOWER(ProviderName) = LOWER(?)";
+                var deletedCount = await connection.ExecuteAsync(deleteQuery, providerName);
+                
+                Debug.WriteLine($"AIModelRepository: Deleted {deletedCount} models for provider {providerName}");
                 return deletedCount;
             }, $"DeleteModelsByProvider for {providerName}", cancellationToken);
         }
@@ -481,6 +488,59 @@ namespace NexusChat.Data.Repositories
                 var sql = @"SELECT COUNT(*) FROM AIModels WHERE LOWER(ProviderName) = LOWER(?)";
                 return await connection.ExecuteScalarAsync<int>(sql, providerName);
             }, $"GetModelCountByProvider for {providerName}", cancellationToken);
+        }
+        
+        /// <summary>
+        /// Clears cached data for a specific provider with comprehensive cleanup
+        /// </summary>
+        public async Task ClearProviderCacheAsync(string providerName, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                Debug.WriteLine($"AIModelRepository: Comprehensive cache clearing for provider: {providerName}");
+                
+                // Clear any favorite status for this provider
+                await ExecuteDbOperationAsync<bool>(async (connection, token) =>
+                {
+                    var sql = @"UPDATE AIModels 
+                              SET IsFavorite = 0, IsSelected = 0, IsDefault = 0, UpdatedAt = CURRENT_TIMESTAMP 
+                              WHERE LOWER(ProviderName) = LOWER(?)";
+                    var rowsAffected = await connection.ExecuteAsync(sql, providerName);
+                    Debug.WriteLine($"AIModelRepository: Cleared status for {rowsAffected} models from provider {providerName}");
+                    return true;
+                }, $"ClearProviderCache for {providerName}", cancellationToken);
+                
+                Debug.WriteLine($"AIModelRepository: Comprehensive cache cleared for provider: {providerName}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"AIModelRepository: Error clearing cache for provider {providerName}: {ex.Message}");
+            }
+        }
+        
+        /// <summary>
+        /// Gets all models from the database
+        /// </summary>
+        public async Task<List<AIModel>> GetAllModelsAsync(CancellationToken cancellationToken = default)
+        {
+            return await GetAllAsync(cancellationToken);
+        }
+        
+        /// <summary>
+        /// Clears the current model selection
+        /// </summary>
+        public async Task<bool> ClearCurrentModelAsync(CancellationToken cancellationToken = default)
+        {
+            return await ExecuteDbOperationAsync<bool>(async (connection, token) =>
+            {
+                Debug.WriteLine("AIModelRepository: Clearing current model selection");
+                
+                var sql = @"UPDATE AIModels SET IsSelected = 0, UpdatedAt = CURRENT_TIMESTAMP";
+                var rowsAffected = await connection.ExecuteAsync(sql);
+                
+                Debug.WriteLine($"AIModelRepository: Cleared selection from {rowsAffected} models");
+                return rowsAffected >= 0; // Return true even if 0 rows affected (no models were selected)
+            }, "ClearCurrentModel", cancellationToken);
         }
     }
 }

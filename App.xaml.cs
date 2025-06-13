@@ -28,18 +28,18 @@ namespace NexusChat
                 
                 Debug.WriteLine("App: Starting initialization sequence");
                 
-                // Apply default colors before any UI components are created
-                // This ensures colors are available during XAML parsing
-                ApplyDefaultColors();
-                
-                // Initialize the XAML resources
+                // Initialize the XAML resources first without any custom colors
                 InitializeComponent();
+                
+                // Apply default colors after XAML is loaded
+                ApplyDefaultColors();
                 
                 // Register message bubble styles
                 RegisterMessageBubbleStyles();
                 
+                // Initialize theme manager after resources are ready
                 ThemeManager.Initialize();
-                Debug.WriteLine("App: ThemeManager initialized directly");
+                Debug.WriteLine("App: ThemeManager initialized");
                 
                 // Create and set the Shell with MainPage as the entry point
                 MainPage = new AppShell(serviceProvider.GetRequiredService<INavigationService>());
@@ -48,7 +48,7 @@ namespace NexusChat
                 MainThread.BeginInvokeOnMainThread(async () => {
                     try
                     {
-                        await Task.Delay(100); // Small delay to allow UI to render
+                        await Task.Delay(100);
                         await InitializeServicesAsync(serviceProvider);
                     }
                     catch (Exception ex)
@@ -62,11 +62,25 @@ namespace NexusChat
                 Debug.WriteLine($"Critical error in App constructor: {ex.Message}");
                 Debug.WriteLine($"Stack trace: {ex.StackTrace}");
                 
-                // Emergency fallback
-                if (MainPage == null)
+                // Emergency fallback with minimal setup
+                try
                 {
-                    var navService = serviceProvider.GetRequiredService<INavigationService>();
-                    MainPage = new AppShell(navService);
+                    if (Resources == null)
+                    {
+                        Resources = new ResourceDictionary();
+                    }
+                    
+                    ApplyEmergencyColors();
+                    
+                    if (MainPage == null)
+                    {
+                        var navService = serviceProvider.GetRequiredService<INavigationService>();
+                        MainPage = new AppShell(navService);
+                    }
+                }
+                catch (Exception fallbackEx)
+                {
+                    Debug.WriteLine($"Emergency fallback also failed: {fallbackEx.Message}");
                 }
             }
         }
@@ -80,46 +94,76 @@ namespace NexusChat
         }
 
         /// <summary>
-        /// Apply default colors before InitializeComponent to ensure consistent rendering
+        /// Apply default colors after InitializeComponent to ensure consistent rendering
         /// </summary>
         private void ApplyDefaultColors()
         {
             try
             {
-                // Create a minimal application resources dictionary with essential colors
                 if (Resources == null)
                 {
                     Resources = new ResourceDictionary();
                 }
                 
                 // Add critical colors for initial rendering
-                Resources["Primary"] = Color.FromArgb("#512BD4");
-                Resources["PrimaryDark"] = Color.FromArgb("#7B68EE");
-                Resources["Background"] = Color.FromArgb("#F9F9F9");
-                Resources["BackgroundDark"] = Color.FromArgb("#121212");
-                Resources["CardBackground"] = Color.FromArgb("#FFFFFF");
-                Resources["CardBackgroundDark"] = Color.FromArgb("#252525");
-                Resources["PrimaryTextColor"] = Color.FromArgb("#212121");
-                Resources["PrimaryTextColorDark"] = Color.FromArgb("#EEEEEE");
-                Resources["SecondaryTextColor"] = Color.FromArgb("#616161");
-                Resources["SecondaryTextColorDark"] = Color.FromArgb("#B0B0B0");
-                Resources["White"] = Colors.White;
-                Resources["Black"] = Colors.Black;
-                
-                // Added for compatibility with styles
-                Resources["Gray100"] = Color.FromArgb("#F5F5F5");
-                Resources["Gray200"] = Color.FromArgb("#EEEEEE");
-                Resources["Gray600"] = Color.FromArgb("#757575");
-                Resources["Gray800"] = Color.FromArgb("#424242");
-                Resources["Gray900"] = Color.FromArgb("#212121");
-                Resources["Gray950"] = Color.FromArgb("#121212");
-                Resources["OffBlack"] = Color.FromArgb("#121212");
+                var defaultColors = new Dictionary<string, Color>
+                {
+                    ["Primary"] = Color.FromArgb("#512BD4"),
+                    ["PrimaryDark"] = Color.FromArgb("#7B68EE"),
+                    ["Background"] = Color.FromArgb("#F9F9F9"),
+                    ["BackgroundDark"] = Color.FromArgb("#121212"),
+                    ["CardBackground"] = Color.FromArgb("#FFFFFF"),
+                    ["CardBackgroundDark"] = Color.FromArgb("#252525"),
+                    ["PrimaryTextColor"] = Color.FromArgb("#212121"),
+                    ["PrimaryTextColorDark"] = Color.FromArgb("#EEEEEE"),
+                    ["SecondaryTextColor"] = Color.FromArgb("#616161"),
+                    ["SecondaryTextColorDark"] = Color.FromArgb("#B0B0B0"),
+                    ["White"] = Colors.White,
+                    ["Black"] = Colors.Black,
+                    ["Gray100"] = Color.FromArgb("#F5F5F5"),
+                    ["Gray200"] = Color.FromArgb("#EEEEEE"),
+                    ["Gray600"] = Color.FromArgb("#757575"),
+                    ["Gray800"] = Color.FromArgb("#424242"),
+                    ["Gray900"] = Color.FromArgb("#212121"),
+                    ["Gray950"] = Color.FromArgb("#121212"),
+                    ["OffBlack"] = Color.FromArgb("#121212")
+                };
+
+                foreach (var colorPair in defaultColors)
+                {
+                    try
+                    {
+                        Resources[colorPair.Key] = colorPair.Value;
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Error setting color {colorPair.Key}: {ex.Message}");
+                    }
+                }
                 
                 Debug.WriteLine("App: Default colors applied successfully");
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error applying default colors: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Emergency colors for critical fallback scenarios
+        /// </summary>
+        private void ApplyEmergencyColors()
+        {
+            try
+            {
+                Resources["Primary"] = Colors.Purple;
+                Resources["Background"] = Colors.White;
+                Resources["PrimaryTextColor"] = Colors.Black;
+                Debug.WriteLine("Emergency colors applied");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Emergency colors failed: {ex.Message}");
             }
         }
 

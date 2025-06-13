@@ -86,6 +86,58 @@ namespace NexusChat.Core.ViewModels
         }
 
         /// <summary>
+        /// Handles provider removal by marking model as unavailable
+        /// </summary>
+        public void HandleProviderRemoval()
+        {
+            try
+            {
+                Model.IsAvailable = false;
+                Model.IsFavorite = false;
+                Model.IsSelected = false;
+                Model.IsDefault = false;
+                
+                // Start fade out animation
+                AnimateFadeOut();
+                
+                OnPropertyChanged(nameof(Model));
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error handling provider removal: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Animates fade-out for model removal
+        /// </summary>
+        public async void AnimateFadeOut()
+        {
+            try
+            {
+                IsAnimating = true;
+                
+                // Fade out animation
+                for (int i = 10; i >= 0; i--)
+                {
+                    Opacity = i / 10.0;
+                    Scale = 1.0 - (0.1 * (10 - i));
+                    await Task.Delay(30);
+                }
+                
+                IsVisible = false;
+                IsAnimating = false;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error in AnimateFadeOut: {ex.Message}");
+                Opacity = 0;
+                IsVisible = false;
+                IsAnimating = false;
+            }
+        }
+
+        /// <summary>
         /// Animates the item with a pulse effect
         /// </summary>
         public async void AnimatePulse()

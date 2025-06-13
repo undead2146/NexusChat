@@ -1,6 +1,7 @@
 using Microsoft.Maui.Controls;
 using NexusChat.Core.ViewModels;
 using NexusChat.Core.Models;
+using NexusChat.Views.Pages;
 using System.Diagnostics;
 
 namespace NexusChat.Views.Controls
@@ -30,6 +31,7 @@ namespace NexusChat.Views.Controls
                 _viewModel.ConversationSelected -= OnConversationSelected;
                 _viewModel.ConversationCreated -= OnConversationCreated;
                 _viewModel.ConversationDeleted -= OnConversationDeleted;
+                _viewModel = null;
             }
             
             // Subscribe to new view model only if it's the correct type
@@ -44,6 +46,16 @@ namespace NexusChat.Views.Controls
             else if (BindingContext != null)
             {
                 Debug.WriteLine($"Warning: Unexpected binding context type: {BindingContext.GetType().Name}");
+                // Try to force the parent to reload with correct binding context
+                MainThread.BeginInvokeOnMainThread(async () =>
+                {
+                    await Task.Delay(100);
+                    if (Parent is ContentView parentView && parentView.Parent is ChatPage chatPage)
+                    {
+                        Debug.WriteLine("Requesting sidebar reload from ChatPage");
+                        // Signal to ChatPage that sidebar needs to be reloaded
+                    }
+                });
             }
         }
 

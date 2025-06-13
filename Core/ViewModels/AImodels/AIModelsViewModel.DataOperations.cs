@@ -403,58 +403,57 @@ namespace NexusChat.Core.ViewModels
 
         #region Provider Model Management
         /// <summary>
-        /// Cleans up models from database and UI for a specific provider
+        /// Comprehensively cleans up models from database and UI for a specific provider
         /// </summary>
         public async Task CleanupProviderModelsAsync(string provider)
         {
             try
             {
-                Debug.WriteLine($"Cleaning up models for provider: {provider}");
+                Debug.WriteLine($"Starting comprehensive cleanup for provider: {provider}");
                 
-                // Remove models from database first
-                int deletedCount = await _modelRepository.DeleteModelsByProviderAsync(provider);
-                Debug.WriteLine($"Deleted {deletedCount} models from database for provider: {provider}");
+                // Step 1: Get models to be removed for UI animation
+                var modelsToRemove = Models.Where(m => 
+                    m.ProviderName.Equals(provider, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
                 
-                // Remove models from UI collections
-                await MainThread.InvokeOnMainThreadAsync(() =>
+                var filteredModelsToRemove = FilteredModels.Where(m => 
+                    m.ProviderName.Equals(provider, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+                
+                Debug.WriteLine($"Found {modelsToRemove.Count} models to remove from UI");
+                
+                // Step 2: Animate models out before removing
+                await MainThread.InvokeOnMainThreadAsync(async () =>
                 {
-                    var modelsToRemove = Models.Where(m => 
-                        m.ProviderName.Equals(provider, StringComparison.OrdinalIgnoreCase))
-                        .ToList();
-                    
-                    var filteredModelsToRemove = FilteredModels.Where(m => 
-                        m.ProviderName.Equals(provider, StringComparison.OrdinalIgnoreCase))
-                        .ToList();
-                    
-                    // Animate out models before removing
                     foreach (var model in modelsToRemove)
                     {
                         model.AnimationOpacity = 0.3;
                         model.AnimationScale = 0.9;
                     }
+                    
+                    // Force UI update
+                    OnPropertyChanged(nameof(Models));
+                    OnPropertyChanged(nameof(FilteredModels));
                 });
                 
-                // Wait for animation to complete then remove
+                // Step 3: Wait for animation to complete
                 await Task.Delay(300);
                 
+                // Step 4: Remove models from database with transaction safety
+                int deletedCount = await RemoveProviderModelsFromDatabaseAsync(provider);
+                Debug.WriteLine($"Deleted {deletedCount} models from database for provider: {provider}");
+                
+                // Step 5: Remove models from UI collections
                 await MainThread.InvokeOnMainThreadAsync(() =>
                 {
                     // Remove from Models collection
-                    var modelsToRemove = Models.Where(m => 
-                        m.ProviderName.Equals(provider, StringComparison.OrdinalIgnoreCase))
-                        .ToList();
-                    
-                    foreach (var model in modelsToRemove)
+                    foreach (var model in modelsToRemove.ToList())
                     {
                         Models.Remove(model);
                     }
                     
                     // Remove from FilteredModels collection
-                    var filteredModelsToRemove = FilteredModels.Where(m => 
-                        m.ProviderName.Equals(provider, StringComparison.OrdinalIgnoreCase))
-                        .ToList();
-                    
-                    foreach (var model in filteredModelsToRemove)
+                    foreach (var model in filteredModelsToRemove.ToList())
                     {
                         FilteredModels.Remove(model);
                     }
@@ -465,7 +464,7 @@ namespace NexusChat.Core.ViewModels
                     OnPropertyChanged(nameof(FilteredModels));
                 });
                 
-                Debug.WriteLine($"Cleaned up models for provider: {provider}");
+                Debug.WriteLine($"Successfully cleaned up models for provider: {provider}");
             }
             catch (Exception ex)
             {
@@ -475,7 +474,29 @@ namespace NexusChat.Core.ViewModels
         }
 
         /// <summary>
-        /// Discovers and loads models for a specific provider
+        /// Removes provider models from database with proper transaction handling
+        /// </summary>
+        private async Task<int> RemoveProviderModelsFromDatabaseAsync(string provider)
+        {
+            try
+            {
+                // Use repository method with transaction safety
+                int deletedCount = await _modelRepository.DeleteModelsByProviderAsync(provider);
+                
+                // Also clear any cached favorites or selections for this provider
+                await _modelRepository.ClearProviderCacheAsync(provider);
+                
+                return deletedCount;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error removing models from database for provider {provider}: {ex.Message}");
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Discovers and loads models for a specific provider with proper error handling
         /// </summary>
         public async Task DiscoverAndLoadProviderModelsAsync(string provider)
         {
@@ -483,12 +504,24 @@ namespace NexusChat.Core.ViewModels
             {
                 Debug.WriteLine($"AIModelsViewModel: Discovering models for {provider} after API key save");
                 
+                // Verify API key exists before discovery
+                bool hasApiKey = await _apiKeyManager.HasActiveApiKeyAsync(provider);
+                if (!hasApiKey)
+                {
+                    Debug.WriteLine($"No active API key found for {provider}, skipping discovery");
+                    return;
+                }
+                
                 // Use the model manager to discover models for this provider
                 bool discoverySuccess = await _modelManager.DiscoverAndLoadProviderModelsAsync(provider);
                 
                 if (discoverySuccess)
                 {
                     Debug.WriteLine($"AIModelsViewModel: Successfully discovered models for {provider}");
+                    
+                    // Trigger UI refresh to show new models
+                    _lastModelRefresh = DateTime.MinValue;
+                    await LoadModelsAsync();
                 }
                 else
                 {
@@ -499,6 +532,43 @@ namespace NexusChat.Core.ViewModels
             {
                 Debug.WriteLine($"Error discovering models for {provider}: {ex.Message}");
                 throw;
+            }
+        }
+
+        /// <summary>
+        /// Validates and cleans up orphaned models (models without valid API keys)
+        /// </summary>
+        public async Task ValidateAndCleanupOrphanedModelsAsync()
+        {
+            try
+            {
+                Debug.WriteLine("Starting orphaned models cleanup");
+                
+                var allModels = await _modelRepository.GetAllModelsAsync();
+                var providersToCleanup = new HashSet<string>();
+                
+                // Check each provider for valid API keys
+                foreach (var model in allModels)
+                {
+                    bool hasValidApiKey = await _apiKeyManager.HasActiveApiKeyAsync(model.ProviderName);
+                    if (!hasValidApiKey)
+                    {
+                        providersToCleanup.Add(model.ProviderName);
+                    }
+                }
+                
+                // Clean up providers without API keys
+                foreach (var provider in providersToCleanup)
+                {
+                    Debug.WriteLine($"Cleaning up orphaned models for provider: {provider}");
+                    await CleanupProviderModelsAsync(provider);
+                }
+                
+                Debug.WriteLine($"Cleanup completed for {providersToCleanup.Count} orphaned providers");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error during orphaned models cleanup: {ex.Message}");
             }
         }
         #endregion

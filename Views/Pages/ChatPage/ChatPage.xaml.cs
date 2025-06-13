@@ -7,6 +7,7 @@ using NexusChat.Core.Models;
 using NexusChat.Core.ViewModels;
 using NexusChat.Helpers;
 using NexusChat.Services.Interfaces;
+using NexusChat.Data.Interfaces;
 
 namespace NexusChat.Views.Pages
 {
@@ -183,17 +184,65 @@ namespace NexusChat.Views.Pages
             {
                 Debug.WriteLine("Loading conversations sidebar content");
                 
-                // Get the ConversationsSidebarViewModel from DI FIRST
-                var conversationsSidebarViewModel = Handler?.MauiContext?.Services?.GetService(typeof(ConversationsSidebarViewModel)) as ConversationsSidebarViewModel;
-                if (conversationsSidebarViewModel == null) 
+                // Clear any inherited binding context first
+                SidebarContent.BindingContext = null;
+                
+                // Small delay to ensure UI is ready
+                await Task.Delay(50);
+                
+                // Get the ConversationsSidebarViewModel from DI
+                var serviceProvider = Handler?.MauiContext?.Services;
+                if (serviceProvider == null)
                 {
-                    Debug.WriteLine("Failed to resolve ConversationsSidebarViewModel, using fallback");
+                    Debug.WriteLine("ServiceProvider is null, cannot resolve ConversationsSidebarViewModel");
                     CreateFallbackSidebar();
                     return;
                 }
+                
+                var conversationsSidebarViewModel = serviceProvider.GetService<ConversationsSidebarViewModel>();
+                if (conversationsSidebarViewModel == null) 
+                {
+                    Debug.WriteLine("Failed to resolve ConversationsSidebarViewModel from DI");
+                    
+                    // Try to create manually as fallback
+                    try
+                    {
+                        var navigationService = serviceProvider.GetService<INavigationService>();
+                        var conversationRepository = serviceProvider.GetService<IConversationRepository>();
+                        var chatService = serviceProvider.GetService<IChatService>();
+                        
+                        if (navigationService != null && conversationRepository != null && chatService != null)
+                        {
+                            conversationsSidebarViewModel = new ConversationsSidebarViewModel(
+                                navigationService, conversationRepository, chatService);
+                            Debug.WriteLine("Created ConversationsSidebarViewModel manually");
+                        }
+                        else
+                        {
+                            Debug.WriteLine("Cannot create ConversationsSidebarViewModel - missing dependencies");
+                            CreateFallbackSidebar();
+                            return;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Error creating ConversationsSidebarViewModel manually: {ex.Message}");
+                        CreateFallbackSidebar();
+                        return;
+                    }
+                }
 
-                // Set the binding context IMMEDIATELY to prevent inheritance
+                // Set the binding context and verify it's set correctly
                 SidebarContent.BindingContext = conversationsSidebarViewModel;
+                
+                // Verify the binding context was set correctly
+                if (SidebarContent.BindingContext != conversationsSidebarViewModel)
+                {
+                    Debug.WriteLine("Failed to set binding context properly, trying again");
+                    await Task.Delay(100);
+                    SidebarContent.BindingContext = conversationsSidebarViewModel;
+                }
+                
                 Debug.WriteLine($"Sidebar BindingContext set to: {SidebarContent.BindingContext?.GetType().Name ?? "null"}");
                 
                 // Handle conversation events

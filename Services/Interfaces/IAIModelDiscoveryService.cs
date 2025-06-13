@@ -28,5 +28,10 @@ namespace NexusChat.Services.Interfaces
         /// Clears the discovery cache
         /// </summary>
         void ClearCache();
+        
+        /// <summary>
+        /// Clears cached models for a specific provider to force fresh discovery
+        /// </summary>
+        Task ClearProviderCacheAsync(string providerName);
     }
 }

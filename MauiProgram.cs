@@ -111,18 +111,10 @@ public static class MauiProgram
 
     private static void RegisterViewModels(IServiceCollection services)
     {
-        // Transients - ViewModels (as per project instructions)
+        // Register ViewModels as Transient for dependency injection
         services.AddTransient<MainPageViewModel>();
-        services.AddTransient<ChatViewModel>(provider => new ChatViewModel(
-            provider.GetRequiredService<IMessageRepository>(),
-            provider.GetRequiredService<IConversationRepository>(),
-            provider.GetService<IAIModelRepository>(),
-            provider.GetRequiredService<IAIModelManager>(),
-            provider.GetRequiredService<IChatService>(),
-            provider.GetRequiredService<INavigationService>(),
-            provider.GetRequiredService<IAIProviderFactory>()
-        ));
-        services.AddTransient<AIModelsViewModel>();
+        services.AddTransient<ChatViewModel>();
+        services.AddTransient<AIModelsViewModel>(); // This will now get the discovery service injected
         services.AddTransient<ConversationsSidebarViewModel>();
     }
 

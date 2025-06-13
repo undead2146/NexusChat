@@ -95,5 +95,20 @@ namespace NexusChat.Data.Interfaces
         /// Removes database duplicates
         /// </summary>
         Task<int> CleanupDuplicatesAsync();
+        
+        /// <summary>
+        /// Clears cached data for a specific provider
+        /// </summary>
+        Task ClearProviderCacheAsync(string providerName, CancellationToken cancellationToken = default);
+        
+        /// <summary>
+        /// Gets all models from the database
+        /// </summary>
+        Task<List<AIModel>> GetAllModelsAsync(CancellationToken cancellationToken = default);
+        
+        /// <summary>
+        /// Clears the current model selection
+        /// </summary>
+        Task<bool> ClearCurrentModelAsync(CancellationToken cancellationToken = default);
     }
 }

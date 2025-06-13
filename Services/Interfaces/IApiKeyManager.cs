@@ -15,6 +15,11 @@ namespace NexusChat.Services.Interfaces
         event EventHandler<string> ApiKeyChanged;
         
         /// <summary>
+        /// Occurs when an API key is removed
+        /// </summary>
+        event EventHandler<string> ApiKeyRemoved;
+        
+        /// <summary>
         /// Initializes the API key manager
         /// </summary>
         Task InitializeAsync();
