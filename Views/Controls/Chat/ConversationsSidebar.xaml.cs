@@ -42,20 +42,23 @@ namespace NexusChat.Views.Controls
                 viewModel.ConversationCreated += OnConversationCreated;
                 viewModel.ConversationDeleted += OnConversationDeleted;
                 Debug.WriteLine("Successfully bound to ConversationsSidebarViewModel");
+                
+                // Initialize the view model if it hasn't been initialized
+                MainThread.BeginInvokeOnMainThread(async () =>
+                {
+                    try
+                    {
+                        await viewModel.InitializeAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Error initializing ConversationsSidebarViewModel: {ex.Message}");
+                    }
+                });
             }
             else if (BindingContext != null)
             {
                 Debug.WriteLine($"Warning: Unexpected binding context type: {BindingContext.GetType().Name}");
-                // Try to force the parent to reload with correct binding context
-                MainThread.BeginInvokeOnMainThread(async () =>
-                {
-                    await Task.Delay(100);
-                    if (Parent is ContentView parentView && parentView.Parent is ChatPage chatPage)
-                    {
-                        Debug.WriteLine("Requesting sidebar reload from ChatPage");
-                        // Signal to ChatPage that sidebar needs to be reloaded
-                    }
-                });
             }
         }
 
@@ -115,32 +118,23 @@ namespace NexusChat.Views.Controls
 
         public async Task RefreshConversationsAsync()
         {
-            if (_viewModel != null)
+            try
             {
-                await _viewModel.LoadConversations(forceRefresh: true);
-                Debug.WriteLine("ConversationsSidebar: Conversations refreshed");
+                if (_viewModel != null)
+                {
+                    await _viewModel.LoadConversations(forceRefresh: true);
+                    Debug.WriteLine("ConversationsSidebar: Conversations refreshed");
+                }
+                else
+                {
+                    Debug.WriteLine("ConversationsSidebar: Cannot refresh - ViewModel is null");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"ConversationsSidebar: Error refreshing conversations: {ex.Message}");
             }
         }
         
-        public void RemoveConversation(int conversationId)
-        {
-            if (_viewModel != null)
-            {
-                var conversation = _viewModel.Conversations.FirstOrDefault(c => c.Id == conversationId);
-                if (conversation != null)
-                {
-                    MainThread.BeginInvokeOnMainThread(() =>
-                    {
-                        _viewModel.Conversations.Remove(conversation);
-                        _viewModel.ShowNoConversations = _viewModel.Conversations.Count == 0;
-                        
-                        if (_viewModel.SelectedConversation?.Id == conversationId)
-                        {
-                            _viewModel.SelectedConversation = _viewModel.Conversations.FirstOrDefault();
-                        }
-                    });
-                }
-            }
-        }
     }
 }

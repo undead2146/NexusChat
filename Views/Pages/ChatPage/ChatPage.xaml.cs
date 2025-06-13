@@ -93,11 +93,20 @@ namespace NexusChat.Views.Pages
             {
                 Debug.WriteLine("Sidebar refresh requested from ChatViewModel");
                 
-                // Get the sidebar view model and refresh it
-                if (SidebarContent?.BindingContext is ConversationsSidebarViewModel sidebarViewModel)
+                // Refresh the sidebar content if it exists
+                if (SidebarContent?.Content is ConversationsSidebar sidebarView)
+                {
+                    await sidebarView.RefreshConversationsAsync();
+                    Debug.WriteLine("Sidebar conversations refreshed successfully via ConversationsSidebar");
+                }
+                else if (SidebarContent?.BindingContext is ConversationsSidebarViewModel sidebarViewModel)
                 {
                     await sidebarViewModel.LoadConversations(forceRefresh: true);
-                    Debug.WriteLine("Sidebar conversations refreshed successfully");
+                    Debug.WriteLine("Sidebar conversations refreshed successfully via ViewModel");
+                }
+                else
+                {
+                    Debug.WriteLine("No sidebar content found to refresh");
                 }
             }
             catch (Exception ex)

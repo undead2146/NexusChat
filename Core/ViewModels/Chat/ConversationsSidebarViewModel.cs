@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
 using NexusChat.Core.Models;
 using NexusChat.Services.Interfaces;
 using NexusChat.Data.Interfaces;
@@ -49,6 +50,16 @@ namespace NexusChat.Core.ViewModels
             _chatService = chatService ?? throw new ArgumentNullException(nameof(chatService));
             
             Title = "Conversations";
+
+            // Register for conversation change messages
+            WeakReferenceMessenger.Default.Register<ConversationsChangedMessage>(this, async (r, m) =>
+            {
+                Debug.WriteLine($"ConversationsSidebarViewModel: Received ConversationsChangedMessage - {m.Reason}");
+                await MainThread.InvokeOnMainThreadAsync(async () =>
+                {
+                    await LoadConversations(forceRefresh: true);
+                });
+            });
             
             // Load conversations in background without blocking constructor
             Task.Run(async () => await LoadConversations());
@@ -197,7 +208,11 @@ namespace NexusChat.Core.ViewModels
                 // Remove from local collection
                 await MainThread.InvokeOnMainThreadAsync(() =>
                 {
-                    Conversations.Remove(conversation);
+                    var convToRemove = Conversations.FirstOrDefault(c => c.Id == conversation.Id);
+                    if (convToRemove != null)
+                    {
+                        Conversations.Remove(convToRemove);
+                    }
                     ShowNoConversations = Conversations.Count == 0;
                 });
                 
@@ -206,7 +221,8 @@ namespace NexusChat.Core.ViewModels
                 {
                     // If the deleted conversation was selected, select the most recent one
                     var mostRecentConversation = Conversations
-                        .OrderByDescending(c => c.UpdatedAt)
+                        .OrderByDescending(c => c.LastAccessedAt ?? c.UpdatedAt)
+                        .ThenByDescending(c => c.CreatedAt)
                         .FirstOrDefault();
                     
                     await MainThread.InvokeOnMainThreadAsync(() =>
@@ -227,16 +243,23 @@ namespace NexusChat.Core.ViewModels
                         }
                         else
                         {
-                            SelectedConversation = null;
+                            SelectedConversation = null; // No conversations left
                         }
                     });
                     
                     // Notify parent components about the deletion and new selection
-                    ConversationDeleted?.Invoke(conversation);
+                    ConversationDeleted?.Invoke(conversation); // Notify original deletion
                     
                     if (mostRecentConversation != null)
                     {
-                        ConversationSelected?.Invoke(mostRecentConversation);
+                        ConversationSelected?.Invoke(mostRecentConversation); // Notify new selection
+                    }
+                    else
+                    {
+                        // Optionally, notify that no conversation is selected if your design requires it.
+                        // For now, ConversationSelected expects a Conversation, so we can't pass null.
+                        // If ChatPage needs to know no conversation is selected, it can check if SelectedConversation is null
+                        // after this event, or a new event type could be introduced.
                     }
                 }
                 else
@@ -315,6 +338,8 @@ namespace NexusChat.Core.ViewModels
                 HasError = false;
                 ErrorMessage = string.Empty;
 
+                Debug.WriteLine($"Loading conversations (forceRefresh: {forceRefresh})");
+
                 var userId = GetCurrentUserId();
                 var conversations = await _conversationRepository.GetByUserIdAsync(userId);
                 
@@ -348,6 +373,11 @@ namespace NexusChat.Core.ViewModels
                         {
                             existingSelected.IsSelected = true;
                             SelectedConversation = existingSelected;
+                        }
+                        else
+                        {
+                            // The selected conversation no longer exists, clear selection
+                            SelectedConversation = null;
                         }
                     }
                 });
