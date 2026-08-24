@@ -149,20 +149,23 @@ namespace NexusChat.Services
         /// </summary>
         private static void RefreshCurrentPage()
         {
-            if (Application.Current?.MainPage == null) return;
-            
-            // Only force layout on the current page
-            if (Application.Current.MainPage is Shell shell)
+            try
             {
-                shell.CurrentPage?.ForceLayout();
+                if (Application.Current?.MainPage == null) return;
+                
+                // Only force layout on the current page if it is ready
+                if (Application.Current.MainPage is Shell shell && shell.CurrentPage != null)
+                {
+                    shell.CurrentPage.ForceLayout();
+                }
+                else if (Application.Current.MainPage is NavigationPage navPage && navPage.CurrentPage != null)
+                {
+                    navPage.CurrentPage.ForceLayout();
+                }
             }
-            else if (Application.Current.MainPage is NavigationPage navPage)
+            catch (Exception ex)
             {
-                navPage.CurrentPage?.ForceLayout();
-            }
-            else
-            {
-                Application.Current.MainPage.ForceLayout();
+                Debug.WriteLine($"RefreshCurrentPage error: {ex.Message}");
             }
         }
 

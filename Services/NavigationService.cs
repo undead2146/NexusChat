@@ -18,10 +18,17 @@ namespace NexusChat.Services
         /// </summary>
         public void RegisterRoutes()
         {
-            // Register all app routes here
+            // Register app routes
             foreach (var route in GetRoutes())
             {
-                Routing.RegisterRoute(route.Key, route.Value);
+                try
+                {
+                    Routing.RegisterRoute(route.Key, route.Value);
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Route {route.Key} already registered or failed: {ex.Message}");
+                }
             }
         }
 
@@ -33,10 +40,7 @@ namespace NexusChat.Services
             // Centralize route definitions here
             return new Dictionary<string, Type>
             {
-                { "ChatPage", typeof(NexusChat.Views.Pages.ChatPage) },
-                { "ThemesPage", typeof(NexusChat.Views.Pages.DevTools.ThemesPage) },
-                { "ModelTestingPage", typeof(NexusChat.Views.Pages.DevTools.ModelTestingPage) },
-                { "DatabaseViewerPage", typeof(NexusChat.Views.Pages.DevTools.DatabaseViewerPage) }
+                { "ChatPage", typeof(NexusChat.Views.Pages.ChatPage) }
             };
         }
 

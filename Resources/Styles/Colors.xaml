@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <?xaml-comp compile="true"?>
 <ResourceDictionary
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
@@ -27,6 +27,8 @@
     <Color x:Key="PrimaryTextColorDark">#FFFFFF</Color>
     <Color x:Key="SecondaryTextColorDark">#B3B3B3</Color>
     <Color x:Key="TertiaryTextColorDark">#838383</Color>
+    <Color x:Key="PrimaryDarkText">#FFFFFF</Color>
+    <Color x:Key="SecondaryDarkText">#B3B3B3</Color>
 
     <!-- Standard colors -->
     <Color x:Key="White">White</Color>

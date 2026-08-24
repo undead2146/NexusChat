@@ -1,4 +1,4 @@
-﻿using NexusChat.Helpers;
+using NexusChat.Helpers;
 using Microsoft.Maui.Controls;
 using CommunityToolkit.Mvvm.Messaging;
 using NexusChat.Core.ViewModels;
@@ -15,8 +15,12 @@ namespace NexusChat
 {
     public partial class App : Application
     {
+        private readonly IServiceProvider _serviceProvider;
+
         public App(IServiceProvider serviceProvider)
         {
+            _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+
             try
             {
                 // First initialize the XAML resources
@@ -24,36 +28,61 @@ namespace NexusChat
                 
                 // Register message bubble styles
                 RegisterMessageBubbleStyles();
-                
-                // Create and set the Shell - MUST be done before any initialization
-                MainPage = serviceProvider.GetRequiredService<AppShell>();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Critical error in App constructor: {ex.Message}");
+                Debug.WriteLine($"Stack trace: {ex.StackTrace}");
+            }
+        }
+
+        protected override Window CreateWindow(IActivationState? activationState)
+        {
+            try
+            {
+                var shell = _serviceProvider.GetRequiredService<AppShell>();
                 
                 // Initialize theme system
-                ThemeManager.Initialize();
-                
-                // Initialize other services in the background AFTER MainPage is set
+                try
+                {
+                    ThemeManager.Initialize();
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Theme initialization error: {ex.Message}");
+                }
+
+                // Initialize other services in the background
                 MainThread.BeginInvokeOnMainThread(async () =>
                 {
                     try
                     {
-                        await InitializeServicesAsync(serviceProvider);
+                        await InitializeServicesAsync(_serviceProvider);
                     }
                     catch (Exception ex)
                     {
                         Debug.WriteLine($"Error during async initialization: {ex.Message}");
                     }
                 });
+
+                return new Window(shell);
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Critical error in App constructor: {ex.Message}");
-                Debug.WriteLine($"Stack trace: {ex.StackTrace}");
-                
-                // Emergency fallback - ensure MainPage is set
-                if (MainPage == null)
+                Debug.WriteLine($"Error in CreateWindow: {ex.Message}");
+                return new Window(new ContentPage
                 {
-                    MainPage = serviceProvider.GetRequiredService<AppShell>();
-                }
+                    Content = new VerticalStackLayout
+                    {
+                        VerticalOptions = LayoutOptions.Center,
+                        HorizontalOptions = LayoutOptions.Center,
+                        Children =
+                        {
+                            new Label { Text = "NexusChat", FontSize = 24, HorizontalOptions = LayoutOptions.Center },
+                            new Label { Text = $"Startup error: {ex.Message}", FontSize = 14, HorizontalOptions = LayoutOptions.Center }
+                        }
+                    }
+                });
             }
         }
 

@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <?xaml-comp compile="true"?>
 <ResourceDictionary
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
@@ -30,7 +30,7 @@
 
     <Style TargetType="Button">
         <Setter Property="TextColor"
-            Value="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource PrimaryDarkText}}" />
+            Value="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource PrimaryTextColorDark}}" />
         <Setter Property="BackgroundColor"
             Value="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
         <Setter Property="FontFamily" Value="OpenSansRegular" />
@@ -489,9 +489,9 @@
         <Setter Property="Shell.BackgroundColor"
             Value="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource OffBlack}}" />
         <Setter Property="Shell.ForegroundColor"
-            Value="{AppThemeBinding Light={StaticResource Black}, Dark={StaticResource SecondaryDarkText}}" />
+            Value="{AppThemeBinding Light={StaticResource Black}, Dark={StaticResource SecondaryTextColorDark}}" />
         <Setter Property="Shell.TitleColor"
-            Value="{AppThemeBinding Light={StaticResource Black}, Dark={StaticResource SecondaryDarkText}}" />
+            Value="{AppThemeBinding Light={StaticResource Black}, Dark={StaticResource SecondaryTextColorDark}}" />
         <Setter Property="Shell.DisabledColor"
             Value="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray950}}" />
         <Setter Property="Shell.UnselectedColor"
