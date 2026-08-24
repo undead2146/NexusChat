@@ -103,7 +103,7 @@
         <None Include="docs\**" />
 	</ItemGroup>
 
-	<ItemGroup>
+	<ItemGroup Condition="Exists('.env')">
 		<MauiAsset Include=".env" />
 		<AndroidAsset Include=".env" />
 		<EmbeddedResource Include=".env" />

@@ -44,7 +44,7 @@ namespace NexusChat.Data.Repositories
         /// <summary>
         /// Gets a user by username
         /// </summary>
-        public async Task<User> GetByUsernameAsync(string username)
+        public async Task<User?> GetByUsernameAsync(string username)
         {
             if (string.IsNullOrEmpty(username))
                 return null;
